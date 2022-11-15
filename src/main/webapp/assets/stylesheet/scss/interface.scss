@@ -1,0 +1,201 @@
+/* 드래그 */
+::selection {background:#face00; color:#fff;}
+
+//테이블 변수
+$tbBorder: 1px solid #dadada;
+
+//테이블 공통
+.tb1, .tb2, .tb3 { width:100%; border-top: 1px solid #4faadc; 
+th, td { padding: 7px; font-size:12px;
+border: { left: $tbBorder; right: $tbBorder; } 
+}
+th { font-family: 'NanumGothicBold';} 
+tr { border-bottom: $tbBorder; }
+}
+
+// 테이블1
+.tb1 {
+th { text-align: center; }
+tr { 
+border: { left: hidden; right: hidden; }
+}
+tbody tr {
+&:nth-child(odd) {background:#f3f3f3;}
+&:hover { background: #ededed; }    
+}
+td { text-align:center; } 
+}
+
+//테이블2
+.tb2 { 
+tbody th { background: transparent; }
+}
+
+//테이블3
+.tb3 { 
+td, tr { 
+border: { left: hidden; right: hidden; }
+}
+th { width: 140px; text-align: left; background: #efefef; text-indent:5px;}
+}
+
+//탭
+#tabMenuLst {
+ ul li, li.on, li:hover { transition-duration:0.5s; }
+ ul { height:40px; border-bottom:1px solid #cdcdcd;  
+    li { background-color: #fff; display:inline-block; padding:0 24px 0 24px; height:39px; line-height:39px; cursor:pointer;
+    &.on { border: 1px solid #cdcdcd; border-bottom: 1px solid transparent;}
+        }  
+    }     
+}
+#tabCtsLst {
+ .tabCts { padding-top:10px; transition-duration:0.5s; }
+}
+
+
+/* 팝업 */
+.popupBg, .popup { display:none; position:fixed; top:0; left:0; }
+.popupBg { width:100%; height:100%; z-index:1000; background:rgba(0,0,0,0.6); cursor:pointer; }
+.popup { z-index:1100; background:#fff; padding:20px; box-sizing:border-box; width:500px;
+.popupClose { position: absolute; right:0; top: -32px; cursor:pointer; }
+}
+
+
+/* 아코디언메뉴 */
+.acdMenu:not(#acdMenu3) { 
+li:not(.acdMenuLst3) { line-height:36px; text-indent:13px; background: #f5f5f5; transition-duration:0.2s; border: 1px solid #ddd; margin-bottom: 5px; position: relative; 
+&:hover { background: #e9e9e9; transition-duration:0.2s; }
+&:last-of-type { margin-bottom: 0 !important; }
+& > span { display: block; font-family: 'Noto Sans KR'; font-weight: 300; cursor: pointer; }
+& > span:before { content: '+'; float:right; margin-right:11px; font-size:16px; transition-duration:0.5s;}
+& > span.open:before { transform:rotate(45deg); transition-duration:0.5s; margin: -5px 9px 0 0; } 
+}
+.acdMenuCts:not(.acdMenuCts3) { background: #fff; padding:10px; border-top: 1px solid #ddd; box-sizing: border-box; line-height: 1.5em; text-indent: 0;
+&.close {display:none;}
+}
+}
+
+/* 아코디언메뉴-아이콘형식 */
+#acdMenu3 {
+li > span { width:18px; height:18px; line-height: 16px; border-radius: 50%; background: #6e85e9; display: inline-block; text-indent: 23px; cursor: pointer; position: relative;
+&:before { content: '+'; color:#fff; position: absolute; left: -18px; top: 2px; font-size:15px; transition-duration:0.5s; }
+&.open:before { transform:rotate(45deg); transition-duration:0.5s; top: -6px; left: -15px; 
+}
+}
+.acdMenuCts3 {display: none; margin-top:9px;}
+}
+
+/* 아코디언메뉴-리스트내부버튼 */
+.acdBtnArea {position: absolute; right: 30px; top:-2px;
+.acdBtn { padding:0 12px 0 12px; border-radius: 2.5px; line-height: 22px; outline:0; border:0;  transition-duration:0.2s; font-size: 10px; cursor: pointer; background: #999; color:#fff;
+&:hover {background:#888; transition-duration:0.2s;}
+}
+}
+
+/*인풋Mixin*/
+@mixin iTxt {
+min-width:50px; 
+height:$iHei; border-radius: 2.5px; outline:0; border:$iTxtBd; text-indent:5px; transition-duration:0.5s; box-sizing: border-box; font-size: $iFontSize; color:$iTxtColor; display: inline-block; margin-right:5px;
+}
+
+/*텍스트박스*/
+$iTxtBd: 1px solid #ddd;
+$iTxtBd-fcs: 1px solid #348dcc;
+$iTxtColor: #333;
+$iHei: 26px;
+$iBg:#1b97d3;
+$iBg-hv:#1077a9;
+$iFontSize: 12px;
+$iBdRd: 2.5px;
+input[type="text"], input[type="email"], input[type="password"], input[type="tel"], input[type="search"], input[type="url"],
+input[type="month"], input[type="date"], input[type="datetime-local"], input[type="number"], input[type="week"], input[type="time"]  { @include iTxt;
+&:focus { border:$iTxtBd-fcs; transition-duration:0.5s; }
+}
+
+
+/*텍스트아레아*/
+textarea {border:$iTxtBd; box-sizing:border-box; text-indent:10px; overflow:auto; transition-duration:0.5s; outline: none; border-radius: 2.5px; margin-right:5px;
+&:focus {border:$iTxtBd-fcs; transition-duration:0.5s;}
+}
+
+/*셀렉트*/
+select { @include iTxt; padding-left:5px; text-indent:0; }
+select::-ms-expand {padding-right:4px; background:transparent; color:#888; border:0; outline:0;}
+
+/*버튼*/
+$iBg2:#1bc4d3;
+$iBg2-hv:#10b0be;
+$iBg3:#e6aa19;
+$iBg3-hv:#d29910;
+$iBg4:#651bd3;
+$iBg4-hv:#5715b9;
+$iBg5:#d31b60;
+$iBg5-hv:#c01153;
+@mixin iBtn {
+min-width:58px; border-radius: $iBdRd; height: $iHei; outline:0; border:0; color:#fff; background: $iBg;  padding:0 10px 0 10px; font-size: $iFontSize; transition-duration:0.5s; cursor: pointer; font-family: 'NanumGothic';
+}
+input[type="submit"], input[type="button"], button { 
+@include iBtn;
+&:hover {background: $iBg-hv; transition-duration:0.5s;}
+} 
+input[type="reset"] { @include iBtn; background:#acacac; 
+&:hover {background: #9b9b9b; transition-duration:0.5s;}
+}
+
+//버튼 추가색상
+input[type="submit"].btnBg2, input[type="button"].btnBg2, button.btnBg2 {background: $iBg2;
+    &:hover {background: $iBg2-hv; }
+} 
+input[type="submit"].btnBg3, input[type="button"].btnBg3, button.btnBg3 {background: $iBg3;
+    &:hover {background: $iBg3-hv; }
+} 
+input[type="submit"].btnBg4, input[type="button"].btnBg4, button.btnBg4 {background: $iBg4;
+    &:hover {background: $iBg4-hv; }
+} 
+input[type="submit"].btnBg5, input[type="button"].btnBg5, button.btnBg5 {background: $iBg5;
+    &:hover {background: $iBg5-hv; }
+} 
+
+/*파일선택*/ 
+.iFileArea {position: relative; display: inline-block;
+&:hover .iFileBtn { background:$iBg-hv; transition-duration:0.5s; }
+& .iFileHd {position: absolute; right: 0px; top: 0px; opacity: 0; filter: alpha(opacity=0); -ms-filter: "alpha(opacity=0)"; -webkit-opacity: 0; -moz-opacity: 0;}
+}
+
+/*로긴체크박스*/
+$spWd: 65px;
+.checkbox { display: inline-block; margin-right: $spWd - 10px !important;
+& label span { text-indent: 20px; min-width: $spWd; display: inline-block; }
+}
+// .checkbox {width: 50px; float: left; position: relative; top: 2px;}
+// .checkbox label span {width: 70px; position: absolute; left:21px; top:-3.8px; font-size: 12px;}
+
+
+.chkStyle { z-index:1; position:relative; width:16px; height:16px; margin:0; box-sizing:border-box; border:1px solid #4280d2; border-radius: 4px; background: transparent;}
+.chkStyle:after { z-index:1; position:absolute; left:-1px; top:-1px; width:14px; height:14px; content:''; border:1px solid #4280d2; border-radius: 4px; background: transparent;}
+.chkStyle input { z-index:2; width:100%; height:100%; -webkit-appearance: none; outline:none; display: none; }
+.chkStyle label { z-index:3; position:absolute; top:0; left:0; width:100%; height:100%; cursor:pointer;   background: transparent; outline:none; }
+.chkStyle label:after {content: ''; position: absolute; width: 8px; height: 3px; background: transparent; top: 3.5px; left:2px; border: 2px solid #fff; border-top: none; border-right: none; transform: rotate(-45deg); -webkit-transform: rotate(-45deg); opacity:0; }
+.chkStyle input[type=checkbox]:checked + label {background: #4280d2;}
+.chkStyle input[type=checkbox]:checked + label:after { opacity:1; }
+
+
+
+
+/*진행상태바*/
+.progBarBg {box-sizing:border-box; background-color: #ededed;}
+.progBar {background-color: #6e85e9; cursor: pointer; transition: 0.5s; animation:progBar 1s; -webkit-animation:progBar 1s;}
+.progBar:hover {background:#4c55a4; transition: 0.5s;}
+@keyframes progBar { 0%{opacity:0;} 50%{opacity:0;} 100% {opacity:1;} }
+@-webkit-keyframes progBar { 0%{opacity:0;} 50%{opacity:0;} 100% {opacity:1;} }
+.progBarBg01 {border-radius:5px;}
+.progBar01 {height: 9px; border-radius:5px;}
+.progBarBg02 {}
+.progBar02 {height: 25px;}
+
+
+
+/*날짜*/
+.dateBox {height:30px; position: relative; display: inline-block;}
+.ui-datepicker-trigger {position:absolute; right:1px; top:1px;}
+.datePicker {margin-right:0 !important;};

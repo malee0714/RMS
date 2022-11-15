@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.EntrpsFMDao">
+
+<!-- 업체관리 리스트 -->
+<select id="getEntrpsFMList" parameterType="lims.wrk.vo.EntrpsFMVo" resultType="lims.wrk.vo.EntrpsFMVo" >
+	SELECT ENTRPS_SEQNO,
+		ENTRPS_NM,      
+		ENTRPS_ENG_NM,  
+        BIZCND_NM,
+        ITEM_NM,
+        BSNM_REGIST_NO,
+        INDUTY_NM,
+        RPRSNTV_NM,
+        RPRSNTV_ENG_NM,
+        EMAIL,
+        TELNO,
+        FXNUM,
+        USE_AT
+	FROM SY_ENTRPS
+	WHERE 1=1 AND DELETE_AT = 'N'
+		 <if test="srchentrpsNm != null and srchentrpsNm !=''">
+          AND ENTRPS_NM LIKE '%' || #{srchentrpsNm} || '%'
+         </if>
+         <if test="srchrprsntvNm != null and srchrprsntvNm !=''">
+          AND RPRSNTV_NM LIKE '%' || #{srchrprsntvNm} || '%'
+         </if>
+         <if test="srchbsnmRegistNo != null and srchbsnmRegistNo !=''">
+          AND BSNM_REGIST_NO LIKE '%' || #{srchbsnmRegistNo} || '%'
+         </if>
+         <if test="useAt != null and useAt != ''">
+			AND UPPER(USE_AT) = UPPER(#{useAt})
+		</if>
+</select>
+
+<!-- 업체관리 업체정보 insert -->
+<insert id="insEntrpsFM" parameterType="lims.wrk.vo.EntrpsFMVo">
+	<!-- <selectKey resultType="java.lang.String" keyProperty="entrpsSeqno" order="BEFORE" >
+		SELECT NVL(MAX(TO_NUMBER(ENTRPS_SEQNO)), 0)+1 ENTRPS_SEQNO FROM SY_ENTRPS
+	</selectKey> -->
+	INSERT INTO 
+	SY_ENTRPS 
+		(	
+		ENTRPS_SEQNO,
+		ENTRPS_NM,
+		ENTRPS_ENG_NM,
+		BIZCND_NM,
+		ITEM_NM,
+		BSNM_REGIST_NO,
+		INDUTY_NM,
+		RPRSNTV_NM,
+		RPRSNTV_ENG_NM,
+		EMAIL,
+		TELNO,
+		FXNUM,
+		USE_AT,
+		LAST_CHANGER_ID,
+		LAST_CHANGE_DT		
+		)
+	VALUES (
+		SQ_SY_ENTRPS.NEXTVAL,
+		#{entrpsNm},
+		#{entrpsEngNm},
+		#{bizcndNm},
+		#{itemNm},
+		#{bsnmRegistNo},
+		#{indutyNm},
+		#{rprsntvNm},
+		#{rprsntvEngNm},
+		#{email},
+		#{telno},
+		#{fxnum},
+		#{useAt},
+		#{lastChangerId},
+		SYSDATE
+		)
+</insert>
+
+<!-- 업체관리 업체명 중복확인 -->
+<select id="userValidationF" resultType="int" parameterType="lims.wrk.vo.EntrpsFMVo">
+	<!-- SELECT NVL(MAX(ENTRPS_NM),0) FROM SY_ENTRPS WHERE ENTRPS_NM = #{entrpsNm} -->
+	SELECT count(*) FROM SY_ENTRPS WHERE ENTRPS_NM = #{entrpsNm}
+</select>
+
+<!-- 업체관리 업체정보 update -->
+<update id="updEntrpsFM" parameterType="lims.wrk.vo.EntrpsFMVo">
+	UPDATE SY_ENTRPS SET
+		ENTRPS_NM = #{entrpsNm}
+		,ENTRPS_ENG_NM = #{entrpsEngNm}
+		,BIZCND_NM = #{bizcndNm}
+		,ITEM_NM = #{itemNm}
+		,BSNM_REGIST_NO = #{bsnmRegistNo}
+		,INDUTY_NM = #{indutyNm}
+		,RPRSNTV_NM = #{rprsntvNm}
+		,RPRSNTV_ENG_NM = #{rprsntvEngNm}
+		,EMAIL = #{email}
+		,TELNO = #{telno}
+		,FXNUM = #{fxnum}
+		,USE_AT = #{useAt}
+		,LAST_CHANGE_DT = SYSDATE
+	WHERE ENTRPS_SEQNO = #{entrpsSeqno}
+</update>
+
+<!-- 업체담당자 정보 리스트 -->
+<select id="getEntrpscFMList" parameterType="lims.wrk.vo.EntrpsFMVo" resultType="lims.wrk.vo.EntrpsFMVo" >
+	SELECT
+		ENTRPS_SEQNO,
+        CHARGER_NM,
+        CHARGER_DEPT_NM,
+        CHARGER_MOBLPHON,
+        CHARGER_TELNO,
+        CHARGER_FXNUM,
+        CHARGER_EMAIL,
+        BASS_CHARGER_AT,
+        RM,
+        USE_AT,
+        CHARGER_SEQNO
+	FROM SY_ENTRPS_CHARGER
+	WHERE 1=1
+	AND ENTRPS_SEQNO = #{entrpsSeqno}
+	ORDER BY CHARGER_SEQNO DESC
+</select>
+
+<!-- 업체관리 업체 담당자 정보 insert -->
+<insert id="insEntrpscFM" parameterType="lims.wrk.vo.EntrpsFMVo">
+	INSERT INTO 
+	SY_ENTRPS_CHARGER 
+		(	
+		ENTRPS_SEQNO,
+		CHARGER_SEQNO,
+		CHARGER_NM,
+		CHARGER_DEPT_NM,
+		CHARGER_MOBLPHON,
+		CHARGER_TELNO,
+		CHARGER_FXNUM,
+		CHARGER_EMAIL,
+		BASS_CHARGER_AT,
+		RM,
+		USE_AT,
+		LAST_CHANGER_ID,
+		LAST_CHANGE_DT
+			)
+	VALUES (
+		#{entrpsSeqno},
+		(SELECT NVL(MAX(TO_NUMBER(CHARGER_SEQNO)), 0)+1 CHARGER_SEQNO FROM SY_ENTRPS_CHARGER WHERE ENTRPS_SEQNO =#{entrpsSeqno}),
+		#{chargerNm},
+		#{chargerDeptNm},
+		#{chargerMoblphon},
+		#{chargerTelno},
+		#{chargerFxnum},
+		#{chargerEmail},
+		#{bassChargerAt},
+		#{rm},
+		#{useAt},
+		#{lastChangerId},
+		SYSDATE
+		 ) 
+</insert>
+
+<!-- 업체관리 업체담당자 정보 update -->
+<update id="updEntrpscFM" parameterType="lims.wrk.vo.EntrpsFMVo">
+	UPDATE SY_ENTRPS_CHARGER SET
+		CHARGER_NM = #{chargerNm}
+		,CHARGER_DEPT_NM = #{chargerDeptNm}
+		,CHARGER_MOBLPHON = #{chargerMoblphon}
+		,CHARGER_TELNO = #{chargerTelno}
+		,CHARGER_FXNUM = #{chargerFxnum}
+		,CHARGER_EMAIL = #{chargerEmail}
+		,BASS_CHARGER_AT = #{bassChargerAt}
+		,RM = #{rm}
+		,USE_AT = #{useAt}
+	WHERE 1=1
+	AND ENTRPS_SEQNO = #{entrpsSeqno}
+		AND CHARGER_SEQNO = #{chargerSeqno}
+</update>
+
+<!-- 업체관리 업체담당자 정보 delete -->
+<delete id="delEntrpscFM" parameterType="lims.wrk.vo.EntrpsFMVo">
+	Delete FROM SY_ENTRPS_CHARGER
+	WHERE ENTRPS_SEQNO = #{entrpsSeqno} and CHARGER_SEQNO = #{chargerSeqno}
+</delete>
+<update id="deleteEntrpsFM" parameterType="lims.wrk.vo.EntrpsFMVo">
+	UPDATE SY_ENTRPS SET 
+		DELETE_AT = 'Y'
+		, LAST_CHANGER_ID = #{lastChangerId}
+		, LAST_CHANGE_DT = SYSDATE 
+	WHERE ENTRPS_SEQNO = #{entrpsSeqno}
+</update>
+<select id="chkEntrpInfo" parameterType="lims.wrk.vo.EntrpsFMVo" resultType="int">
+	SELECT COUNT(*) FROM SY_ENTRPS_CHARGER
+	WHERE CHARGER_SEQNO = #{chargerSeqno} AND CHARGER_NM = #{chargerNm}
+</select>
+
+</mapper>

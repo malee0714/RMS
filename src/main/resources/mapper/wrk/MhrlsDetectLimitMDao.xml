@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.MhrlsDetectLimitMDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+
+
+    <select id="getDLExpriems" parameterType="lims.wrk.vo.MhrlsDetectLimitMVo" resultType="lims.wrk.vo.MhrlsDetectLimitMVo">
+		/* 시험항목 DL 조회 */
+		SELECT  A.DETECT_LIMIT_SEQNO
+		        ,A.BPLC_CODE
+		        ,A.EQPMN_CL_CODE
+		        ,C.CMMN_CODE_NM AS EQPMN_CL_CODE_NM 
+		        ,A.EXPRIEM_SEQNO
+		        ,B.EXPRIEM_NM
+		        ,A.DETECT_LIMIT_BELO_VALUE
+		        ,A.COA_MARK_VALUE
+		        ,A.APPLC_BEGIN_DTE
+		        ,A.APPLC_END_DTE
+		     	,A.EQPMN_INSPCT_CRRCT_SEQNO
+		        ,A.RM
+		        ,A.USE_AT
+		        ,A.DELETE_AT
+		        ,A.LAST_CHANGER_ID
+		        ,A.LAST_CHANGE_DT 
+		FROM RS_EQPMN_CL_DETECT_LIMIT A
+		INNER JOIN SY_EXPRIEM B ON A.EXPRIEM_SEQNO = B.EXPRIEM_SEQNO
+		LEFT JOIN SY_CMMN_CODE C ON A.EQPMN_CL_CODE = C.CMMN_CODE AND C.USE_AT = 'Y'
+		WHERE   A.DELETE_AT = 'N'
+		        AND B.DELETE_AT = 'N'
+		        AND B.USE_AT = 'Y'
+	    	<if test=" bplcCodeSch != '' and bplcCodeSch != null ">
+				AND A.BPLC_CODE = #{bplcCodeSch}
+			</if>
+	    	<if test=" eqpmnClCodeSch != '' and eqpmnClCodeSch != null">
+				AND A.EQPMN_CL_CODE = #{eqpmnClCodeSch}
+			</if>
+	    	<if test=" expriemNmSch != '' and expriemNmSch != null ">
+				AND UPPER(B.EXPRIEM_NM) LIKE '%' || UPPER(#{expriemNmSch}) || '%'
+			</if>
+	    	<if test=" detectLimitBeloValueSch != '' and detectLimitBeloValueSch != null ">
+				AND A.DETECT_LIMIT_BELO_VALUE = #{detectLimitBeloValueSch}
+			</if>
+	    	<if test=" coaMarkValueSch != '' and coaMarkValueSch != null ">
+				AND A.COA_MARK_VALUE = #{coaMarkValueSch}
+			</if>
+	    	<if test=" applcBeginDteSch != '' and applcBeginDteSch != null ">
+				AND A.APPLC_BEGIN_DTE <![CDATA[ >= ]]> #{applcBeginDteSch}
+			</if>
+	    	<if test=" applcEndDteSch != '' and applcEndDteSch != null ">
+				AND A.APPLC_END_DTE <![CDATA[ <= ]]> #{applcEndDteSch}
+			</if>
+	    	<if test=" useAtSch != '' and useAtSch != null ">
+				AND A.USE_AT = #{useAtSch}
+			</if>
+		ORDER BY B.EXPRIEM_NM
+	</select>
+	
+	<update id="updExprDl" parameterType="lims.wrk.vo.MhrlsDetectLimitMVo">
+		/* 시험항목 DL수정 */
+		UPDATE RS_EQPMN_CL_DETECT_LIMIT SET
+			EQPMN_CL_CODE 			= #{eqpmnClCode}
+			,EXPRIEM_SEQNO			= #{expriemSeqno}
+			,DETECT_LIMIT_BELO_VALUE = #{detectLimitBeloValue}
+			,COA_MARK_VALUE 		= #{coaMarkValue}
+			,APPLC_BEGIN_DTE 		= #{applcBeginDte}
+			,APPLC_END_DTE 			= #{applcEndDte}
+			,RM 					= #{rm}
+			,USE_AT 				= #{useAt}
+			,LAST_CHANGER_ID 		= <include refid="loginId" />
+			,LAST_CHANGE_DT 		= SYSDATE
+		WHERE DETECT_LIMIT_SEQNO = #{detectLimitSeqno}
+	</update>
+
+	<insert id="insExprDl" parameterType="lims.wrk.vo.MhrlsDetectLimitMVo">
+		INSERT INTO RS_EQPMN_CL_DETECT_LIMIT(
+			DETECT_LIMIT_SEQNO
+			,BPLC_CODE
+			,EQPMN_CL_CODE
+			,EXPRIEM_SEQNO
+			,DETECT_LIMIT_BELO_VALUE
+			,COA_MARK_VALUE
+			,APPLC_BEGIN_DTE
+			,APPLC_END_DTE
+			,RM
+			,USE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,EQPMN_INSPCT_CRRCT_SEQNO
+		)VALUES(
+			SQ_RS_EQPMN_CL_DETECT_LIMIT.NEXTVAL
+			, 1000
+			, #{eqpmnClCode}
+			, #{expriemSeqno}
+			, #{detectLimitBeloValue}
+			, #{coaMarkValue}
+			, #{applcBeginDte}
+			, #{applcEndDte}
+			, #{rm}
+			, #{useAt}
+			, <include refid="loginId" />
+			, SYSDATE
+			, ''
+		)
+
+	</insert>
+
+
+</mapper>

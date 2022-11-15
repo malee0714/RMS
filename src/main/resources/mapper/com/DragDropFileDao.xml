@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.com.dao.DragDropFileDao">
+
+<!-- 해당 의뢰기관이 가진 파일들의 정보를 가져옴 -->
+<select id="getFiles" resultType="lims.com.vo.CmFileInfoVo" parameterType="lims.com.vo.CmFileInfoVo">
+SELECT 
+	 FILE_IDX
+	,FILE_SEQ
+	,FILE_CTG
+	,FILE_NM
+	,FILE_SIZE
+	,FILE_PATH
+	,DEL_YN
+	,UDT_ID
+	,UDT_DATE
+	,SUBSTR(FILE_PATH, INSTR(FILE_PATH,'\',-1,1)+1, INSTR(SUBSTR(FILE_PATH, INSTR(FILE_PATH,'\',-1,1)+1), '.', -1, 1)-1) AS UUID
+FROM CM_FILE_INFO 
+WHERE FILE_IDX = #{fileIdx} AND DEL_YN = 'N'
+ORDER BY ORD
+</select>
+
+<!-- 파일 번호 최대 값 +1 값을 가져옴 -->
+<select id="getFileIdx" resultType="int">
+SELECT NVL(MAX(FILE_IDX),0)+1 FROM CM_FILE_INFO
+</select>
+
+<!-- 파일 업로드 -->
+<insert id="insUploadFiles" parameterType="lims.com.vo.CmFileInfoVo">
+<selectKey keyProperty="fileSeq" resultType="int" order="BEFORE">
+SELECT NVL(MAX(FILE_SEQ),0)+1 FROM CM_FILE_INFO WHERE FILE_IDX = #{fileIdx}    
+</selectKey>
+INSERT INTO CM_FILE_INFO 
+(
+	FILE_IDX
+	,FILE_SEQ
+	,FILE_CTG
+	,FILE_NM
+	,FILE_SIZE
+	,FILE_PATH
+	,DEL_YN
+	,UDT_ID
+	,UDT_DATE
+	,ORD
+)
+VALUES
+(
+	#{fileIdx},
+	#{fileSeq},
+	#{fileCtg},
+	#{fileNm},
+	#{fileSize},
+	#{filePath},
+	'N',
+	#{udtId},
+	SYSDATE,
+	#{ord}
+)
+</insert>
+
+<!-- 다운로드할 파일의 정보를 가져옴 -->
+<select id="getDownloadFile" resultType="lims.com.vo.CmFileInfoVo" parameterType="java.util.Map">
+SELECT 
+	FILE_NM
+	,FILE_PATH
+FROM CM_FILE_INFO 
+WHERE FILE_IDX = #{fileIdx} AND FILE_SEQ = #{fileSeq}
+</select>
+
+<!-- 파일 삭제 -->
+<update id="deleteFiles" parameterType="lims.com.vo.CmFileInfoVo">
+UPDATE CM_FILE_INFO SET 
+	DEL_YN = 'Y',
+	ORD = 0
+WHERE FILE_IDX = #{fileIdx} AND FILE_SEQ = #{fileSeq}
+</update>
+
+<update id="updOrdAction" parameterType="lims.com.vo.CmFileInfoVo">
+UPDATE CM_FILE_INFO SET
+	ORD = #{ord}
+WHERE #{uuid} = SUBSTR(FILE_PATH, INSTR(FILE_PATH,'\',-1,1)+1, INSTR(SUBSTR(FILE_PATH, INSTR(FILE_PATH,'\',-1,1)+1), '.', -1, 1)-1)
+</update>
+
+
+
+</mapper>

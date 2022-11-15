@@ -1,0 +1,69 @@
+/* 공통변수설정 */
+$lineHei: 1.5em; //기본행간
+$titFntColor: #444;
+$bodyFntColor: #666;
+
+/* Basic 폰트설정 */
+body {
+font: { family: 'NanumGothic','Malgun Gothic','HelveticaNeue', sans-serif; size: 14px; } 
+color: $bodyFntColor; line-height: $lineHei;
+} 
+     
+/* 웹폰트 */
+$fontName: AppleGothic, AppleGothicBold, NanumGothic, NanumGothicLight, NanumGothicBold, NanumGothicExtraBold, NanumBarunGothic, NanumBarunGothicBold, NanumBarunGothicLight, NanumBarunGothicUltraLight, MyriadPro-Regular, MyriadPro-Cond, SourceSansPro-Regular, SourceSansPro-Light, SourceSansPro-Bold, SourceSansPro-Semibold, SourceSansPro-ExtraLight, NotoSansKR-Medium-Hestia, NotoSansKR-Regular-Hestia, NotoSansKR-Thin-Hestia, NotoSansKR-Bold-Hestia, NotoSansKR-Black-Hestia, NotoSansKR-DemiLight-Hestia, Helvetica, HelveticaNarrow, HelveticaLight, HelveticaNarrowBold, HelveticaUltraCompressed, HelveticaCondensedBold, HelveticaCompressed;
+
+@each $i in $fontName {
+@font-face{font-family: '#{$i}'; 
+src: url(../font/#{$i}.eot);
+src: url(../font/#{$i}.eot?#iefix) format('embedded-opentype'), url(../font/#{$i}.woff) format('woff'), url(../font/#{$i}.ttf) format('truetype');}
+}
+
+/* 링크 */
+a {text-decoration:none; color: $bodyFntColor}
+
+/* 같은폰트 파일별 굵기 */
+$fntInSet-kr: ( Nm: NanumGothic, Lt: NanumGothicLight, Bd: NanumGothicBold, Eb: NanumGothicExtraBold);
+$fntInSet-en: ( Nm: Helvetica, Lt: HelveticaLight, Bd: HelveticaNarrowBold );
+@each $i, $j in $fntInSet-kr {
+.fntKr#{$i} { font-family: '#{$j}' !important; }
+}
+@each $i, $j in $fntInSet-en {
+.fntEn#{$i} { font-family: '#{$j}' !important; }
+}
+
+
+/* 컨텐츠 칼럼 */
+@for $i from 2 through 12 {
+.ctsCol#{$i} { 
+column: { width: auto; count: $i; gap: 1em; }
+}
+}
+
+/* 제목폰트 세부설정 */
+$hSize: (1:42, 2:36, 3:24, 4:21, 5:18, 6:16);
+@each $i ,$j in $hSize {    
+h#{$i} { font-size: $j+px; line-height: 1.5em; font-family: 'NanumGothicBold';} 
+}
+small {font-size: 85%; color: $titFntColor*3;}
+
+/* 기본선 */
+hr {height:0.1px; 
+border: { style: solid; width:1px 0px 0px 0px; } 
+}
+
+/*문단*/
+p, dt, dl, figcaption  { margin-bottom:8px; line-height: $lineHei; }
+
+/*텍스트정렬*/
+$txtAli: (L: left, R: right, C: center, J: justify );
+@each $i ,$j in $txtAli {    
+.ta#{$i} { text-align: $j !important; } 
+}
+$vtcAli: (T: top, Md: middle, Bt: bottom, Bs: baseline );
+@each $i ,$j in $vtcAli {    
+.va#{$i} { display:table-cell !important;vertical-align: $j !important; } 
+}
+
+
+
+

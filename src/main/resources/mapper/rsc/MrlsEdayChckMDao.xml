@@ -1,0 +1,387 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.reg.dao.MrlsEdayChckMDao">
+
+	<select id="searchMrlsChk" parameterType="lims.rsc.vo.MrlsEdayChckMVo" resultType="lims.rsc.vo.MrlsEdayChckMVo">
+<!-- 		SELECT  -->
+<!-- 		        MHR.MHRLS_EDAY_CHCK_SEQNO -->
+<!-- 		       ,MHR.YEAR -->
+<!-- 		       ,MHR.QU -->
+<!-- 		       ,MHR.INSPCT_CRRCT_NM -->
+<!-- 		       ,MHR.INSPCT_CRRCT_SE_CODE -->
+<!-- 		       ,MHR.REGISTER_ID -->
+<!-- 		       ,MHR.DELETE_AT -->
+<!-- 		       ,(SELECT XA.CMMN_CODE_NM FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = MHR.INSPCT_CRRCT_SE_CODE) AS CRRCTCODENM -->
+<!-- 		       ,REQ.REQEST_SEQNO -->
+<!-- 		       ,REQ.PROCESS_TY_CODE -->
+<!-- 		       ,RSM.INSPCT_CRRCT_CYCLE -->
+<!-- 		       ,RSM.INSPCT_CRRCT_CYCLE_CODE -->
+<!-- 		       ,RSM.RECENT_INSPCT_CRRCT_DTE -->
+<!-- 		       ,RSM.MHRLS_SEQNO -->
+<!-- 		       ,(SELECT XA.TMPR_FIELD1_VALUE FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = INSPCT_CRRCT_CYCLE_CODE)*INSPCT_CRRCT_CYCLE AS CALC_DATE -->
+<!-- 		FROM RS_MHRLS_EDAY_CHCK MHR -->
+<!-- 		LEFT OUTER JOIN IM_REQEST REQ ON MHR.REGISTER_ID = REQ.CLIENT_ID -->
+<!-- 		LEFT OUTER JOIN RS_MHRLS RSM ON REQ.MHRLS_SEQNO = RSM.MHRLS_SEQNO  -->
+<!-- 		WHERE REQ.PROCESS_TY_CODE = 'SY02000008' -->
+<!-- 		AND MHR.DELETE_AT ='N' -->
+		SELECT 
+		    A.MHRLS_EDAY_CHCK_SEQNO
+		    ,A.YEAR
+		    ,A.QU
+		    ,A.INSPCT_CRRCT_NM
+		    ,A.INSPCT_CRRCT_SE_CODE
+		    ,A.REGISTER_ID
+		    ,A.DELETE_AT
+		    ,A.LAST_CHANGER_ID
+		    ,A.LAST_CHANGE_DT
+		    ,A.ATCHMNFL_SEQNO
+		    ,(SELECT XA.CMMN_CODE_NM FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = A.INSPCT_CRRCT_SE_CODE) AS CRRCTCODENM
+		    ,A.MHRLS_SEQNO
+		    ,B.MHRLS_NM as inMhrlsNm
+		    ,B.DETECT_LIMIT_APPLC_AT AS detectLimitApplcAt
+		    ,B.MHRLS_CL_CODE
+		FROM RS_MHRLS_EDAY_CHCK A
+		LEFT JOIN RS_MHRLS B ON A.MHRLS_SEQNO = B.MHRLS_SEQNO
+		WHERE  A.DELETE_AT ='N'
+		<if test="inspctCrrctSeCodeSch != null and inspctCrrctSeCodeSch != ''">
+			AND A.INSPCT_CRRCT_SE_CODE = #{inspctCrrctSeCodeSch}
+		</if>
+		
+		<if test=" inspctCrrctNmSch != null and inspctCrrctNmSch != '' ">
+			AND UPPER(A.INSPCT_CRRCT_NM) LIKE '%'||UPPER(#{inspctCrrctNmSch})||'%'
+		</if>
+		
+		<if test="yearSch != null and yearSch != '' ">
+			AND A.YEAR = #{yearSch}
+		</if>
+		
+		<if test=" quSch != null and quSch != '' ">
+			AND A.QU = #{quSch}
+		</if>
+		<if test=" mhrlsNmSch != null and mhrlsNmSch != '' ">
+			AND UPPER(B.MHRLS_NM ) LIKE '%'||UPPER(#{mhrlsNmSch})||'%'
+		</if>
+		
+	</select>
+
+	<select id="searchReqVal" parameterType="lims.rsc.vo.MrlsEdayChckMVo" resultType="lims.rsc.vo.MrlsEdayChckMVo">
+		SELECT  
+		
+		   DISTINCT D.EXPRIEM_NM 
+		 , B.EXPRIEM_SEQNO
+		FROM IM_REQEST A  
+		INNER JOIN IM_REQEST_EXPRIEM B ON A.REQEST_SEQNO = B.REQEST_SEQNO
+		INNER JOIN SY_EXPRIEM D ON B.EXPRIEM_SEQNO = D.EXPRIEM_SEQNO
+		WHERE A.REQEST_SEQNO IN
+		<foreach collection="reqestArr" item="reqestSeqno" open="(" close=")" separator=",">
+			#{reqestSeqno}
+		</foreach>
+		AND B.DELETE_AT = 'N'
+	</select>
+
+	<select id="searchValDetail" parameterType="lims.rsc.vo.MrlsEdayChckMVo" resultType="lims.rsc.vo.MrlsEdayChckMVo">
+		SELECT
+            A.REQEST_SEQNO,
+            A.LOT_ID,
+            LISTAGG(D.EXPRIEM_SEQNO, '/') WITHIN GROUP(ORDER BY A.LOT_ID, B.SORT_ORDR, B.SDSPC_NM, C.EXPR_ODR, C.EXPR_NUMOT) EXPRIEM_SEQNO,
+            LISTAGG(B.REQEST_EXPRIEM_SEQNO, '/') WITHIN GROUP(ORDER BY A.LOT_ID, B.SORT_ORDR, B.SDSPC_NM, C.EXPR_ODR, C.EXPR_NUMOT) REQEST_EXPRIEM_SEQNO,
+            LISTAGG(D.EXPRIEM_NM || CASE WHEN NVL(B.SDSPC_NM,'N') != 'N' THEN '('|| B.SDSPC_NM || ')' END, '/') WITHIN GROUP(ORDER BY A.LOT_ID, B.SORT_ORDR, B.SDSPC_NM, C.EXPR_ODR, C.EXPR_NUMOT) EXPRIEM_NM,
+            LISTAGG(NVL(C.RESULT_VALUE, ' '), '/') WITHIN GROUP(ORDER BY A.LOT_ID, B.SORT_ORDR, B.SDSPC_NM, C.EXPR_ODR, C.EXPR_NUMOT) RESULT_VALUE,
+            REGEXP_REPLACE(LISTAGG(NVL(E.USER_NM, '-'), ',') WITHIN GROUP(ORDER BY E.USER_NM, A.LOT_ID, B.SORT_ORDR, C.EXPR_ODR, C.EXPR_NUMOT), '([^,]+)(,\1)+', '\1') RESULT_REGISTER_NM,
+            C.EXPR_NUMOT,
+            B.SDSPC_NM,
+            C.EXPR_ODR         
+        FROM IM_REQEST A
+        INNER JOIN IM_REQEST_EXPRIEM B ON A.REQEST_SEQNO = B.REQEST_SEQNO
+        INNER JOIN IM_REQEST_EXPRIEM_RESULT C ON B.REQEST_EXPRIEM_SEQNO = C.REQEST_EXPRIEM_SEQNO AND B.LAST_EXPR_ODR = C.EXPR_ODR
+        INNER JOIN SY_EXPRIEM D ON B.EXPRIEM_SEQNO = D.EXPRIEM_SEQNO 
+        LEFT JOIN SY_USER E ON E.USER_ID = B.RESULT_REGISTER_ID
+        WHERE A.REQEST_SEQNO IN 
+		<foreach collection="reqestArr" item="reqestSeqno" open="(" close=")" separator=",">
+			#{reqestSeqno}
+		</foreach>
+		AND B.DELETE_AT = 'N'  AND C.DELETE_AT = 'N'
+		GROUP BY A.REQEST_SEQNO, A.LOT_ID, C.EXPR_NUMOT, B.SDSPC_NM, C.EXPR_ODR
+		ORDER BY A.LOT_ID
+	</select>
+	
+	<select id="MecChartList" parameterType="lims.rsc.vo.MrlsEdayChckMVo" resultType="lims.rsc.vo.MrlsEdayChckMVo">
+<!-- 		SELECT -->
+<!-- 		    A.REQEST_SEQNO, -->
+<!-- 		    A.LOT_ID, -->
+<!-- 		    LISTAGG(D.EXPRIEM_SEQNO, '-') WITHIN GROUP(ORDER BY A.LOT_ID, B.SORT_ORDR, C.EXPR_ODR, C.EXPR_NUMOT) EXPRIEM_SEQNO, -->
+<!-- 		    LISTAGG(D.EXPRIEM_NM, '-') WITHIN GROUP(ORDER BY A.LOT_ID, B.SORT_ORDR, C.EXPR_ODR, C.EXPR_NUMOT) EXPRIEM_NM, -->
+<!-- 			C.EXPR_NUMOT, -->
+<!-- 			C.EXPR_ODR, -->
+<!-- 			B.RESULT_REGISTER_ID, -->
+<!-- 		    LISTAGG(NVL(C.RESULT_VALUE, '0'), '-') WITHIN GROUP(ORDER BY A.LOT_ID, B.SORT_ORDR, C.EXPR_ODR, C.EXPR_NUMOT) RESULT_VALUE, -->
+<!-- 		    E.MHRLS_NM -->
+<!-- 		FROM IM_REQEST A -->
+<!-- 		INNER JOIN IM_REQEST_EXPRIEM B ON A.REQEST_SEQNO = B.REQEST_SEQNO -->
+<!-- 		INNER JOIN IM_REQEST_EXPRIEM_RESULT C ON B.REQEST_EXPRIEM_SEQNO = C.REQEST_EXPRIEM_SEQNO AND B.LAST_EXPR_ODR = C.EXPR_ODR -->
+<!-- 		INNER JOIN SY_EXPRIEM D ON B.EXPRIEM_SEQNO = D.EXPRIEM_SEQNO -->
+<!-- 		INNER JOIN RS_MHRLS E ON A.MHRLS_SEQNO = E.MHRLS_SEQNO -->
+<!-- 		JOIN RS_MHRLS_EDAY_CHCK_REQEST Z ON A.REQEST_SEQNO = Z.REQEST_sEQNO -->
+<!-- 		WHERE 1=1 AND -->
+<!-- 		Z.MHRLS_EDAY_CHCK_SEQNO = 15 -->
+<!-- 		AND B.DELETE_AT = 'N' -->
+<!-- 		GROUP BY A.REQEST_SEQNO, A.LOT_ID, C.EXPR_NUMOT, C.EXPR_ODR,B.RESULT_REGISTER_ID,E.MHRLS_NM -->
+		SELECT 
+		    A.YEAR || '년 '|| A.QU || '분기' AS YEAR
+		  , D.MHRLS_NM
+		  , SE.EXPRIEM_NM
+		  , ROUND(AVG(F.RESULT_VALUE),5) RESULT_VALUE_AVG
+		FROM RS_MHRLS_EDAY_CHCK A
+		INNER JOIN RS_MHRLS_EDAY_CHCK_REQEST B ON A.MHRLS_EDAY_CHCK_SEQNO = B.MHRLS_EDAY_CHCK_SEQNO
+		INNER JOIN IM_REQEST C ON B.REQEST_SEQNO = C.REQEST_SEQNO
+		INNER JOIN RS_MHRLS D ON C.MHRLS_SEQNO = D.MHRLS_SEQNO
+		INNER JOIN IM_REQEST_EXPRIEM E
+            ON C.REQEST_SEQNO = E.REQEST_SEQNO
+        INNER JOIN SY_EXPRIEM SE
+            ON SE.EXPRIEM_sEQNO = E.EXPRIEM_sEQNO
+         LEFT JOIN IM_REQEST_EXPRIEM_RESULT_AVRG F
+            ON F.REQEST_EXPRIEM_SEQNO = E.REQEST_EXPRIEM_SEQNO AND F.EXPR_ODR = E.LAST_EXPR_ODR
+		WHERE A.DELETE_AT = 'N'
+		AND D.MHRLS_CL_CODE IN (
+		  SELECT 
+		    ID.MHRLS_CL_CODE
+		  FROM RS_MHRLS_EDAY_CHCK IA
+		  INNER JOIN RS_MHRLS_EDAY_CHCK_REQEST IB ON IA.MHRLS_EDAY_CHCK_SEQNO = IB.MHRLS_EDAY_CHCK_SEQNO
+		  INNER JOIN IM_REQEST IC ON IB.REQEST_SEQNO = IC.REQEST_SEQNO
+		    INNER JOIN RS_MHRLS ID ON IC.MHRLS_SEQNO = ID.MHRLS_SEQNO
+		  WHERE IA.MHRLS_EDAY_CHCK_SEQNO = #{mhEdayChckSeq}
+		  
+		)
+		AND SE.EXPRIEM_SEQNO = (SELECT EXPRIEM_SEQNO FROM IM_REQEST_EXPRIEM  WHERE REQEST_EXPRIEM_SEQNO  = #{reqestExpriemSeqno})
+		AND D.MHRLS_CL_CODE = #{mhrlsClCode}
+		
+		<if test='chartGbn == "gbnA"'>
+		AND D.MHRLS_SEQNO = #{mhrlsSeqno} 
+	    GROUP BY
+	    	A.YEAR
+			, A.QU
+			, D.MHRLS_NM
+			, SE.EXPRIEM_NM
+			
+		ORDER BY A.YEAR, A.QU 
+		</if>    
+    	<if test='chartGbn == "gbnB"'>
+	    GROUP BY
+	    	A.YEAR
+			, A.QU
+			, D.MHRLS_NM
+			, SE.EXPRIEM_NM
+			
+		ORDER BY mhrls_nm, A.YEAR, A.QU 
+		</if>    
+	</select>
+	
+	<insert id="saveMrlsChk" parameterType="lims.rsc.vo.MrlsEdayChckMVo">
+		<selectKey keyProperty="mhrlsEdayChckSeqno" resultType="lims.rsc.vo.MrlsEdayChckMVo" order="BEFORE">
+			SELECT SQ_RS_MHRLS_EDAY_CHCK.NEXTVAL AS mhrlsEdayChckSeqno FROM DUAL 
+		</selectKey>
+		INSERT INTO RS_MHRLS_EDAY_CHCK(
+			MHRLS_EDAY_CHCK_SEQNO
+			,YEAR
+			,QU
+			,INSPCT_CRRCT_NM
+			,INSPCT_CRRCT_SE_CODE
+			,REGISTER_ID
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,ATCHMNFL_SEQNO
+			,MHRLS_SEQNO
+			) VALUES (
+			 #{mhrlsEdayChckSeqno}
+			, #{year}
+			, #{qu}
+			, #{inspctCrrctNm}
+			, #{inspctCrrctSeCode}
+			, #{registerId}
+			, 'N'
+			, #{lastChangerId}
+			, SYSDATE
+			, #{atchmnflSeqno}
+			, #{mhrlsSeqnon}
+			)
+	</insert> 
+	
+	
+	<update id="upMhrlsDate" parameterType="lims.rsc.vo.MrlsEdayChckMVo">
+		UPDATE RS_MHRLS_INSPCT_CRRCT_ACCTO_DT SET
+			INSPCT_CRRCT_PREARNGE_DTE	= (SELECT 
+												(TO_CHAR(SYSDATE + (INSPCT_CRRCT_CYCLE * SCC1.TMPR_FIELD1_VALUE),'YYYY-MM-DD') )
+										  FROM RS_MHRLS_INSPCT_CRRCT_ACCTO_DT A 
+										  JOIN SY_CMMN_CODE  SCC1 ON A.INSPCT_CRRCT_CYCLE_CODE = SCC1.CMMN_CODE
+										  WHERE MHRLS_SEQNO = #{mhrlsSeqno} AND INSPCT_CRRCT_SE_CODE = #{inspctCrrctSeCode})
+			,RECENT_INSPCT_CRRCT_DTE	= TO_CHAR(SYSDATE,'YYYY-MM-DD')
+			,LAST_CHANGER_ID		= #{lastChangerId}
+			,LAST_CHANGE_DT			= SYSDATE
+		WHERE MHRLS_SEQNO = #{mhrlsSeqno} AND INSPCT_CRRCT_SE_CODE = #{inspctCrrctSeCode}
+	</update>
+	
+	<update id="upMrlsChk" parameterType="lims.rsc.vo.MrlsEdayChckMVo">
+		UPDATE RS_MHRLS_EDAY_CHCK SET
+			 YEAR = #{year}
+			, QU = #{qu}
+			, INSPCT_CRRCT_NM = #{inspctCrrctNm}
+			, INSPCT_CRRCT_SE_CODE = #{inspctCrrctSeCode}
+			, REGISTER_ID = #{registerId}
+			,LAST_CHANGER_ID		= #{lastChangerId}
+			,LAST_CHANGE_DT			= SYSDATE
+			,ATCHMNFL_SEQNO 		= #{atchmnflSeqno}
+			,MHRLS_SEQNO	=#{mhrlsSeqnon}
+		WHERE MHRLS_EDAY_CHCK_SEQNO  = #{mhrlsEdayChckSeqno}	
+	</update>
+	
+	<insert id="saveMrlsChkReq" parameterType="lims.rsc.vo.MrlsEdayChckMVo">
+		INSERT INTO RS_MHRLS_EDAY_CHCK_REQEST(
+			MHRLS_EDAY_CHCK_SEQNO
+			,REQEST_SEQNO
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) VALUES (
+			 #{mhrlsEdayChckSeqno}
+			, #{reqestSeqno}
+			, #{lastChangerId}
+			, SYSDATE
+		)
+	</insert> 
+	
+	<update id="upImReqDate" parameterType="lims.rsc.vo.MrlsEdayChckMVo">
+	BEGIN
+		UPDATE IM_REQEST SET
+			 PROGRS_SITTN_CODE = 'IM03000006'
+			 ,LAST_CHANGER_ID		= #{lastChangerId}
+			 ,LAST_CHANGE_DT			= SYSDATE
+		WHERE REQEST_SEQNO = #{reqestSeqno};
+		
+		UPDATE IM_REQEST_EXPRIEM SET
+			PROGRS_SITTN_CODE = 'IM03000006'
+			,LAST_CHANGER_ID		= #{lastChangerId}
+			,LAST_CHANGE_DT			= SYSDATE
+		WHERE REQEST_SEQNO = #{reqestSeqno}	;
+	END;	
+	</update>
+	
+	
+	<select id="searchReqList" parameterType="lims.rsc.vo.MrlsEdayChckMVo" resultType="lims.rsc.vo.MrlsEdayChckMVo">
+		SELECT 
+		    A.MHRLS_EDAY_CHCK_SEQNO
+		    ,A.REQEST_SEQNO
+		    ,B.LOT_ID
+		    ,B.REQEST_DTE
+		    ,C.MHRLS_NM
+		FROM RS_MHRLS_EDAY_CHCK_REQEST A
+		LEFT OUTER JOIN IM_REQEST B ON A.REQEST_SEQNO = B.REQEST_SEQNO
+		LEFT OUTER JOIN RS_MHRLS C ON B.MHRLS_SEQNO = C.MHRLS_SEQNO 
+		WHERE MHRLS_EDAY_CHCK_SEQNO = #{mhrlsEdayChckSeqno}
+	</select>
+	
+	<delete id="delReqDetail" parameterType="lims.rsc.vo.MrlsEdayChckMVo">
+		DELETE FROM RS_MHRLS_EDAY_CHCK_REQEST 
+		WHERE 1=1
+		<if test="type != 'all'">
+			AND REQEST_SEQNO = #{reqestSeqno} 
+		</if>
+		AND MHRLS_EDAY_CHCK_SEQNO = #{mhrlsEdayChckSeqno}
+	</delete>
+	
+	<update id="updDelReqDetail" parameterType="lims.rsc.vo.MrlsEdayChckMVo">
+		UPDATE IM_REQEST SET
+			PROGRS_SITTN_CODE = 'IM03000003'
+		WHERE 1=1
+		<if test="type == 'all'">
+			AND REQEST_SEQNO IN(
+				SELECT REQEST_SEQNO FROM RS_MHRLS_EDAY_CHCK_REQEST
+				WHERE MHRLS_EDAY_CHCK_SEQNO = #{mhrlsEdayChckSeqno}
+			)			
+		</if>
+		<if test="type != 'all'">
+			AND REQEST_SEQNO = #{reqestSeqno}
+		</if>
+		
+	</update>
+	
+	<update id="updEdayChckInfo" parameterType="lims.rsc.vo.MrlsEdayChckMVo">
+		UPDATE RS_MHRLS_EDAY_CHCK A SET
+			A.DELETE_AT =
+						<if test="type == 'all'">
+							'Y'
+						</if> 
+						<if test="type != 'all'">
+							(
+								SELECT 
+									CASE WHEN COUNT(*) <![CDATA[>]]> 0 THEN 'N' ELSE 'Y' END 
+								FROM RS_MHRLS_EDAY_CHCK_REQEST IA 
+								WHERE IA.MHRLS_EDAY_CHCK_SEQNO = #{mhrlsEdayChckSeqno}
+							)
+						</if>
+		WHERE A.MHRLS_EDAY_CHCK_SEQNO = #{mhrlsEdayChckSeqno}
+	</update>
+	
+	<insert id="saveMhrlsDl" parameterType="lims.rsc.vo.MrlsEdayChckMVo">
+		INSERT INTO RS_MHRLS_CL_DETECT_LIMIT(
+			DETECT_LIMIT_SEQNO
+			,MHRLS_CL_CODE
+			,QU
+			,DETECT_LIMIT_BELO_VALUE
+			,COA_MARK_VALUE
+			,BEFORE_DETECT_LIMIT_BELO_VALUE
+			,BEFORE_COA_MARK_VALUE
+			,APPLC_BEGIN_DTE
+			,APPLC_END_DTE
+			,USE_AT,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,RM
+			,YEAR
+			,EXPRIEM_SEQNO
+			,MHRLS_EDAY_CHCK_SEQNO)
+		SELECT
+		  SQ_RS_MHRLS_CL_DETECT_LIMIT.NEXTVAL
+		 , IA.MHRLS_CL_CODE
+		 , #{qu} AS QU
+         , RTRIM(TO_CHAR(ROUND(IA.STDDEV_RESULT_VALUE, 3), 'FM9990.000'),'.') AS DETECT_LIMIT_BELO_VALUE
+         , RTRIM(TO_CHAR(ROUND(IA.STDDEV_RESULT_VALUE, 3), 'FM9990.000'),'.') AS COA_MARK_VALUE
+         , RTRIM(TO_CHAR(CEIL(IA.STDDEV_RESULT_VALUE)/1000, 'FM9990.000'),'.') AS BEFORE_DETECT_LIMIT_BELO_VALUE
+         , RTRIM(TO_CHAR(CEIL(IA.STDDEV_RESULT_VALUE)/1000, 'FM9990.000'),'.') AS BEFORE_COA_MARK_VALUE
+		 , #{applcBeginDte} AS APPLC_BEGIN_DTE
+		 , #{applcEndDte} AS APPLC_END_DTE
+		 , 'Y' AS USE_AT
+		 , 'N' AS DELETE_AT
+		 , #{lastChangerId} AS LAST_CHANGER_ID
+		 , SYSDATE AS LAST_CHANGE_DT
+		 , '기기 중간 점검 자동 등록' AS RM
+		 , #{year} AS YEAR
+		 , IA.EXPRIEM_SEQNO AS EXPRIEM_SEQNO
+		 , #{mhrlsEdayChckSeqno} AS MHRLS_EDAY_CHCK_SEQNO
+		FROM (
+		  SELECT
+		    F.MHRLS_CL_CODE
+		    , D.EXPRIEM_SEQNO
+		    , STDDEV(E.RESULT_VALUE)*3.14 AS STDDEV_RESULT_VALUE
+		  FROM RS_MHRLS_EDAY_CHCK A
+		  INNER JOIN RS_MHRLS_EDAY_CHCK_REQEST B ON A.MHRLS_EDAY_CHCK_SEQNO = B.MHRLS_EDAY_CHCK_SEQNO
+		  INNER JOIN IM_REQEST C ON B.REQEST_SEQNO = C.REQEST_SEQNO
+		  INNER JOIN IM_REQEST_EXPRIEM D ON C.REQEST_SEQNO = D.REQEST_SEQNO
+		  INNER JOIN IM_REQEST_EXPRIEM_RESULT E ON D.REQEST_EXPRIEM_SEQNO = E.REQEST_EXPRIEM_SEQNO AND E.EXPR_NUMOT = 1 AND E.EXPR_ODR = 1
+		  INNER JOIN RS_MHRLS F ON C.MHRLS_SEQNO = F.MHRLS_SEQNO
+		  WHERE A.MHRLS_EDAY_CHCK_SEQNO = #{mhrlsEdayChckSeqno}
+		  AND A.INSPCT_CRRCT_SE_CODE = 'IM10000002'
+		  GROUP BY F.MHRLS_CL_CODE, D.EXPRIEM_SEQNO
+		) IA
+		
+	</insert>
+	
+	<update id="upMhrlsDl" parameterType="lims.rsc.vo.MrlsEdayChckMVo">
+		UPDATE RS_MHRLS_CL_DETECT_LIMIT SET
+			 DELETE_AT = 'Y'
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE MHRLS_CL_CODE = #{mhrlsClCode}	
+		AND YEAR = #{year}
+		AND QU = #{qu}
+	</update>
+</mapper>

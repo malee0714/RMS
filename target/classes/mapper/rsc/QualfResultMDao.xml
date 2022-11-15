@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.rsc.dao.QualfResultMDao">
+
+	<select id="getQualfStdrReg" parameterType="lims.rsc.vo.QualfResultMVo" resultType="lims.rsc.vo.QualfResultMVo">
+			SELECT 
+			
+					XA.BPLC_CODE
+					,(SELECT INSPCT_INSTT_NM FROM SY_INSPCT_INSTT WHERE INSPCT_INSTT_CODE = XA.DEPT_CODE) AS DEPT_NM
+					,(SELECT INSPCT_INSTT_NM FROM SY_INSPCT_INSTT WHERE INSPCT_INSTT_CODE = XA.BPLC_CODE) AS BPLC_CODE_NM
+					,XA.USER_ID
+					,XA.USER_NM
+					,XA.ENCPN
+					,NVL2(XA.ENCPN,TRUNC(MONTHS_BETWEEN(SYSDATE, TO_DATE(XA.ENCPN,'YYYY-MM-DD'))/12,0)+1||'년차',XA.ENCPN) AS  DIFF_YEAR
+					,XB.REFORM_DTE
+					,XB.QUALF_TOT_SCORE
+					,XB.ELGBL_TOT_SCORE
+					,XB.QUALF_JDGMNT_SEQNO
+					,XB.ELGBL_JDGMNT_SEQNO
+					,(SELECT STDR_SE_NM FROM RS_QUALF_STDR_SE WHERE XB.QUALF_JDGMNT_SEQNO = QUALF_STDR_SE_SEQNO ) AS QUALF_JDGMNT_NM
+					,(SELECT STDR_SE_NM FROM RS_QUALF_STDR_SE WHERE XB.ELGBL_JDGMNT_SEQNO = QUALF_STDR_SE_SEQNO ) AS ELGBL_JDGMNT_NM
+					,XB.LAST_QUALF_STDR_AT
+					,XB.LAST_CHANGER_ID
+					,XB.LAST_CHANGE_DT
+					,XB.DELETE_AT
+					,XB.QUALF_STDR_REGIST_SEQNO
+		      FROM sy_user XA
+		      LEFT JOIN RS_QUALF_STDR_REGIST XB ON XA.USER_ID = XB.USER_ID AND  
+		      XB.DELETE_AT = 'N'
+		      AND  XB.LAST_QUALF_STDR_AT  = 'Y'
+		      WHERE
+		      XA.SBSCRB_CONFM_AT = 'Y'
+		      AND  XA.USE_AT = 'Y'
+		      AND  XA.DELETE_AT = 'N'
+		      
+		<if test="bplcCodeSch != null and bplcCodeSch != '' ">
+			AND XA.BPLC_CODE = #{bplcCodeSch}
+		</if>
+			
+		
+			AND XA.DEPT_CODE IN (
+			                         SELECT 
+			                         	INSPCT_INSTT_CODE
+			                         FROM SY_INSPCT_INSTT 
+			                         WHERE UPPER_INSPCT_INSTT_CODE =  #{deptCodeSch}
+			                         AND ELGBL_EVL_AT ='Y'
+			                         UNION
+			                         
+			                         SELECT 
+			                         	INSPCT_INSTT_CODE
+			                         FROM SY_INSPCT_INSTT 
+			                         WHERE INSPCT_INSTT_CODE =  #{deptCodeSch}
+			                         AND ELGBL_EVL_AT ='Y'
+			                        ) 
+		
+		<if test=" userNmSch != null and userNmSch != '' ">
+			AND UPPER(XA.USER_NM) LIKE '%'||UPPER(#{userNmSch})||'%'
+		</if>
+			
+	</select>
+	
+<!-- 	/*팝업조회*/ -->
+	<select id="getQualfRec" parameterType="lims.rsc.vo.QualfResultMVo" resultType="lims.rsc.vo.QualfResultMVo">
+		SELECT 
+			(SELECT INSPCT_INSTT_NM FROM SY_INSPCT_INSTT WHERE INSPCT_INSTT_CODE = XA.DEPT_CODE) AS DEPT_NM
+			,XA.USER_ID
+			,XA.USER_NM
+			,XA.ENCPN
+			,NVL2(XA.ENCPN,TRUNC(MONTHS_BETWEEN(SYSDATE, TO_DATE(XA.ENCPN,'YYYY-MM-DD'))/12,0)+1||'년차',XA.ENCPN) AS  DIFF_YEAR
+			,XB.REFORM_DTE
+			,XB.QUALF_TOT_SCORE
+			,XB.ELGBL_TOT_SCORE
+			,(SELECT STDR_SE_NM FROM RS_QUALF_STDR_SE WHERE XB.QUALF_JDGMNT_SEQNO = QUALF_STDR_SE_SEQNO ) AS QUALF_JDGMNT_NM
+			,(SELECT STDR_SE_NM FROM RS_QUALF_STDR_SE WHERE XB.ELGBL_JDGMNT_SEQNO = QUALF_STDR_SE_SEQNO ) AS ELGBL_JDGMNT_NM
+			,XB.QUALF_STDR_REGIST_SEQNO
+		FROM SY_USER XA
+			inner JOIN RS_QUALF_STDR_REGIST XB ON XA.USER_ID = XB.USER_ID AND XB.DELETE_AT = 'N' AND  XB.LAST_QUALF_STDR_AT  = 'N'  
+		WHERE XA.SBSCRB_CONFM_AT = 'Y'
+		AND XA.USE_AT = 'Y'
+		AND XA.DELETE_AT = 'N'
+		AND XA.BPLC_CODE = #{bplcCode}
+		AND XA.USER_ID = #{userId}
+		
+		ORDER BY XB.REFORM_DTE DESC
+		
+			
+	</select>
+	
+	<select id="getQualfElgblList" parameterType="lims.rsc.vo.QualfResultMVo" resultType="lims.rsc.vo.QualfResultMVo">
+			SELECT A.QUALF_STDR_SEQNO
+		     ,FN_GET_CDDTLNM(QUALF_ELGBL_SE_CODE) AS QUALF_ELGBL_SE_NM
+		     ,STDR_NM
+		     ,C.QUALF_STDR_SE_SEQNO
+		     ,FN_GET_CDDTLNM(B.STDR_SE_CODE) AS STDR_SE_CODE_NM
+		     ,B.STDR_SE_NM 
+		     ,C.SCORE
+		     ,C.STDR_SE_DETAIL_NM
+		     ,C.QUALF_STDR_SE_RESULT_SEQNO
+		  FROM RS_QUALF_STDR A 
+		   JOIN RS_QUALF_STDR_SE B 
+		       ON A.QUALF_STDR_SEQNO = B.QUALF_STDR_SEQNO
+		       AND A.QUALF_ELGBL_SE_CODE = #{qualfElgblSeCode}
+		       AND A.USE_AT = 'Y'
+		       AND A.DELETE_AT = 'N'  
+		       AND B.STDR_SE_CODE = 'RS14000001' 
+		       AND B.USE_AT = 'Y' 
+		       AND B.DELETE_AT = 'N'  
+		       
+		       
+		   JOIN RS_QUALF_STDR_SE_RESULT C ON B.QUALF_STDR_SE_SEQNO = C.QUALF_STDR_SE_SEQNO
+		   JOIN RS_QUALF_STDR_REGIST D ON C.QUALF_STDR_REGIST_SEQNO = D.QUALF_STDR_REGIST_SEQNO
+		   AND d.USER_ID = #{userId}
+		   AND C.QUALF_STDR_REGIST_SEQNO = #{qualfStdrRegistSeqno}
+		   AND C.DELETE_AT = 'N'
+	
+	</select>
+	
+	
+	<select id="getSkill" parameterType="lims.rsc.vo.QualfResultMVo" resultType="lims.rsc.vo.QualfResultMVo">
+			
+       		SELECT 
+       			B.QUALF_STDR_SE_SEQNO AS VALUE
+		     	,B.STDR_SE_NM AS KEY
+		  		FROM RS_QUALF_STDR A 
+		   		JOIN RS_QUALF_STDR_SE B ON A.QUALF_STDR_SEQNO = B.QUALF_STDR_SEQNO
+		       	WHERE 
+					A.QUALF_ELGBL_SE_CODE = 'RS13000001'
+					AND B.STDR_SE_CODE = 'RS14000001'
+					AND A.USE_AT = 'Y'
+					AND A.DELETE_AT = 'N' 
+					AND B.USE_AT = 'Y'
+					AND B.DELETE_AT = 'N'
+					AND A.BPLC_CODE = #{bplcCode}
+					AND B.BPLC_CODE = #{bplcCode}
+           ORDER BY B.SORT_ORDR
+	</select>
+	
+	<select id="getAbility" parameterType="lims.rsc.vo.QualfResultMVo" resultType="lims.rsc.vo.QualfResultMVo">
+			SELECT 
+       			B.QUALF_STDR_SE_SEQNO AS VALUE
+		     	,B.STDR_SE_NM AS KEY
+		  		FROM RS_QUALF_STDR A 
+		   		JOIN RS_QUALF_STDR_SE B ON A.QUALF_STDR_SEQNO = B.QUALF_STDR_SEQNO
+		       	WHERE 
+					A.QUALF_ELGBL_SE_CODE = 'RS13000002'
+					AND B.STDR_SE_CODE = 'RS14000001'
+					AND A.USE_AT = 'Y'
+					AND A.DELETE_AT = 'N' 
+					AND B.USE_AT = 'Y'
+					AND B.DELETE_AT = 'N'
+					AND A.BPLC_CODE = #{bplcCode}
+					AND B.BPLC_CODE = #{bplcCode}
+           ORDER BY B.SORT_ORDR	
+	</select>
+	
+	<select id="getQualfList" parameterType="lims.rsc.vo.QualfResultMVo" resultType="lims.rsc.vo.QualfResultMVo">
+			SELECT 
+				A.QUALF_STDR_SE_SEQNO AS VALUE,
+				A.STDR_SE_NM AS KEY
+				FROM RS_QUALF_STDR_SE A 
+				JOIN RS_QUALF_STDR B ON A.QUALF_STDR_SEQNO = B.QUALF_STDR_SEQNO
+				AND B.USE_AT = 'Y' AND B.DELETE_AT = 'N'
+				WHERE A.STDR_SE_CODE = 'RS14000002'
+				AND B.QUALF_ELGBL_SE_CODE = 'RS13000001'
+				AND A.BPLC_CODE = #{bplcCode}
+				AND B.BPLC_CODE = #{bplcCode}
+				AND A.USE_AT = 'Y'
+				AND A.DELETE_AT = 'N'
+
+	</select>
+	
+	
+	<select id="getElgblList" parameterType="lims.rsc.vo.QualfResultMVo" resultType="lims.rsc.vo.QualfResultMVo">
+			SELECT 
+				A.QUALF_STDR_SE_SEQNO AS VALUE,
+				A.STDR_SE_NM AS KEY
+				FROM RS_QUALF_STDR_SE A 
+				JOIN RS_QUALF_STDR B ON A.QUALF_STDR_SEQNO = B.QUALF_STDR_SEQNO 
+				AND B.USE_AT = 'Y' AND B.DELETE_AT = 'N'
+				WHERE A.STDR_SE_CODE = 'RS14000002'
+				AND B.QUALF_ELGBL_SE_CODE = 'RS13000002'
+				AND A.BPLC_CODE = #{bplcCode}
+				AND B.BPLC_CODE = #{bplcCode}
+				AND A.USE_AT = 'Y'
+				AND A.DELETE_AT = 'N'
+
+	</select>
+	
+	<select id="getUserQualf" parameterType="lims.rsc.vo.QualfResultMVo" resultType="String">
+			SELECT 
+				QUALF_STDR_REGIST_SEQNO 
+				FROM RS_QUALF_STDR_REGIST  
+				WHERE USER_ID = #{userId}
+				AND LAST_QUALF_STDR_AT  = 'Y'
+				AND DELETE_AT = 'N'
+				
+
+	</select>
+	
+	
+	<update id="updRegistSeqno" parameterType="lims.rsc.vo.QualfResultMVo">
+			UPDATE RS_QUALF_STDR_REGIST SET
+			
+			LAST_QUALF_STDR_AT ='N'
+			
+			WHERE QUALF_STDR_REGIST_SEQNO = #{updRegistSeqno}
+	</update>
+	<insert id="insQualfRegist" parameterType="lims.rsc.vo.QualfResultMVo">
+	<selectKey keyProperty="qualfStdrRegistSeqno" resultType="java.lang.String"	order="BEFORE">
+			SELECT SQ_RS_QUALF_STDR_REGIST.NEXTVAL AS qualfStdrRegistSeqno
+			FROM DUAL
+	</selectKey>
+		INSERT INTO RS_QUALF_STDR_REGIST
+			(
+				QUALF_STDR_REGIST_SEQNO
+			     ,BPLC_CODE
+			     ,USER_ID
+			     ,QUALF_TOT_SCORE
+			     ,ELGBL_TOT_SCORE
+			     ,REFORM_DTE
+			     ,QUALF_JDGMNT_SEQNO
+			     ,ELGBL_JDGMNT_SEQNO
+			     ,LAST_QUALF_STDR_AT
+			     ,LAST_CHANGER_ID
+			     ,LAST_CHANGE_DT
+			     ,DELETE_AT
+		     )
+		    	 VALUES
+		     (
+			     #{qualfStdrRegistSeqno}
+			     ,#{bplcCode}
+			     ,#{userId}
+			     ,#{qualfTotScore}
+			     ,#{elgblTotScore}
+			     ,#{reformDte}
+			     ,#{qualfJdgmntSeqno}
+			     ,#{elgblJdgmntSeqno}
+			     ,'Y'
+			     ,#{lastChangerId}
+			     ,SYSDATE
+			     ,'N'
+		     )
+     
+     
+	</insert> 	
+		
+	
+	<update id="updRegist" parameterType="lims.rsc.vo.QualfResultMVo">
+		UPDATE RS_QUALF_STDR_REGIST SET
+			     QUALF_TOT_SCORE = #{qualfTotScore}
+			     ,ELGBL_TOT_SCORE = #{elgblTotScore}
+			     ,QUALF_JDGMNT_SEQNO = #{qualfJdgmntSeqno}
+			     ,ELGBL_JDGMNT_SEQNO = #{elgblJdgmntSeqno}
+			     ,LAST_CHANGER_ID = #{lastChangerId}
+			     ,LAST_CHANGE_DT = SYSDATE
+		WHERE QUALF_STDR_REGIST_SEQNO = #{qualfStdrRegistSeqno}
+	</update>
+	
+	
+	<insert id="insQualfResult" parameterType="lims.rsc.vo.QualfResultMVo">
+		INSERT INTO RS_QUALF_STDR_SE_RESULT
+		(
+			QUALF_STDR_SE_RESULT_SEQNO,
+			BPLC_CODE,
+			QUALF_STDR_REGIST_SEQNO,
+			QUALF_STDR_SE_SEQNO,
+			LAST_CHANGER_ID,
+			LAST_CHANGE_DT,
+			DELETE_AT,
+			SCORE,
+			STDR_SE_DETAIL_NM
+		)
+		VALUES
+		(
+			SQ_RS_QUALF_STDR_SE_RESULT.NEXTVAL
+			,#{bplcCode}
+			,#{qualfStdrRegistSeqno}
+			,#{qualfStdrSeSeqno}
+			,#{lastChangerId}
+			,SYSDATE
+			,'N'
+			,#{score}
+			,#{stdrSeDetailNm}
+		)
+	</insert> 
+	
+	
+	<update id="updQualfResult" parameterType="lims.rsc.vo.QualfResultMVo">
+		UPDATE  RS_QUALF_STDR_SE_RESULT SET
+			QUALF_STDR_SE_SEQNO = #{qualfStdrSeSeqno}
+			,STDR_SE_DETAIL_NM = #{stdrSeDetailNm}
+			,SCORE = #{score}
+			,LAST_CHANGER_ID = #{lastChangerId}
+		WHERE QUALF_STDR_SE_RESULT_SEQNO = #{qualfStdrSeResultSeqno}
+	</update> 
+	
+	<update id="delQualfResult" parameterType="lims.rsc.vo.QualfResultMVo">
+		UPDATE  RS_QUALF_STDR_SE_RESULT SET
+			DELETE_AT = 'Y'
+		WHERE QUALF_STDR_SE_RESULT_SEQNO = #{qualfStdrSeResultSeqno}
+	</update> 
+	
+	
+</mapper>

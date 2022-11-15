@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.qa.dao.NCRReportMDao">
+
+
+	<!-- 문서 목록 조회 -->
+	<select id="getNCRReportList" parameterType="lims.qa.vo.NCRReportMVo" resultType="lims.qa.vo.NCRReportMVo">
+		SELECT 
+			A.NCR_SEQNO
+			,A.WRTER_ID
+			,A.NCR_NO
+			,A.PBLICTE_DTE
+			,IR.LOT_NO
+			,SM.MTRIL_NM
+			,A.SJ
+			,A.PROCESS_TY_CODE
+			,SCC1.CMMN_CODE_NM AS PROCESS_TY_CODE_NM
+			,A.LOT_NO
+			,A.ENTRPS_NM
+			,A.IMPROPT_TY_CODE
+			,SCC2.CMMN_CODE_NM AS IMPROPT_TY_CODE_NM
+			,A.EXPRIEM_SUMRY
+			,A.IMPROPT_CN
+			,A.IMPROPT_OCCRRNC_CAUSE
+			,A.CAUSE_CL_CODE
+			,SCC3.CMMN_CODE_NM AS CAUSE_CL_CODE_NM
+			,A.CAUSE_DETAIL_CN
+			,A.CNTRPLN
+			,A.PROCESS_METHOD_CODE
+			,SCC4.CMMN_CODE_NM AS PROCESS_METHOD_CODE_NM
+			,A.CTMMNY_OTHBC_AT
+			,A.BASIS
+			,A.ATCHMNFL_SEQNO
+			,CASE WHEN A.CAUSE_CL_CODE IS NULL THEN '처리전' ELSE '처리완료' END PROCESS_TYPE
+		FROM RS_NCR A
+		JOIN IM_REQEST IR ON A.LOT_NO = IR.LOT_NO
+		JOIN SY_MTRIL SM ON IR.MTRIL_SEQNO = SM.MTRIL_SEQNO
+		LEFT JOIN SY_CMMN_CODE SCC1 ON A.PROCESS_TY_CODE = SCC1.CMMN_CODE AND SCC1.USE_AT = 'Y'
+		LEFT JOIN SY_CMMN_CODE SCC2 ON A.IMPROPT_TY_CODE = SCC2.CMMN_CODE AND SCC2.USE_AT = 'Y'
+		LEFT JOIN SY_CMMN_CODE SCC3 ON A.CAUSE_CL_CODE = SCC3.CMMN_CODE AND SCC3.USE_AT = 'Y'
+		LEFT JOIN SY_CMMN_CODE SCC4 ON A.PROCESS_METHOD_CODE = SCC4.CMMN_CODE AND SCC4.USE_AT = 'Y'
+		WHERE 1 = 1 AND IR.DELETE_AT = 'N' AND SM.DELETE_AT = 'N' AND SM.USE_AT = 'Y' AND A.DELETE_AT = 'N'
+		AND IR.VENDOR_REQEST_AT = 'N'
+
+		<if test="lotNo != null and lotNo != ''">
+			AND IR.LOT_NO = #{lotNo}
+		</if>
+		<!-- 사업장 -->
+		<if test="bplcCode != null and bplcCode != ''">
+			AND IR.BPLC_CODE = #{bplcCode}
+		</if>
+		<!-- 프로세스 타입 -->
+		<if test="processTyCode != null and processTyCode != ''">
+			AND A.PROCESS_TY_CODE = #{processTyCode}
+		</if>
+		<!-- 제품 -->
+		<if test="mtrilSeqno != null and mtrilSeqno != ''">
+			AND IR.MTRIL_SEQNO = #{mtrilSeqno}
+		</if>
+		<!-- 원인분류 -->
+		<if test="causeClCode != null and causeClCode != ''">
+			AND A.CAUSE_CL_CODE = #{causeClCode}
+		</if>
+		<!-- 상태 -->
+		<if test='processType != null and processType == "Y"'>
+			AND A.CAUSE_CL_CODE IS NOT NULL
+		</if>
+		<!-- 상태 -->
+		<if test='processType != null and processType == "N"'>
+			AND A.CAUSE_CL_CODE IS NULL
+		</if>
+		
+		<!-- 발행일자 -->
+		AND A.PBLICTE_DTE BETWEEN TO_DATE(#{pblicteBeginDte}) AND TO_DATE(#{pblicteEndDte})
+		ORDER BY A.PBLICTE_DTE DESC, A.NCR_NO 
+	</select>
+
+
+
+	<!-- 문서 정보 신규, 수정 저장 -->
+	<insert id="insNCRReport" parameterType="lims.qa.vo.NCRReportMVo">
+		<selectKey keyProperty="ncrNo,ncrSeqno" resultType="lims.qa.vo.NCRReportMVo" order="BEFORE">
+			SELECT
+				(
+					SELECT
+						NCR_NO || '-' || (SELECT LPAD(NVL(MAX(SUBSTR(NCR_NO, -3)),0)+1,3,0) FROM RS_NCR WHERE NCR_NO LIKE '%' || NCR_NO || '%' AND DELETE_AT = 'N') AS NCR_NO
+					FROM (SELECT
+							'NCR'
+							|| (SELECT TMPR_FIELD1_VALUE FROM SY_CMMN_CODE WHERE CMMN_CODE = #{improptTyCode})
+							|| '-'
+							|| (
+									SELECT
+										DECODE(INSPCT_INSTT_NM, '울산공장','U', '아산공장', 'A', '천안공장', 'C', 'FEM공장', 'F', '기흥본사', 'K','ENF임시 사업장', 'Q')
+									FROM SY_INSPCT_INSTT
+									WHERE UPPER_INSPCT_INSTT_CODE IS NULL
+									AND INSPCT_INSTT_CODE = #{bplcCode}
+									AND USE_AT = 'Y' AND DELETE_AT = 'N'
+								)
+							|| '품-'
+							|| SUBSTR(TO_CHAR(TO_DATE(NVL(#{pblicteDte},SYSDATE)),'YYYY'), 3,2) AS NCR_NO
+						FROM DUAL
+					)
+				) ncrNo,
+			    SQ_RS_NCR.NEXTVAL ncrSeqno
+			FROM DUAL
+
+		</selectKey>
+        INSERT INTO RS_NCR(
+			NCR_SEQNO
+			,WRTER_ID
+			,NCR_NO
+			,PBLICTE_DTE
+			,SJ
+			,PROCESS_TY_CODE
+			,LOT_NO
+			,ENTRPS_NM
+			,IMPROPT_TY_CODE
+			,EXPRIEM_SUMRY
+			,IMPROPT_CN
+			,IMPROPT_OCCRRNC_CAUSE
+			,CAUSE_CL_CODE
+			,CAUSE_DETAIL_CN
+			,CNTRPLN
+			,PROCESS_METHOD_CODE
+			,CTMMNY_OTHBC_AT
+			,BASIS
+			,ATCHMNFL_SEQNO
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,REQEST_SEQNO
+			,ATMC_REGIST_AT
+		) VALUES(
+			#{ncrSeqno}
+			, NVL(#{wrterId}, '${@lims.util.GetUserSession@getUserId()}')
+			, #{ncrNo}
+			, NVL(#{pblicteDte},TO_CHAR(SYSDATE,'YYYY-MM-DD'))
+			, (
+				SELECT
+				'[Warning Mail]' || ISII.INSPCT_INSTT_NM || '-' || ISM.MTRIL_NM || '(' || IIR.LOT_NO || ')'
+				FROM
+				IM_REQEST IIR
+				JOIN SY_INSPCT_INSTT ISII ON ISII.INSPCT_INSTT_CODE = IIR.REQEST_DEPT_CODE
+				JOIN SY_MTRIL ISM ON IIR.MTRIL_SEQNO = ISM.MTRIL_SEQNO
+				WHERE IIR.REQEST_SEQNO = #{reqestSeqno}
+			)
+			, #{processTyCode}
+			, #{lotNo}
+			, #{entrpsNm}
+			, #{improptTyCode}
+			, #{expriemSumry}
+			, #{improptCn}
+			, #{improptOccrrncCause}
+			, #{causeClCode}
+			, #{causeDetailCn}
+			, #{cntrpln}
+			, #{processMethodCode}
+			, #{ctmmnyOthbcAt}
+			, #{basis}
+			, #{atchmnflSeqno}
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+		    , #{reqestSeqno}
+			,'N'
+		)
+	</insert>
+	
+	<update  id = "updNCRReport"  parameterType="lims.qa.vo.NCRReportMVo">
+        UPDATE RS_NCR SET
+			IMPROPT_OCCRRNC_CAUSE = #{improptOccrrncCause}
+			, CAUSE_CL_CODE = #{causeClCode}
+			, CAUSE_DETAIL_CN = #{causeDetailCn}
+			, CNTRPLN = #{cntrpln}
+			, PROCESS_METHOD_CODE = #{processMethodCode}
+			, CTMMNY_OTHBC_AT = #{ctmmnyOthbcAt}
+			, BASIS = #{basis}
+			, ATCHMNFL_SEQNO = #{atchmnflSeqno}
+			, LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			, LAST_CHANGE_DT = SYSDATE
+        where NCR_SEQNO = #{ncrSeqno}
+	
+	</update>
+
+	<update id="dataDel" parameterType="lims.qa.vo.NCRReportMVo">
+		UPDATE RS_DOC_HIST SET
+				 LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+				, LAST_CHANGE_DT = SYSDATE
+				, DELETE_AT = 'Y'
+		WHERE DOC_SEQNO = #{docSeqno}
+		AND ORDR = #{ordr}
+	</update>
+
+	<update id="deleteNCRReport" parameterType="lims.qa.vo.NCRReportMVo">
+		UPDATE RS_NCR
+		SET DELETE_AT = 'Y'
+		WHERE 1 = 1 AND NCR_SEQNO = #{ncrSeqno}
+	</update>
+	
+	<select id="getExpriemListSch" parameterType="lims.qa.vo.NCRReportMVo" resultType="lims.qa.vo.NCRReportMVo">
+		SELECT
+			D.LOT_NO
+			 , C.EXPRIEM_NM
+			 , A.STDR AS LCL_UCL
+			 , A.RESULT_VALUE
+			 , B.LAST_RESULT_REGIST_DTE AS RESULT_REGIST_DTE
+			 , E.UNIT_NM
+			 , F.EQPMN_NM
+		FROM RS_NCR_EXPRIEM A
+				 JOIN IM_REQEST_EXPRIEM B ON B.REQEST_EXPRIEM_SEQNO = A.REQEST_EXPRIEM_SEQNO
+				 JOIN IM_REQEST D ON D.REQEST_SEQNO = B.REQEST_SEQNO
+				 JOIN SY_EXPRIEM C ON B.EXPRIEM_SEQNO = C.EXPRIEM_SEQNO
+				 LEFT JOIN SY_UNIT E ON E.UNIT_SEQNO = B.UNIT_SEQNO
+				 LEFT JOIN RS_EQPMN F ON F.EQPMN_SEQNO = B.EQPMN_SEQNO
+		WHERE NCR_SEQNO = #{ncrSeqno}
+	</select>
+
+	<select id="getRequestExpriemListSch" parameterType="lims.test.vo.RoaMVo" resultType="lims.test.vo.RoaMVo">
+		SELECT
+			A.*,
+		    C.EXPRIEM_NM,
+		    B.LCL_VALUE || '~' || B.UCL_VALUE AS LCL_UCL,
+		    D.LOT_NO,
+		    B.RM,
+		    F.UNIT_NM,
+		    B.UNIT_SEQNO,
+		    G.EQPMN_NM,
+		    B.EQPMN_SEQNO,
+		    E.CMMN_CODE_NM AS EXPRIEM_CL_NM
+		FROM IM_REQEST_EXPRIEM_RESULT A
+		JOIN IM_REQEST_EXPRIEM B ON A.REQEST_EXPRIEM_sEQNO = B.REQEST_EXPRIEM_sEQNO
+		JOIN IM_REQEST D ON D.REQEST_SEQNO = B.REQEST_SEQNO
+		JOIN SY_EXPRIEM C ON C.EXPRIEM_SEQNO = B.EXPRIEM_SEQNO
+		LEFT JOIN SY_UNIT F ON F.UNIT_SEQNO = B.UNIT_SEQNO
+		LEFT JOIN RS_EQPMN G ON G.EQPMN_SEQNO = B.EQPMN_SEQNO
+		LEFT JOIN SY_CMMN_CODE E ON E.CMMN_CODE = EXPRIEM_CL_CODE
+		WHERE B.REQEST_SEQNO = #{reqestSeqno} AND B.DELETE_AT = 'N' AND D.DELETE_AT = 'N' AND C.DELETE_AT = 'N'
+		AND B.LAST_EXPR_ODR = A.EXPR_ODR
+		<if test="flag == null or flag == ''">
+			AND A.EXPR_NUMOT = 1
+		</if>
+		<if test='flag != null and "Y".equals(flag)'>
+			AND A.DELETE_AT = 'N'
+		</if>
+		<if test="list != null and list.size() != 0">
+			AND A.REQEST_EXPRIEM_sEQNO IN (
+			<foreach collection="list" item="item" separator=",">
+				#{item.reqestExpriemSeqno}
+			</foreach>)
+		</if>
+	</select>
+
+	<insert id="insertNcrExpriem" parameterType="lims.qa.vo.NCRReportMVo">
+		INSERT INTO RS_NCR_EXPRIEM
+		VALUES(
+			  #{ncrSeqno},
+			  (SELECT NVL(MAX(IA.ORDR),0)+1 FROM RS_NCR_EXPRIEM IA WHERE IA.NCR_SEQNO = #{ncrSeqno}),
+			  '${@lims.util.GetUserSession@getUserId()}',
+			  SYSDATE,
+			  #{reqestExpriemSeqno},
+			  #{exprOdr},
+			  #{exprNumot},
+			  #{lclUcl},
+			  #{resultValue}
+		)
+
+	</insert>
+
+
+</mapper>

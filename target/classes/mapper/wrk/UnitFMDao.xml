@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.UnitFMDao">
+
+<!-- 코드명 중복 조회 -->
+<select id="confirmUnitFM" resultType="int" parameterType="lims.wrk.vo.UnitFMVo">
+	SELECT COUNT(UNIT_NM)			
+	FROM SY_UNIT
+	WHERE UNIT_NM = #{unitNm}
+	AND DELETE_AT = 'N' 
+	<if test=" unitSeqno != null and unitSeqno != '' ">
+		AND UNIT_SEQNO NOT IN (#{unitSeqno})
+	</if>
+</select>
+
+<select id="getUnitList" parameterType="lims.wrk.vo.UnitFMVo" resultType="lims.wrk.vo.UnitFMVo">
+	SELECT 
+		A.UNIT_SEQNO,
+		A.UNIT_NM,
+		A.UNIT_SE_CODE,
+		B.CMMN_CODE_NM AS UNIT_SE,
+		A.USE_AT
+	FROM SY_UNIT A
+	LEFT JOIN SY_CMMN_CODE B ON
+	A.UNIT_SE_CODE = B.CMMN_CODE
+	WHERE 1=1
+	
+	<if test="txtUnitNM != null and txtUnitNM != '' ">
+		AND UPPER(A.UNIT_NM) LIKE '%'||UPPER(#{txtUnitNM})||'%' 
+	</if>
+	
+	<if test='useAtSearch == "Y" '>
+		AND A.USE_AT = 'Y'
+	</if>
+	
+	<if test='useAtSearch == "N" '>
+		AND A.USE_AT = 'N'
+	</if>
+	AND DELETE_AT = 'N'
+	ORDER BY A.UNIT_NM
+</select>
+
+<insert id="insertUnit" parameterType="lims.wrk.vo.UnitMVo">
+	
+	INSERT INTO SY_UNIT
+	(
+	  UNIT_SEQNO
+	  ,UNIT_NM
+	  ,UNIT_SE_CODE
+	  ,USE_AT
+	  ,LAST_CHANGER_ID
+	  ,LAST_CHANGE_DT
+	) VALUES (
+	  SQ_SY_UNIT.NEXTVAL
+	  ,#{unitNm}		
+	  ,'SY07000001'
+	  ,#{useAt}
+	  ,#{lastChangerId}
+	  ,SYSDATE
+	)
+</insert>
+
+<update id="updateUnit" parameterType="lims.wrk.vo.UnitMVo">
+	UPDATE SY_UNIT SET
+		UNIT_NM = #{unitNm},
+		UNIT_SE_CODE = 'SY07000001',
+    	USE_AT = #{useAt},
+		LAST_CHANGER_ID = #{lastChangerId},
+		LAST_CHANGE_DT = SYSDATE
+	WHERE UNIT_SEQNO = #{unitSeqno}
+</update>
+<update id="deleteUnit" parameterType="lims.wrk.vo.UnitMVo">
+	UPDATE SY_UNIT SET
+		DELETE_AT = 'Y'
+		, LAST_CHANGER_ID = #{lastChangerId}
+		, LAST_CHANGE_DT = SYSDATE
+	WHERE UNIT_SEQNO = #{unitSeqno}
+</update>
+</mapper>

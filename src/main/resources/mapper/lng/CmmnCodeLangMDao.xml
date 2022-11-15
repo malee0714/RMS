@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.lng.dao.CmmnCodeLangMDao">
+	<select id="getCmmnLang" parameterType="lims.lng.vo.CmmnCodeLangMVo" resultType="lims.lng.vo.CmmnCodeLangMVo">
+          WITH T AS ( SELECT
+						a.CMMN_CODE
+						,a.UPPER_CMMN_CODE
+						,a.CMMN_CODE_NM
+						,a.CMMN_CODE_RM
+						,a.SORT_ORDR
+						,a.USE_AT
+						,level menu_Lv
+						,a.TMPR_FIELD1_NM
+						,a.TMPR_FIELD2_NM
+						,a.TMPR_FIELD3_NM
+						,a.TMPR_FIELD4_NM
+						,a.TMPR_FIELD5_NM
+						,a.LAST_CHANGER_ID
+						,a.LAST_CHANGE_DT
+						,B.LANG_NM
+						,B.LANG_CMMN_CODE_SEQNO
+					  FROM SY_CMMN_CODE A
+					  LEFT OUTER JOIN SY_LANG_CMMN_CODE B ON A.CMMN_CODE = B.CMMN_CODE
+					  <if test="nationLangCode != null and nationLangCode != ''">
+							AND NATION_LANG_CODE = #{nationLangCode}
+					  </if>
+					  WHERE A.USE_AT = 'Y'
+					  CONNECT BY PRIOR A.CMMN_CODE = A.UPPER_CMMN_CODE
+					  START WITH A.UPPER_CMMN_CODE IS NULL
+					  ORDER SIBLINGS BY SORT_ORDR )
+
+		  SELECT * FROM T, ( SELECT
+								CMMN_CODE
+							 FROM SY_CMMN_CODE
+							 WHERE USE_AT = 'Y'
+							 <choose>
+								<when test="cmmnSearch != null and cmmnSearch != '' ">
+									START WITH CMMN_CODE_NM LIKE '%' || UPPER(#{cmmnSearch}) || '%'
+								</when>
+								<otherwise>
+									START WITH UPPER_CMMN_CODE IS NULL
+								</otherwise>
+							 </choose>
+							 CONNECT BY PRIOR CMMN_CODE = UPPER_CMMN_CODE
+							 GROUP BY CMMN_CODE
+
+        					 UNION
+
+							 SELECT
+							 	CMMN_CODE
+							 FROM SY_CMMN_CODE
+							 WHERE USE_AT = 'Y'
+							 <choose>
+								<when test="cmmnSearch != null and cmmnSearch != '' ">
+									START WITH CMMN_CODE_NM LIKE '%' || UPPER(#{cmmnSearch}) || '%'
+								</when>
+								<otherwise>
+									START WITH UPPER_CMMN_CODE IS NULL
+								</otherwise>
+							 </choose>
+							 CONNECT BY PRIOR UPPER_CMMN_CODE = CMMN_CODE
+							 GROUP BY CMMN_CODE ) M
+          WHERE T.CMMN_CODE = M.CMMN_CODE
+	</select>
+	
+	<insert id="saveCmmnlang" parameterType="lims.lng.vo.CmmnCodeLangMVo">
+		INSERT INTO SY_LANG_CMMN_CODE(
+			LANG_CMMN_CODE_SEQNO
+			,CMMN_CODE
+			,NATION_LANG_CODE
+			,LANG_NM
+			,USE_AT
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) VALUES (
+			SQ_SY_LANG_CMMN_CODE.NEXTVAL
+			, #{cmmnCode}
+			, #{nationLangCode}
+			, #{langNm}
+			, #{useAt}
+			, 'N'
+			, #{lastChangerId}
+			, SYSDATE
+			)
+	</insert> 
+	
+	<update id="upCmmnlang" parameterType="lims.lng.vo.CmmnCodeLangMVo">
+		UPDATE SY_LANG_CMMN_CODE SET
+			 CMMN_CODE = #{cmmnCode}
+			, NATION_LANG_CODE = #{nationLangCode}
+			, LANG_NM = #{langNm}
+			, USE_AT = #{useAt}
+			, DELETE_AT = 'N'
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE LANG_CMMN_CODE_SEQNO = #{langCmmnCodeSeqno}
+		AND DELETE_AT = 'N'	
+	</update>
+</mapper>

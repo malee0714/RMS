@@ -1,0 +1,655 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.test.dao.ResultInputMDao">
+
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+
+	<select id="getReqestListSch" parameterType="lims.test.vo.ResultInputMVo" resultType="lims.test.vo.ResultInputMVo">
+		SELECT
+			IR.REQEST_SEQNO
+			, IR.REQEST_DEPT_CODE
+			, SII.INSPCT_INSTT_NM AS REQEST_DEPT_CODE_NM
+			, IR.CLIENT_ID
+			, SU.USER_NM AS CLIENT_NM
+			, IR.REQEST_DTE
+			, IR.REQEST_NO
+			, IR.INSPCT_TY_CODE
+			, SCC1.CMMN_CODE_NM AS INSPCT_TY_CODE_NM
+			, IR.CUSTLAB_SEQNO
+			, RC.CUSTLAB_NM
+			, SCC2.CMMN_CODE_NM AS PRDUCT_SE_CODE_NM
+			, IR.MTRIL_SEQNO
+			, SM.MTRIL_NM
+			, IR.MNFCTUR_DTE
+			, IR.SPLORE_NM
+			, IR.ELCTC_QY
+			, IR.ELCTC_CN
+			, SE.ENTRPS_NM
+			, IR.PRDUCT_DC
+			, IR.RM
+			, IR.PROGRS_SITTN_CODE
+			, SCC3.CMMN_CODE_NM AS PROGRS_SITTN_CODE_NM
+			, IR.JDGMNT_WORD_CODE
+		FROM IM_REQEST IR
+		JOIN SY_INSPCT_INSTT SII on IR.REQEST_DEPT_CODE = SII.INSPCT_INSTT_CODE
+		JOIN SY_USER SU ON SU.USER_ID = IR.CLIENT_ID AND SU.USE_AT = 'Y' AND SU.DELETE_AT = 'N'
+		LEFT JOIN SY_CMMN_CODE SCC1 ON SCC1.CMMN_CODE = IR.INSPCT_TY_CODE AND SCC1.USE_AT = 'Y'
+		LEFT JOIN RS_CUSTLAB RC ON IR.CUSTLAB_SEQNO = RC.CUSTLAB_SEQNO AND RC.USE_AT = 'Y' AND RC.DELETE_AT = 'N'
+		JOIN SY_MTRIL SM ON IR.MTRIL_SEQNO = SM.MTRIL_SEQNO
+		LEFT JOIN SY_CMMN_CODE SCC2 ON SCC2.CMMN_CODE = SM.PRDUCT_SE_CODE
+		LEFT JOIN SY_ENTRPS SE ON SE.ENTRPS_SEQNO = IR.ENTRPS_SEQNO
+		LEFT JOIN SY_CMMN_CODE SCC3 ON SCC3.CMMN_CODE = IR.PROGRS_SITTN_CODE AND SCC3.USE_AT = 'Y'
+		WHERE SII.DELETE_AT = 'N' AND SII.USE_AT = 'Y'
+		AND IR.BPLC_CODE = <include refid="bplcCode"/>
+		AND IR.PROGRS_SITTN_CODE = #{progrsSittnCode}
+		<if test="custlabSeqno != null and custlabSeqno != ''">
+			AND IR.CUSTLAB_SEQNO = #{custlabSeqno}
+		</if>
+
+        <if test="mtrilNm != null and mtrilNm != ''">
+        	AND SM.MTRIL_NM LIKE '%' || TRIM(#{mtrilNm}) || '%'
+        </if>
+
+        <if test="reqestNo != null and reqestNo != ''">
+        	AND IR.REQEST_NO LIKE '%' || TRIM(#{reqestNo}) || '%'
+        </if>
+
+        <if test="inspctTyCode != null and inspctTyCode != ''">
+        	AND IR.INSPCT_TY_CODE = #{inspctTyCode}
+        </if>
+
+        <if test="reqestBeginDte != null and reqestBeginDte != '' and reqestEndDte != null and reqestEndDte != ''">
+        	AND IR.REQEST_DTE BETWEEN #{reqestBeginDte} AND #{reqestEndDte}
+        </if>
+
+        <if test="mnfcturBeginDte != null and mnfcturBeginDte != '' and mnfcturEndDte != null and mnfcturEndDte != ''">
+        	AND IR.MNFCTUR_DTE BETWEEN #{mnfcturBeginDte} AND #{mnfcturEndDte}
+        </if>
+		ORDER BY IR.MNFCTUR_DTE, IR.REQEST_NO
+	</select>
+
+	<select id="getExpriemListSch" parameterType="lims.test.vo.ResultInputMVo" resultType="lims.test.vo.ResultInputMVo">
+		WITH T AS (SELECT
+		                IRE.*,
+		                IR.MTRIL_SEQNO,
+		                SM.MTRIL_NM,
+		                SU.UNIT_NM,
+		                SE.EXPRIEM_NM,
+		                RE.EQPMN_NM,
+		                IR.ENTRPS_SEQNO,
+		                IR.INSPCT_TY_CODE,
+						IR.REQEST_NO
+		           FROM IM_REQEST IR
+	                LEFT JOIN IM_REQEST_EXPRIEM IRE
+	                   ON IRE.REQEST_SEQNO = IR.REQEST_SEQNO
+	                JOIN SY_EXPRIEM SE
+	                   ON IRE.EXPRIEM_SEQNO = SE.EXPRIEM_SEQNO
+			        LEFT JOIN SY_UNIT SU
+			            ON IRE.UNIT_SEQNO = SU.UNIT_SEQNO
+			        LEFT JOIN RS_EQPMN RE
+                 	    ON IRE.EQPMN_SEQNO = RE.EQPMN_SEQNO
+                 	LEFT JOIN SY_MTRIL SM ON SM.MTRIL_SEQNO = IR.MTRIL_SEQNO
+		           WHERE 1=1 AND IRE.DELETE_AT = 'N' AND SE.EXPRIEM_CL_CODE = 'SY05000001' AND IR.VENDOR_REQEST_AT = 'N'
+		             AND IR.REQEST_SEQNO = #{reqestSeqno}
+                	<if test="progrsSittnCode != null and progrsSittnCode != ''">
+                		AND IRE.PROGRS_SITTN_CODE = #{progrsSittnCode}
+                	</if>
+				)
+		    SELECT
+				T.BPLC_CODE
+				, T.INSPCT_TY_CODE
+				, T.REQEST_SEQNO
+				, T.ENTRPS_SEQNO
+				, T.MTRIL_SEQNO
+				, T.MTRIL_NM
+		        , T.REQEST_NO
+				, T.REQEST_EXPRIEM_SEQNO
+		        , T.PROGRS_SITTN_CODE
+				, IRER.EXPR_ODR
+				, CASE WHEN T.LAST_EXPR_ODR = IRER.EXPR_ODR THEN 'Y' ELSE 'N' END LAST_EXPR_ODR_AT
+				, T.MTRIL_SDSPC_SEQNO
+				, T.EXPRIEM_NM
+				, T.EXPRIEM_SEQNO
+				, T.SDSPC_NM
+				, T.PROGRS_SITTN_CODE
+				, T.LCL_VALUE || ' ~ ' || T.UCL_VALUE AS LCL_UCL
+				, IRER.RESULT_VALUE
+				, IRER.CALC_LAW_SEQNO
+				, IRER.NOMFRM_CN
+				, IRER.VRIABL_ID
+				, IRER.NOMFRM_NM
+				, IRER.RVSOP_CN
+				, IRER.MARK_CPHR
+				, IRER.RVSOP_CPHR_RANDOM_CREAT_AT
+				, IRER.RDMS_DOC_NO
+				, IRER.RDMS_REGIST_AT
+				, TO_CHAR(TO_DATE(T.LAST_RESULT_REGIST_DTE), 'YYYY-MM-DD') AS RESULT_REGIST_DTE
+				, T.UNIT_NM
+				, T.UNIT_SEQNO
+				, T.EQPMN_NM
+				, T.EQPMN_SEQNO
+				, T.JDGMNT_FOM_CODE
+				, T.LCL_VALUE
+				, T.LCL_VALUE_SE_CODE
+				, T.UCL_VALUE
+				, T.UCL_VALUE_SE_CODE
+				, T.TEXT_STDR
+				, IRER.DELETE_AT
+				, IRER.LAS_REGIST_AT
+				, IRER.JDGMNT_WORD_CODE
+		    FROM T
+			JOIN (
+				SELECT
+				IIRER.*,
+				INV.RDMS_UUID NOMFRM_UUID,
+				INV.UPDT_RDMS_DOC_NO NOMFRM_RDMS_DOC_NO
+				FROM IM_REQEST_EXPRIEM_RESULT IIRER
+				LEFT JOIN IM_REQEST_EXPRIEM_VRIABL INV ON INV.REQEST_EXPRIEM_SEQNO = IIRER.REQEST_EXPRIEM_SEQNO AND INV.EXPR_ODR = IIRER.EXPR_ODR AND INV.VRIABL_ID = IIRER.VRIABL_ID
+				JOIN IM_REQEST_EXPRIEM IIRE ON IIRE.REQEST_EXPRIEM_SEQNO = IIRER.REQEST_EXPRIEM_sEQNO
+				WHERE IIRER.DELETE_AT = 'N' AND IIRE.REQEST_SEQNO = #{reqestSeqno}
+			) IRER
+			ON T.REQEST_EXPRIEM_SEQNO = IRER.REQEST_EXPRIEM_SEQNO
+			<if test='showExpriemSch == "N"'>
+				AND T.LAST_EXPR_ODR = IRER.EXPR_ODR
+			</if>
+		   WHERE 1 = 1
+		ORDER BY IRER.EXPR_ODR DESC, T.SORT_ORDR
+	</select>
+
+	<select id="getExpriemCalcNomfrm" parameterType="lims.test.vo.ResultInputMVo" resultType="lims.test.vo.ResultInputMVo">
+		SELECT
+		    VRIABL_ID,
+		    VRIABL_NM,
+		    VRIABL_UNIT_NM,
+		    BASS_VALUE,
+		    VRIABL_DC,
+		    VRIABL_VALUE,
+		    QC_VRIABL_VALUE,
+		    MARK_CPHR,
+		    RDMS_CNTC_AT,
+		    DATA_CHANGE_AT,
+		    LAS_CNTC_AT,
+		    LAS_REGIST_AT,
+		    RDMS_DOC_NO
+		FROM
+		IM_REQEST_EXPRIEM_VRIABL
+		WHERE REQEST_EXPRIEM_SEQNO  = #{reqestExpriemSeqno} AND EXPR_ODR = #{exprOdr} AND DELETE_AT = 'N'
+	</select>
+
+	<update id="updateExpriemResult" parameterType="lims.test.vo.ResultInputMVo">
+			UPDATE IM_REQEST_EXPRIEM_RESULT SET
+				CALC_LAW_SEQNO = #{calcLawSeqno},
+				NOMFRM_NM = #{nomfrmNm},
+				NOMFRM_CN = #{nomfrmCn},
+				RVSOP_CN = #{rvsopCn},
+				RESULT_VALUE = #{resultValue},
+				MARK_VALUE = #{resultValue},
+				MARK_CPHR = #{markCphr},
+				RESULT_REGISTER_ID = CASE WHEN (RDMS_DOC_NO IS NOT NULL OR LAS_REGIST_AT = 'Y') THEN RESULT_REGISTER_ID ELSE TO_NUMBER('${@lims.util.GetUserSession@getUserId()}') END,
+				RESULT_REGIST_DTE = CASE WHEN (RDMS_DOC_NO IS NOT NULL OR LAS_REGIST_AT = 'Y') THEN RESULT_REGIST_DTE ELSE NVL(TO_CHAR(TO_DATE(#{resultRegistDte}), 'YYYY-MM-DD'),TO_CHAR(SYSDATE,'YYYY-MM-DD')) END,
+				JDGMNT_WORD_CODE = #{jdgmntWordCode},
+				VRIABL_ID = #{vriablId},
+				QC_RESULT_VALUE = #{resultValue},
+				QC_MARK_VALUE = #{resultValue},
+				QC_RESULT_REGIST_DTE = CASE WHEN (RDMS_DOC_NO IS NOT NULL OR LAS_REGIST_AT = 'Y') THEN RESULT_REGIST_DTE ELSE NVL(TO_CHAR(TO_DATE(#{resultRegistDte}), 'YYYY-MM-DD'),TO_CHAR(SYSDATE,'YYYY-MM-DD')) END,
+				QC_RESULT_REGISTER_ID = CASE WHEN (RDMS_DOC_NO IS NOT NULL OR LAS_REGIST_AT = 'Y') THEN QC_RESULT_REGISTER_ID ELSE TO_NUMBER('${@lims.util.GetUserSession@getUserId()}') END,
+				RVSOP_CPHR_RANDOM_CREAT_AT = NVL(#{rvsopCphrRandomCreatAt},'N'),
+				LAST_CHANGER_ID = CASE WHEN (RDMS_DOC_NO IS NOT NULL OR LAS_REGIST_AT = 'Y') THEN LAST_CHANGER_ID ELSE '${@lims.util.GetUserSession@getUserId()}' END,
+				LAST_CHANGE_DT = SYSDATE
+			WHERE REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno} AND EXPR_ODR = #{exprOdr} AND DELETE_AT = 'N'
+	</update>
+
+	<update id="updateExpriem" parameterType="lims.test.vo.ResultInputMVo">
+		<selectKey keyProperty="progrsSittnCode" resultType="lims.test.vo.ResultInputMVo" order="AFTER">
+			<!-- updateExpriem 쿼리 다음 로직에 사용하기 위해서 selectkey사용하는거임. -->
+			SELECT PROGRS_SITTN_CODE FROM IM_REQEST_EXPRIEM IRE
+			WHERE IRE.REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno} AND DELETE_AT = 'N'
+		</selectKey>
+
+			UPDATE IM_REQEST_EXPRIEM IRE SET
+				<!-- IRE.PROGRS_SITTN_CODE = (SELECT DECODE(COUNT(*),0,'IM03000004','IM03000003') FROM IM_REQEST_EXPRIEM_RESULT IIRER
+									WHERE IIRER.REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno} AND IIRER.EXPR_ODR = #{exprOdr} AND IIRER.RESULT_VALUE IS NULL AND IIRER.DELETE_AT = 'N'), -->
+				JDGMNT_WORD_CODE = (SELECT CASE
+									          WHEN JDGMNT_WORD_CODE2 > 0 THEN 'IM05000002'
+									          WHEN JDGMNT_WORD_CODE1 > 0 THEN 'IM05000001'
+									          WHEN JDGMNT_WORD_CODE3 > 0 THEN 'IM05000003'
+									           END
+									  FROM (SELECT NVL (SUM (CASE WHEN JDGMNT_WORD_CODE = 'IM05000001' THEN '1' END),0)
+									                  JDGMNT_WORD_CODE1,
+									               NVL (SUM (CASE WHEN JDGMNT_WORD_CODE = 'IM05000002' THEN '1' END),0)
+									                  JDGMNT_WORD_CODE2,
+									               NVL (SUM (CASE WHEN JDGMNT_WORD_CODE = 'IM05000003' THEN '1' END),0)
+									                  JDGMNT_WORD_CODE3
+									          FROM IM_REQEST_EXPRIEM_RESULT
+									         WHERE REQEST_eXPRIEM_SEQNO = #{reqestExpriemSeqno} AND EXPR_ODR = #{exprOdr} AND DELETE_AT = 'N') ),
+				IRE.LAST_RESULT_REGISTER_ID = TO_NUMBER('${@lims.util.GetUserSession@getUserId()}'),
+				IRE.LAST_RESULT_REGIST_DTE = NVL(TO_CHAR(TO_DATE(#{resultRegistDte}), 'YYYY-MM-DD'),TO_CHAR(SYSDATE,'YYYY-MM-DD')),
+				IRE.LAST_QC_RESULT_REGISTER_ID = TO_NUMBER('${@lims.util.GetUserSession@getUserId()}'),
+				IRE.LAST_QC_RESULT_REGIST_DTE = NVL(TO_CHAR(TO_DATE(#{resultRegistDte}), 'YYYY-MM-DD'),TO_CHAR(SYSDATE,'YYYY-MM-DD')),
+				IRE.UNIT_SEQNO = #{unitSeqno},
+				IRE.EQPMN_SEQNO = #{eqpmnSeqno}
+			WHERE IRE.REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno} AND IRE.DELETE_AT = 'N'
+	</update>
+
+	<!-- 계산식이 있는 시험항목이면 업데이트 없으면 인서트 쿼리 -->
+	<insert id="insertNomfrmInfo" parameterType="lims.test.vo.ResultInputMVo">
+			MERGE
+		    INTO IM_REQEST_EXPRIEM_VRIABL IREV
+		    USING DUAL DUAL
+		    ON (IREV.REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno} AND IREV.EXPR_ODR = #{exprOdr} AND IREV.VRIABL_ID = #{vriablId} AND IREV.DELETE_AT = 'N')
+		    WHEN MATCHED THEN
+		        UPDATE SET
+		            IREV.VRIABL_VALUE = #{vriablValue},
+		            IREV.QC_VRIABL_VALUE = NVL(QC_VRIABL_VALUE, NVL(#{vriablValue}, #{qcVriablValue})),
+		            IREV.LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}',
+		            IREV.LAST_CHANGE_DT = SYSDATE
+		    WHEN NOT MATCHED THEN
+		            INSERT
+		            (
+		                IREV.REQEST_EXPRIEM_SEQNO,
+		                IREV.EXPR_ODR,
+		             	IREV.BPLC_CODE,
+		                IREV.VRIABL_ID,
+		                IREV.VRIABL_NM,
+		                IREV.VRIABL_UNIT_NM,
+		                IREV.BASS_VALUE,
+		                IREV.VRIABL_DC,
+		                IREV.MARK_CPHR,
+		                IREV.RDMS_CNTC_AT,
+		                IREV.LAS_CNTC_AT,
+		                IREV.DATA_CHANGE_AT,
+		                IREV.VRIABL_VALUE,
+		                IREV.QC_VRIABL_VALUE,
+		                IREV.LAST_CHANGER_ID,
+		                IREV.LAST_CHANGE_DT
+		            )VALUES(
+		                #{reqestExpriemSeqno},
+		                #{exprOdr},
+						<include refid="bplcCode"/>,
+		                #{vriablId},
+		                #{vriablNm},
+		                #{vriablUnitNm},
+		                #{bassValue},
+		                #{vriablDc},
+		                #{markCphr},
+		                #{rdmsCntcAt},
+		                #{lasCntcAt},
+		                #{dataChangeAt},
+		                #{vriablValue},
+		                NVL(#{vriablValue},#{qcVriablValue}),
+		                '${@lims.util.GetUserSession@getUserId()}',
+		                SYSDATE
+
+		            )
+
+
+	</insert>
+
+	<update id="returnExpriem" parameterType="lims.test.vo.ResultInputMVo">
+		BEGIN
+			UPDATE IM_REQEST_EXPRIEM SET
+				PROGRS_SITTN_CODE = 'IM03000003'
+			WHERE REQEST_SEQNO = #{reqestSeqno} AND DELETE_AT = 'N';
+
+           	UPDATE IM_REQEST IR SET
+           		IR.PROGRS_SITTN_CODE = (SELECT MIN(IRE.PROGRS_SITTN_CODE) FROM IM_REQEST_EXPRIEM IRE WHERE IRE.REQEST_SEQNO = IR.REQEST_SEQNO)
+           	WHERE IR.REQEST_SEQNO = #{reqestSeqno}
+           	AND IR.DELETE_AT = 'N';
+		END;
+	</update>
+
+
+	<select id="checkReqestProGrs" parameterType="lims.test.vo.ResultInputMVo" resultType="String">
+		SELECT
+			PROGRS_SITTN_CODE
+		FROM IM_REQEST
+		WHERE 1=1
+			AND REQEST_SEQNO = #{reqestSeqno} AND DELETE_AT = 'N'
+	</select>
+
+	<insert id="insertNCRReport" parameterType="lims.qa.vo.NCRReportMVo">
+		<selectKey keyProperty="ncrSeqno,ncrNo" resultType="lims.qa.vo.NCRReportMVo" order="BEFORE">
+			SELECT
+				SQ_RS_NCR.NEXTVAL ncrSeqno
+			FROM DUAL
+		</selectKey>
+        INSERT INTO RS_NCR(
+			NCR_SEQNO
+			,BPLC_CODE
+			,CHRG_DEPT_CODE
+			,REQEST_SEQNO
+			,PRDUCT_NM
+			,OCCRRNC_DTE
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) SELECT
+			#{ncrSeqno}
+		    , <include refid="bplcCode"/>
+			, IR.REQEST_DEPT_CODE
+		    , IR.REQEST_SEQNO
+		    , SM.MTRIL_NM
+		    , SYSDATE
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+		FROM IM_REQEST IR
+		JOIN SY_MTRIL SM ON IR.MTRIL_SEQNO = SM.MTRIL_sEQNO
+		LEFT JOIN SY_ENTRPS SE ON SE.ENTRPS_SEQNO = IR.ENTRPS_SEQNO AND SE.DELETE_AT = 'N' AND SE.USE_AT = 'Y'
+		WHERE IR.REQEST_SEQNO = #{reqestSeqno} AND IR.DELETE_AT = 'N' AND SM.USE_AT = 'Y' AND SM.DELETE_AT = 'N'
+	</insert>
+
+	<insert id="insertNCRDetailReport" parameterType="lims.qa.vo.NCRReportMVo">
+		INSERT INTO RS_NCR_EXPRIEM
+		(
+			NCR_SEQNO
+			, ORDR
+			, BPLC_CODE
+			, REQEST_EXPRIEM_SEQNO
+			, EXPR_ODR
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		)VALUES(
+			#{ncrSeqno}
+			, (SELECT NVL(MAX(ORDR),0)+1 FROM RS_NCR_EXPRIEM WHERE NCR_SEQNO = #{ncrSeqno})
+			, <include refid="bplcCode"/>
+			, #{reqestExpriemSeqno}
+			, #{exprOdr}
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+		)
+
+	</insert>
+
+
+	<!-- 재분석 쿼리 모음 -->
+
+
+
+	<update id="insReReqest" parameterType="lims.test.vo.ResultInputMVo">
+		UPDATE IM_REQEST IR
+		SET
+			IR.PROGRS_SITTN_cODE = 'IM03000003'
+			, IR.REREQEST_NUM = (NVL(IR.REREQEST_NUM,0)+1)
+			, IR.LOCK_AT = 'N'
+			, ROA_CREAT_AT = 'N'
+			, LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE REQEST_SEQNO = #{reqestSeqno} AND IR.DELETE_AT = 'N'
+	</update>
+
+	<update id="insReExpriem" parameterType="lims.test.vo.ResultInputMVo">
+		UPDATE IM_REQEST_EXPRIEM IRE
+		SET
+			IRE.LAST_EXPR_ODR = (SELECT NVL(IIRE.REREQEST_NUM,0) FROM IM_REQEST IIRE WHERE IIRE.REQEST_SEQNO = IRE.REQEST_SEQNO AND IIRE.DELETE_AT = 'N')
+			, IRE.PROGRS_SITTN_CODE = 'IM03000003'
+			, LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE IRE.REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno} AND IRE.DELETE_AT = 'N'
+	</update>
+
+	<insert id="insReExpriemResult" parameterType="lims.test.vo.ResultInputMVo">
+		INSERT INTO IM_REQEST_EXPRIEM_RESULT(
+			REQEST_EXPRIEM_SEQNO,
+			EXPR_ODR,
+			BPLC_CODE,
+			CALC_LAW_SEQNO,
+			NOMFRM_NM,
+			NOMFRM_CN,
+			RVSOP_CN,
+			VRIABL_ID,
+			RESULT_VALUE,
+			MARK_VALUE,
+			RESULT_REGISTER_ID,
+			RESULT_REGIST_DTE,
+			QC_RESULT_VALUE,
+			QC_MARK_VALUE,
+			MARK_CPHR,
+			QC_RESULT_REGISTER_ID,
+			QC_RESULT_REGIST_DTE,
+			JDGMNT_WORD_CODE,
+			RDMS_UUID,
+			RDMS_DOC_NO,
+			UPDT_RDMS_DOC_NO,
+			LAS_REGIST_AT,
+			LAS_CN,
+			REAL_ANALS_AT,
+			REAL_ANALS_DT,
+			ORGINL_RDMS_DOC_NO,
+			ORGINL_UPDT_RDMS_DOC_NO,
+			LAST_RESULT_INPUT_AT,
+			DELETE_AT,
+			LAST_CHANGER_ID,
+			LAST_CHANGE_DT,
+			RVSOP_CPHR_RANDOM_CREAT_AT,
+			RDMS_REGIST_AT
+		)
+		SELECT
+			IRE.REQEST_EXPRIEM_SEQNO,
+			IRE.LAST_EXPR_ODR,
+			IRER.BPLC_CODE,
+			IRER.CALC_LAW_SEQNO,
+			IRER.NOMFRM_NM,
+			IRER.NOMFRM_CN,
+			IRER.RVSOP_CN,
+			IRER.VRIABL_ID,
+			IRER.RESULT_VALUE,
+			IRER.MARK_VALUE,
+			IRER.RESULT_REGISTER_ID,
+			IRER.RESULT_REGIST_DTE,
+			IRER.QC_RESULT_VALUE,
+			IRER.QC_MARK_VALUE,
+			IRER.MARK_CPHR,
+			IRER.QC_RESULT_REGISTER_ID,
+			IRER.QC_RESULT_REGIST_DTE,
+			IRER.JDGMNT_WORD_CODE,
+			IRER.RDMS_UUID,
+			IRER.RDMS_DOC_NO,
+			IRER.UPDT_RDMS_DOC_NO,
+			IRER.LAS_REGIST_AT,
+			IRER.LAS_CN,
+			IRER.REAL_ANALS_AT,
+			IRER.REAL_ANALS_DT,
+			IRER.ORGINL_RDMS_DOC_NO,
+			IRER.ORGINL_UPDT_RDMS_DOC_NO,
+			IRER.LAST_RESULT_INPUT_AT,
+			IRER.DELETE_AT,
+			'${@lims.util.GetUserSession@getUserId()}',
+			SYSDATE,
+			IRER.RVSOP_CPHR_RANDOM_CREAT_AT,
+			IRER.RDMS_REGIST_AT
+		FROM IM_REQEST_EXPRIEM_RESULT IRER
+		JOIN IM_REQEST_EXPRIEM IRE ON IRER.REQEST_EXPRIEM_SEQNO = IRE.REQEST_EXPRIEM_SEQNO
+			AND IRER.EXPR_ODR = (SELECT MAX(EXPR_ODR) FROM IM_REQEST_EXPRIEM_RESULT IA WHERE IA.REQEST_EXPRIEM_SEQNO = IRER.REQEST_EXPRIEM_SEQNO AND IA.DELETE_AT = 'N')
+		WHERE IRE.REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno} AND IRE.DELETE_AT = 'N'
+	</insert>
+
+	<insert id="insReExpriemResultNomfrm" parameterType="lims.test.vo.ResultInputMVo">
+		INSERT INTO IM_REQEST_EXPRIEM_VRIABL(
+			REQEST_EXPRIEM_SEQNO,
+			EXPR_ODR,
+			BPLC_CODE,
+			VRIABL_ID,
+			VRIABL_NM,
+			VRIABL_UNIT_NM,
+			BASS_VALUE,
+			VRIABL_DC,
+			MARK_CPHR,
+			RDMS_CNTC_AT,
+			LAS_CNTC_AT,
+			VRIABL_VALUE,
+			QC_VRIABL_VALUE,
+			LAS_REGIST_AT,
+			LAS_CN,
+			REAL_ANALS_AT,
+			REAL_ANALS_DT,
+<!-- 			RDMS_REGIST_AT, -->
+			RDMS_UUID,
+			RDMS_DOC_NO,
+			UPDT_RDMS_DOC_NO,
+			ORGINL_RDMS_DOC_NO,
+			ORGINL_UPDT_RDMS_DOC_NO,
+			DATA_CHANGE_AT,
+			DELETE_AT,
+			LAST_CHANGER_ID,
+			LAST_CHANGE_DT
+		) SELECT
+			IRERV.REQEST_EXPRIEM_SEQNO,
+			IRE.LAST_EXPR_ODR,
+			<include refid="bplcCode"/>,
+			IRERV.VRIABL_ID,
+			IRERV.VRIABL_NM,
+			IRERV.VRIABL_UNIT_NM,
+			IRERV.BASS_VALUE,
+			IRERV.VRIABL_DC,
+			IRERV.MARK_CPHR,
+			IRERV.RDMS_CNTC_AT,
+			IRERV.LAS_CNTC_AT,
+			IRERV.VRIABL_VALUE,
+			IRERV.QC_VRIABL_VALUE,
+			IRERV.LAS_REGIST_AT,
+			IRERV.LAS_CN,
+			IRERV.REAL_ANALS_AT,
+			IRERV.REAL_ANALS_DT,
+<!-- 			IRERV.RDMS_REGIST_AT, -->
+			IRERV.RDMS_UUID,
+			IRERV.RDMS_DOC_NO,
+			IRERV.UPDT_RDMS_DOC_NO,
+			IRERV.ORGINL_RDMS_DOC_NO,
+			IRERV.ORGINL_UPDT_RDMS_DOC_NO,
+			IRERV.DATA_CHANGE_AT,
+			IRERV.DELETE_AT,
+			'${@lims.util.GetUserSession@getUserId()}',
+			SYSDATE
+		FROM IM_REQEST_EXPRIEM_VRIABL IRERV
+		JOIN IM_REQEST_EXPRIEM IRE ON IRERV.REQEST_EXPRIEM_SEQNO = IRE.REQEST_EXPRIEM_SEQNO
+		AND IRERV.EXPR_ODR = (SELECT MAX(EXPR_ODR) FROM IM_REQEST_EXPRIEM_VRIABL IA WHERE IA.REQEST_EXPRIEM_SEQNO = IRERV.REQEST_EXPRIEM_SEQNO AND IA.DELETE_AT = 'N')
+		WHERE IRERV.REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno} AND IRE.DELETE_AT = 'N'
+	</insert>
+
+	<insert id="insertWdtbInfo" parameterType="lims.com.vo.WdtbVo">
+		<selectKey keyProperty="wdtbSeqno" resultType="lims.com.vo.WdtbVo" order="BEFORE">
+			SELECT
+				SQ_CM_WDTB.NEXTVAL wdtbSeqno
+			FROM DUAL
+		</selectKey>
+		INSERT INTO CM_WDTB(
+			WDTB_SEQNO
+			, WDTB_PREARNGE_DT
+			, WDTB_POSBL_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES(
+			#{wdtbSeqno}
+			, SYSDATE
+			, 'Y'
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+		)
+	</insert>
+
+	<insert id="insertWdtbInfoSender" parameterType="lims.com.vo.WdtbVo">
+		INSERT INTO CM_WDTB_TRGTER(
+			WDTB_SEQNO
+			, ORDR
+			, USER_ID
+			, EMAIL_TRNSMIS_AT
+			, CHRCTR_TRNSMIS_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) SELECT
+			#{wdtbSeqno}
+			, ROWNUM
+			, USER_ID
+			, EMAIL_RECPTN_AT
+			, CHRCTR_RECPTN_AT
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+		FROM IM_REQEST IR
+		JOIN SY_MTRIL_NTCN_USER SMNU ON IR.MTRIL_SEQNO = SMNU.MTRIL_SEQNO
+		WHERE IR.REQEST_SEQNO = #{reqestSeqno} AND IR.DELETE_AT = 'N' AND SMNU.DELETE_AT = 'N'
+		<if test='type != null and type.equals("A")'>
+			AND SMNU.ALL_RECPTN_AT = 'Y'
+		</if>
+		<if test='type != null and type.equals("S")'>
+			AND SMNU.DSQLFC_RECPTN_AT = 'Y' AND SMNU.ALL_RECPTN_AT = 'N'
+		</if>
+		<if test='type != null and type.equals("F")'>
+			AND SMNU.PSEXAM_RECPTN_AT = 'Y' AND SMNU.ALL_RECPTN_AT = 'N'
+		</if>
+
+	</insert>
+
+	<select id="getMtrilTarget" parameterType="lims.test.vo.ResultInputMVo" resultType="lims.wrk.vo.PrductMVo">
+		SELECT
+			USER_ID
+			, EMAIL_RECPTN_AT
+			, CHRCTR_RECPTN_AT
+			, PSEXAM_RECPTN_AT
+			, DSQLFC_RECPTN_AT
+			, ALL_RECPTN_AT
+		FROM IM_REQEST IR
+		JOIN SY_MTRIL_NTCN_USER SMNU ON IR.MTRIL_SEQNO = SMNU.MTRIL_SEQNO
+		WHERE IR.REQEST_SEQNO = #{reqestSeqno} AND IR.DELETE_AT = 'N' AND SMNU.DELETE_AT = 'N'
+	</select>
+
+	<update id="completeResultInput" parameterType="lims.test.vo.ResultInputMVo">
+	BEGIN
+		UPDATE IM_REQEST_EXPRIEM A
+		SET A.PROGRS_SITTN_CODE = 'IM03000004',
+		    A.JDGMNT_WORD_CODE = (
+				SELECT
+					CASE WHEN SUM(DECODE(IRE.JDGMNT_WORD_CODE, 'IM05000002',1)) > 0 THEN 'IM05000002'
+						 WHEN SUM(DECODE(IRE.JDGMNT_WORD_CODE, 'IM05000001',1)) > 0 THEN 'IM05000001'
+						 WHEN SUM(DECODE(IRE.JDGMNT_WORD_CODE, 'IM05000003',1)) > 0 THEN 'IM05000003'
+					END
+				FROM IM_REQEST_EXPRIEM_RESULT IRE
+				WHERE IRE.REQEST_EXPRIEM_SEQNO = A.REQEST_EXPRIEM_sEQNO
+		        AND IRE.DELETE_AT = 'N' AND IRE.EXPR_ODR = A.LAST_EXPR_ODR
+			)
+		WHERE A.REQEST_SEQNO = #{reqestSeqno} AND A.PROGRS_SITTN_CODE = 'IM03000003' AND A.DELETE_AT = 'N';
+
+		UPDATE IM_REQEST A
+		SET A.PROGRS_SITTN_CODE = (SELECT
+		                                  MIN(IA.PROGRS_SITTN_CODE)
+									FROM IM_REQEST_EXPRIEM IA
+									WHERE IA.REQEST_SEQNO = A.REQEST_SEQNO
+									AND IA.DELETE_AT = 'N'
+		    ),
+			A.JDGMNT_WORD_CODE = (
+				SELECT
+					CASE WHEN SUM(DECODE(IRE.JDGMNT_WORD_CODE, 'IM05000002',1)) > 0 THEN 'IM05000002'
+						 WHEN SUM(DECODE(IRE.JDGMNT_WORD_CODE, 'IM05000001',1)) > 0 THEN 'IM05000001'
+						 WHEN SUM(DECODE(IRE.JDGMNT_WORD_CODE, 'IM05000003',1)) > 0 THEN 'IM05000003'
+						END
+				FROM IM_REQEST_EXPRIEM IRE
+				WHERE IRE.REQEST_SEQNO = A.REQEST_sEQNO
+				  AND IRE.DELETE_AT = 'N'
+			)
+		WHERE A.REQEST_SEQNO = #{reqestSeqno} AND A.PROGRS_SITTN_CODE = 'IM03000003';
+	END;
+	</update>
+
+	<update id="updateRequestProcess" parameterType="lims.test.vo.ResultInputMVo">
+		UPDATE IM_REQEST A
+		SET A.JDGMNT_WORD_CODE = (
+			SELECT DECODE(
+						   SUM(DECODE(IRE.JDGMNT_WORD_CODE, 'IM05000002', 1,0))
+			    			, '0'
+			    			, ''
+			    			, 'IM05000002'
+					   )
+			FROM IM_REQEST_EXPRIEM IRE
+			WHERE IRE.REQEST_SEQNO = A.REQEST_sEQNO
+			  AND IRE.DELETE_AT = 'N'
+		)
+		WHERE A.REQEST_SEQNO = #{reqestSeqno}
+		  AND A.PROGRS_SITTN_CODE = 'IM03000003'
+	</update>
+
+	<select id="checkDuplicateNcrExpriem" parameterType="lims.qa.vo.NCRReportMVo" resultType="lims.qa.vo.NCRReportMVo">
+		SELECT
+			*
+		FROM RS_NCR_EXPRIEM A
+		WHERE A.REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno}
+		AND A.EXPR_ODR = #{exprOdr}
+	</select>
+</mapper>

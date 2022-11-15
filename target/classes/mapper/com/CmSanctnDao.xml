@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.com.dao.CmSanctnDao">
+	
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	
+	<insert id="insertCmCn">
+		<selectKey keyProperty="cnSeqno" resultType="lims.com.vo.CmCn" order="AFTER">
+			SELECT SQ_CM_CN.CURRVAL as cnSeqno FROM DUAL
+		</selectKey>
+		INSERT INTO CM_CN( 
+			CN_SEQNO
+			,SJ
+			,CN
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		)
+		VALUES (
+			SQ_CM_CN.NEXTVAL
+		    , #{sj}
+		    , #{cn}
+		    , 'N'
+			, <include refid="loginId"/>
+			, SYSDATE
+		)
+	</insert>
+	
+	<insert id="insertSanctn" parameterType="lims.com.vo.CmSanctn">
+		<selectKey keyProperty="sanctnSeqno" resultType="lims.com.vo.CmSanctn" order="AFTER">
+			SELECT SQ_CM_SANCTN.CURRVAL as sanctnSeqno FROM DUAL
+		</selectKey>
+		INSERT INTO CM_SANCTN( 
+			SANCTN_SEQNO
+			, SANCTN_KND_CODE
+			, SANCTN_PROGRS_SITTN_CODE
+			, SANCTN_RECOMMAN_ID
+			, SANCTN_RECOM_DTE
+			, USE_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+			, CN_SEQNO
+		)
+		VALUES (
+			SQ_CM_SANCTN.NEXTVAL
+			, #{sanctnKndCode}
+			, 'CM01000001' /* 작성중 */
+			, <include refid="loginId"/>
+			, TO_CHAR(SYSDATE, 'YYYY-MM-DD')
+			, 'Y'
+			, <include refid="loginId"/>
+			, SYSDATE
+			, #{cnSeqno}
+		)
+	</insert>
+	
+	<insert id="updateSanctn" parameterType="lims.com.vo.CmSanctn">
+		UPDATE CM_SANCTN SET 
+			CN_SEQNO = #{cnSeqno},
+			LAST_CHANGER_ID = <include refid="loginId"/>, 
+			LAST_CHANGE_DT = SYSDATE
+		WHERE SANCTN_SEQNO = #{sanctnSeqno}
+	</insert>
+	
+	<update id="approvalRequestSanctnInfo" parameterType="lims.com.vo.CmSanctn">
+		/* 결재자 결재 진행상황 */
+		UPDATE CM_SANCTN_INFO A SET
+		    A.SANCTN_PROGRS_SITTN_CODE = ( 
+		        CASE 
+		            WHEN A.SANCTN_ORDR = 1 THEN 'CM01000002' 
+		            WHEN A.SANCTN_ORDR > 1 THEN 'CM01000003'
+		            ELSE 'CM01000003'
+		        END
+		    ),
+			A.LAST_CHANGER_ID = <include refid="loginId"/>, 
+			A.LAST_CHANGE_DT = SYSDATE
+		WHERE A.SANCTN_SEQNO = #{sanctnSeqno}
+	</update>
+	
+	<update id="approvalRequest" parameterType="lims.com.vo.CmSanctn">
+		UPDATE CM_SANCTN SET
+			SANCTN_PROGRS_SITTN_CODE = (
+			    SELECT  MIN(IA.SANCTN_PROGRS_SITTN_CODE)
+			    FROM CM_SANCTN_INFO IA
+			    WHERE IA.SANCTN_SEQNO = #{sanctnSeqno}
+			      AND IA.USE_AT = 'Y'
+			),
+            LAST_CHANGER_ID = <include refid="loginId"/>, 
+	        LAST_CHANGE_DT = SYSDATE
+		WHERE SANCTN_SEQNO = #{sanctnSeqno}
+	</update>
+	
+	<update id="updateTotalSanctnUserCount" parameterType="lims.com.vo.CmSanctn">
+		UPDATE CM_SANCTN_INFO SET 
+           TOT_SANCTNER_CO = (
+               SELECT   COUNT(IA.SANCTN_SEQNO)
+               FROM CM_SANCTN_INFO IA
+               WHERE IA.USE_AT = 'Y'
+                 AND IA.SANCTN_SEQNO = #{sanctnSeqno} 
+           )
+		WHERE SANCTN_SEQNO = #{sanctnSeqno}
+	</update>
+	
+	<update id="revert" parameterType="lims.com.vo.CmSanctn">
+		UPDATE CM_SANCTN SET 
+			SANCTN_PROGRS_SITTN_CODE = 'CM01000001',
+			LAST_CHANGER_ID = <include refid="loginId"/>, 
+			LAST_CHANGE_DT = SYSDATE
+		WHERE SANCTN_SEQNO = #{sanctnSeqno}
+	</update>
+
+	<delete id="deleteSanctnInfo" parameterType="lims.com.vo.CmSanctn">
+		DELETE FROM CM_SANCTN_INFO WHERE SANCTN_SEQNO = #{sanctnSeqno}
+	</delete>
+	
+	<select id="getSanctn" resultType="lims.com.vo.CmSanctn" parameterType="lims.com.vo.CmSanctn">
+		SELECT * FROM CM_SANCTN A WHERE A.SANCTN_SEQNO = #{sanctnSeqno} AND A.USE_AT = 'Y'
+	</select>
+
+	<insert id="insertSanctnInfo" parameterType="lims.com.vo.CmSanctnInfo">
+		<selectKey keyProperty="ordr" resultType="lims.com.vo.CmSanctnInfo" order="BEFORE">
+			SELECT COUNT(ORDR) + 1 as ordr 
+			FROM CM_SANCTN_INFO
+			WHERE SANCTN_SEQNO = #{sanctnSeqno}
+			  AND ORDR IS NOT NULL
+			  AND USE_AT = 'Y'
+		</selectKey>
+		INSERT INTO CM_SANCTN_INFO (
+			SANCTN_SEQNO
+			, ORDR
+			, TOT_SANCTNER_CO
+			, SANCTN_ORDR
+			, SANCTN_SE_CODE
+			, SANCTN_PROGRS_SITTN_CODE
+			, SANCTNER_ID
+			, USE_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		)
+		VALUES ( 
+			#{sanctnSeqno}
+			, #{ordr}
+			, #{ordr}
+			, #{ordr}
+			, 'CM02000003'
+		<choose>
+			<when test = "ordr == 1">
+			, 'CM01000002' /* 결재대기 */
+			</when>
+			<otherwise>
+			, 'CM01000003' /* 결재대기예정 */
+			</otherwise>
+		</choose>
+		    , #{sanctnerId}
+			, 'Y'
+			, <include refid="loginId"/>
+			, SYSDATE
+		)
+	</insert>
+</mapper>

@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.ExcelFormMgmtMDao">
+
+	<select id="getExcelForm" parameterType="lims.wrk.vo.ExcelFormMgmtMVo" resultType="lims.wrk.vo.ExcelFormMgmtMVo">
+		SELECT
+			A.EXCEL_SEQNO
+			, A.EXCEL_FORM_NM
+			, A.EXCEL_FILE_NM
+			, A.HIST_VER
+			, A.SHEET_CHOISE_NM
+			, A.SHEET_PRNTNG_NM
+			, A.DATA
+			, A.RM
+			, A.USE_AT
+			, A.DELETE_AT
+			, A.LAST_CHANGER_ID
+			, A.LAST_CHANGE_DT
+		FROM
+			SY_EXCEL A
+		WHERE
+			A.DELETE_AT = 'N'
+		<if test=" excelFileNmSch != null and excelFileNmSch != '' ">
+			AND
+				UPPER(A.EXCEL_FILE_NM) LIKE '%'||UPPER(#{excelFileNmSch})||'%'
+		</if>
+		<if test=" excelFormNmSch != null and excelFormNmSch != '' ">
+			AND
+				UPPER(A.EXCEL_FORM_NM) LIKE '%'||UPPER(#{excelFormNmSch})||'%'
+		</if>
+		<if test=" useAtSch != null and useAtSch != '' ">
+			AND
+				A.USE_AT = #{useAtSch}
+		</if>
+		ORDER BY
+			A.EXCEL_FILE_NM
+	</select>
+
+	<select id="getExcelInfo" parameterType="lims.wrk.vo.ExcelFormMgmtMVo" resultType="lims.wrk.vo.ExcelFormMgmtMVo">
+		SELECT
+            A.EXCEL_SEQNO
+            , A.CEL_SEQNO
+            , A.CEL_BASS_VALUE
+            , A.CEL_CRDNT
+            , A.CEL_DC
+            , A.USE_AT
+            , A.DELETE_AT
+            , A.LAST_CHANGER_ID
+            , A.LAST_CHANGE_DT
+            , B.EXCEL_FILE_NM
+        FROM
+        	SY_EXCEL_CEL_MANAGE A
+        JOIN
+        	SY_EXCEL B ON A.EXCEL_SEQNO = B.EXCEL_SEQNO
+		WHERE
+			A.DELETE_AT = 'N'
+		AND
+			B.DELETE_AT = 'N'
+		AND
+			A.EXCEL_SEQNO = #{excelSeqno}
+        ORDER BY
+        	CEL_SEQNO
+	</select>
+
+	<insert id="saveExForm" parameterType="HashMap">
+		<selectKey keyProperty="celSeqno" resultType="lims.wrk.vo.ExcelFormMgmtMVo" order="BEFORE">
+			SELECT SQ_SY_EXCEL_CEL_MANAGE.NEXTVAL AS celSeqno FROM DUAL
+		</selectKey>
+		INSERT INTO SY_EXCEL_CEL_MANAGE(
+			EXCEL_SEQNO
+			,CEL_SEQNO
+			,CEL_BASS_VALUE
+			,CEL_CRDNT
+			,CEL_DC
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) VALUES (
+			#{excelSeqno}
+			, #{celSeqno}
+			, #{celBassValue}
+			, #{celCrdnt}
+			, #{celDc}
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+		)
+	</insert>
+
+	<update id="upExForm" parameterType="HashMap">
+		UPDATE SY_EXCEL_CEL_MANAGE
+			SET
+				CEL_BASS_VALUE = #{celBassValue}
+				, CEL_CRDNT = #{celCrdnt}
+				, CEL_DC = #{celDc}
+				, LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+				, LAST_CHANGE_DT = SYSDATE
+			WHERE
+				EXCEL_SEQNO = #{excelSeqno}
+			AND
+				CEL_SEQNO = #{celSeqno}
+	</update>
+
+	<insert id="saveExVer" parameterType="lims.wrk.vo.ExcelFormMgmtMVo">
+		INSERT INTO SY_EXCEL_HIST(
+			EXCEL_SEQNO
+			, HIST_VER
+			, FILE_DATA
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{excelSeqno}
+			, #{histVer}
+			, #{fileData}
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+		)
+	</insert>
+
+	<insert id="saveExFile" parameterType="lims.wrk.vo.ExcelFormMgmtMVo">
+		<selectKey keyProperty="excelSeqno" resultType="lims.wrk.vo.ExcelFormMgmtMVo" order="BEFORE">
+			SELECT NVL(MAX(TO_NUMBER(EXCEL_SEQNO)), 0)+1  AS excelSeqno FROM SY_EXCEL
+		</selectKey>
+		INSERT INTO SY_EXCEL(
+			EXCEL_SEQNO
+			, EXCEL_FORM_NM
+			, EXCEL_FILE_NM
+			, HIST_VER
+			, SHEET_CHOISE_NM
+			, SHEET_PRNTNG_NM
+			, RM
+		    , DATA
+			, USE_AT
+			, DELETE_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{excelSeqno}
+			, #{excelFormNm}
+			, #{excelFileNm}
+			, #{histVer}
+			, #{sheetChoiseNm}
+			, #{sheetPrntngNm}
+			, #{rm}
+		    , #{data}
+			, #{useAt}
+			, 'N'
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+		)
+	</insert>
+
+	<update id="upExFile" parameterType="lims.wrk.vo.ExcelFormMgmtMVo">
+		UPDATE SY_EXCEL
+			SET
+				EXCEL_FORM_NM = #{excelFormNm}
+				, SHEET_CHOISE_NM = #{sheetChoiseNm}
+				, SHEET_PRNTNG_NM = #{sheetPrntngNm}
+				, RM = #{rm}
+				, USE_AT = #{useAt}
+				, LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+				, LAST_CHANGE_DT = SYSDATE
+			WHERE
+				EXCEL_SEQNO = #{excelSeqno}
+	</update>
+
+	<update id="upDataExFile" parameterType="lims.wrk.vo.ExcelFormMgmtMVo">
+		<selectKey keyProperty="histVer" resultType="lims.wrk.vo.ExcelFormMgmtMVo" order="BEFORE">
+			SELECT NVL(HIST_VER, 0) + 1  AS histVer FROM SY_EXCEL WHERE EXCEL_SEQNO = #{excelSeqno}
+		</selectKey>
+		UPDATE SY_EXCEL
+			SET
+				EXCEL_FORM_NM = #{excelFormNm}
+				, EXCEL_FILE_NM = #{excelFileNm}
+				, HIST_VER = #{histVer}
+				, SHEET_CHOISE_NM = #{sheetChoiseNm}
+				, SHEET_PRNTNG_NM = #{sheetPrntngNm}
+				, DATA = #{data}
+				, RM = #{rm}
+				, USE_AT = #{useAt}
+				, LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+				, LAST_CHANGE_DT = SYSDATE
+			WHERE
+				EXCEL_SEQNO = #{excelSeqno}
+	</update>
+
+	<select id="getDownFile" resultType="lims.wrk.vo.ExcelFormMgmtMVo" parameterType="java.util.Map">
+		SELECT
+			EXCEL_SEQNO
+			, EXCEL_FILE_NM
+			, HIST_VER
+			, DATA
+		FROM
+			SY_EXCEL
+		WHERE
+			EXCEL_SEQNO = #{excelSeqno}
+	</select>
+
+	<update id="delCelForm" parameterType="lims.wrk.vo.ExcelFormMgmtMVo">
+		UPDATE SY_EXCEL_CEL_MANAGE
+			SET
+				DELETE_AT = 'Y'
+				, LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+				, LAST_CHANGE_DT = SYSDATE
+			WHERE
+				CEL_SEQNO = #{celSeqno}
+	</update>
+
+</mapper>

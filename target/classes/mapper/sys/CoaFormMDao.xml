@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.sys.dao.CoaFormMDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+
+	<!-- 출력물 관리 조회 -->
+	<select id="getCoaFormMList" parameterType="lims.sys.vo.CoaFormMVo" resultType="lims.sys.vo.CoaFormMVo">
+		SELECT
+			A.PRINTNG_SEQNO
+	        , (SELECT XA.CMMN_CODE_NM FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = A.PRINTNG_SE_CODE) AS PRINTNGSECODENM
+	        , A.PRINTNG_SE_CODE
+	        , A.PRINTNG_NM
+	        , A.PRINTNG_UPLOAD_FILE_NM
+	        , A.PRINTNG_ORGINL_FILE_NM
+	        , A.PRINTNG_COURS
+	        , A.HIST_VER
+	        , A.ENTRPS_SEQNO
+	        , B.ENTRPS_NM AS ENTRPS_SEQNO_NM
+	        , A.MTRIL_SEQNO
+	        , C.MTRIL_NM AS MTRIL_SEQNO_NM
+	        , A.BPLC_CODE
+	        , (SELECT XA.INSPCT_INSTT_NM FROM SY_INSPCT_INSTT XA WHERE XA.INSPCT_INSTT_CODE = A.BPLC_CODE) AS BPLC_CODE_NM
+	        , A.RM
+	        , A.USE_AT
+	        , A.LAST_CHANGER_ID
+	        , A.LAST_CHANGE_DT
+	        , A.DWLD_FILE_SE_CODE
+			, A.CTMMNY_MTRIL_CODE
+			, A.AVRG_APPLC_AT
+		FROM SY_PRINTNG A
+		JOIN SY_ENTRPS B ON B.ENTRPS_SEQNO = A.ENTRPS_SEQNO
+		JOIN SY_MTRIL C ON C.MTRIL_SEQNO = A.MTRIL_SEQNO
+        WHERE A.BPLC_CODE = <include refid="bplcCode"/>
+	  	  AND A.DELETE_AT = 'N'
+		  AND A.PRINTNG_SE_CODE = 'SY15000002'
+		<if test="printngNmSch != null and printngNmSch != ''">
+			AND UPPER(A.PRINTNG_NM) LIKE '%'||UPPER(TRIM(#{printngNmSch}))||'%'
+		</if>
+		<if test="useAtSch != 'all'">
+			AND A.USE_AT = #{useAtSch}
+		</if>
+		<if test="printngUploadFileNmSch != null and printngUploadFileNmSch != ''">
+			AND UPPER(A.PRINTNG_UPLOAD_FILE_NM) LIKE '%'||UPPER(TRIM(#{printngUploadFileNmSch}))||'%'
+		</if>
+		<if test="entrpsNmSch != null and entrpsNmSch != ''">
+			AND UPPER(B.ENTRPS_NM) LIKE '%'||UPPER(TRIM(#{entrpsNmSch}))||'%'
+		</if>
+		<if test="mtrilNmSch != null and mtrilNmSch != ''">
+			AND UPPER(C.MTRIL_NM) LIKE '%'||UPPER(TRIM(#{mtrilNmSch}))||'%'
+		</if>
+		ORDER BY A.PRINTNG_UPLOAD_FILE_NM ASC
+	</select>
+
+	<!-- 출력물 관리 저장  -->
+	<insert id="insCoaFormM" parameterType="lims.sys.vo.CoaFormMVo">
+		<selectKey resultType="string" keyProperty="printngSeqno" order="BEFORE">
+			SELECT SQ_SY_PRINTNG.NEXTVAL AS printngSeqno FROM DUAL
+		</selectKey>
+		INSERT INTO SY_PRINTNG(
+			PRINTNG_SEQNO
+			, PRINTNG_SE_CODE
+			, PRINTNG_NM
+			, PRINTNG_UPLOAD_FILE_NM
+			, PRINTNG_ORGINL_FILE_NM
+			, PRINTNG_COURS
+			, HIST_VER
+			, ENTRPS_SEQNO
+	        , MTRIL_SEQNO
+			, RM
+			, USE_AT
+			, BPLC_CODE
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+			, DWLD_FILE_SE_CODE
+			, CTMMNY_MTRIL_CODE
+			, AVRG_APPLC_AT
+		) VALUES (
+			#{printngSeqno}
+			, 'SY15000002'
+			, #{printngNm}
+			, #{printngUploadFileNm}
+			, #{printngOrginlFileNm}
+			, #{printngCours}
+			, #{histVer}
+			, #{entrpsSeqno}
+	        , #{mtrilSeqno}
+			, #{rm}
+			, #{useAt}
+			, <include refid="bplcCode"/>
+			, <include refid="loginId"/>
+			, SYSDATE
+			, #{dwldFileSeCode}
+			, #{ctmmnyMtrilCode}
+			, #{avrgApplcAt}
+		)
+	</insert>
+
+	<!-- 출력물 관리 수정  -->
+	<update id="updCoaFormM" parameterType="lims.sys.vo.CoaFormMVo">
+		UPDATE SY_PRINTNG
+			SET
+				PRINTNG_NM = #{printngNm}
+				, PRINTNG_UPLOAD_FILE_NM = #{printngUploadFileNm}
+				<if test='histVer != null and histVer != ""'>
+					, PRINTNG_ORGINL_FILE_NM = #{printngOrginlFileNm}
+					, PRINTNG_COURS = #{printngCours}
+					, HIST_VER = #{histVer}
+				</if>
+				, ENTRPS_SEQNO = #{entrpsSeqno}
+	        	, MTRIL_SEQNO = #{mtrilSeqno}
+				, RM = #{rm}
+				, USE_AT = #{useAt}
+				, LAST_CHANGER_ID = <include refid="loginId"/>
+				, LAST_CHANGE_DT = SYSDATE
+				, DWLD_FILE_SE_CODE = #{dwldFileSeCode}
+				, CTMMNY_MTRIL_CODE = #{ctmmnyMtrilCode}
+				, AVRG_APPLC_AT = #{avrgApplcAt}
+		WHERE
+			PRINTNG_SEQNO = #{printngSeqno}
+	</update>
+
+	<insert id="insCoaFormHistM" parameterType="lims.sys.vo.CoaFormMVo">
+		INSERT INTO SY_PRINTNG_HIST (
+			HIST_VER
+			, PRINTNG_SEQNO
+			, PRINTNG_COURS
+			, PRINTNG_UPLOAD_FILE_NM
+			, BPLC_CODE
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{histVer}
+			, #{printngSeqno}
+			, #{printngCours}
+			, #{printngUploadFileNm}
+			, <include refid="bplcCode"/>
+			, <include refid="loginId"/>
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- 출력물 관리 삭제 -->
+	<update id="deleteCoaFormM" parameterType="lims.sys.vo.CoaFormMVo">
+		UPDATE SY_PRINTNG
+			SET
+				DELETE_AT = 'Y'
+		WHERE
+			PRINTNG_SEQNO = #{printngSeqno}
+	</update>
+
+	<!-- 최신 이력버전 조회 -->
+	<select id="getMaxHistVer" parameterType="lims.sys.vo.CoaFormMVo" resultType="int">
+		SELECT NVL(MAX(XA.HIST_VER), 0) + 1 FROM SY_PRINTNG_HIST XA WHERE XA.PRINTNG_SEQNO = #{printngSeqno}
+	</select>
+
+	<select id="getCoaFormSeqnoInfo" parameterType="string" resultType="lims.sys.vo.CoaFormMVo">
+		SELECT
+			A.PRINTNG_SEQNO
+		    , A.PRINTNG_SE_CODE
+		    , A.PRINTNG_NM
+		    , A.PRINTNG_UPLOAD_FILE_NM
+		    , A.PRINTNG_ORGINL_FILE_NM
+		    , A.PRINTNG_COURS
+		    , A.HIST_VER
+		    , A.ENTRPS_SEQNO
+		    , A.MTRIL_SEQNO
+		    , A.RM
+		    , A.USE_AT
+		    , A.DELETE_AT
+		    , A.LAST_CHANGER_ID
+		    , A.LAST_CHANGE_DT
+			, A.CTMMNY_MTRIL_CODE
+			, A.AVRG_APPLC_AT
+	    FROM SY_PRINTNG A
+		WHERE A.PRINTNG_SEQNO = #{printngSeqno}
+	</select>
+
+</mapper>

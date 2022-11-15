@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.test.dao.LotTraceMDao">
+
+    <sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+    <sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+
+    <select id="getLotTraceList" parameterType="lims.test.vo.LotTraceMVo" resultType="lims.test.vo.LotTraceMVo">
+        SELECT
+            A.REQEST_SEQNO
+            , A.REQEST_NO
+            , C.MTRIL_SEQNO
+            , B.LOT_NO
+            , B.LOT_NO_SEQNO
+            , A.SPLORE_NM
+            , A.REQEST_DEPT_CODE
+            , D.INSPCT_INSTT_NM AS REQEST_DEPT_NM
+            , A.CLIENT_ID
+            , E.USER_NM AS CLIENT_NM
+            , A.REQEST_DTE
+            , A.INSPCT_TY_CODE
+            , (SELECT XA.CMMN_CODE_NM FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = A.INSPCT_TY_CODE) AS INSPCT_TY_CODE_NM
+            , A.CUSTLAB_SEQNO
+            , C.PRDUCT_SE_CODE
+            , (SELECT XA.CMMN_CODE_NM FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = C.PRDUCT_SE_CODE) AS PRDUCT_SE_CODE_NM
+            , C.MTRIL_NM
+            , A.MNFCTUR_DTE
+            , A.RM
+            , F.CUSTLAB_NM
+        FROM IM_REQEST A
+        LEFT JOIN IM_LOT_NO B ON A.LOT_NO_SEQNO = B.LOT_NO_SEQNO
+        LEFT JOIN SY_MTRIL C ON A.MTRIL_SEQNO = C.MTRIL_SEQNO
+        LEFT JOIN SY_INSPCT_INSTT D ON A.REQEST_DEPT_CODE = D.INSPCT_INSTT_CODE
+        LEFT JOIN SY_USER E ON A.CLIENT_ID = E.USER_ID
+        LEFT JOIN RS_CUSTLAB F ON A.CUSTLAB_SEQNO = F.CUSTLAB_SEQNO
+        WHERE A.BPLC_CODE = <include refid="bplcCode"/>
+          AND A.DELETE_AT = 'N'
+          AND A.INSPCT_TY_CODE = 'SY07000003' <!-- 제품 -->
+        <if test="reqestNoSch != null and reqestNoSch != ''">
+            AND UPPER(A.REQEST_NO) LIKE '%' || TRIM(UPPER(#{reqestNoSch})) || '%'
+        </if>
+        <if test="reqestDeptCodeSch != null and reqestDeptCodeSch !=''">
+            AND	A.REQEST_DEPT_CODE = #{reqestDeptCodeSch}
+        </if>
+        <if test="reqBeginDte != null and reqBeginDte != '' ">
+            AND A.REQEST_DTE <![CDATA[>=]]> #{reqBeginDte}
+        </if>
+        <if test="reqEndDte != null and reqEndDte != '' ">
+            AND A.REQEST_DTE <![CDATA[<=]]> #{reqEndDte}
+        </if>
+    </select>
+
+    <insert id="saveReqTrace" parameterType="lims.test.vo.LotTraceMVo">
+        <selectKey keyProperty="lotNoSeqno" resultType="lims.test.vo.LotTraceMVo" order="BEFORE">
+            SELECT SQ_IM_LOT_NO.NEXTVAL AS lotNoSeqno FROM DUAL
+        </selectKey>
+
+        INSERT INTO IM_LOT_NO (
+            LOT_NO_SEQNO
+            , BPLC_CODE
+            , LOT_NO
+            , AVRG_APPLC_AT
+            , DELETE_AT
+            , LAST_CHANGER_ID
+            , LAST_CHANGE_DT
+        ) VALUES (
+            #{lotNoSeqno}
+            , <include refid="bplcCode"/>
+            , #{lotNo}
+            , NVL(#{avrgApplcAt},'N')
+            , 'N'
+            , <include refid="loginId"/>
+            , SYSDATE
+        )
+    </insert>
+
+    <update id="upReqTrace" parameterType="lims.test.vo.LotTraceMVo">
+        UPDATE IM_LOT_NO SET
+            LOT_NO            = #{lotNo}
+            , BPLC_CODE       = <include refid="bplcCode"/>
+            , LAST_CHANGER_ID = <include refid="loginId"/>
+            , LAST_CHANGE_DT  = SYSDATE
+         WHERE LOT_NO_SEQNO = #{lotNoSeqno}
+    </update>
+
+    <update id="saveReqUp" parameterType="lims.test.vo.LotTraceMVo">
+        UPDATE IM_REQEST SET
+            LOT_NO_SEQNO      = #{lotNoSeqno}
+            , LAST_CHANGER_ID = <include refid="loginId"/>
+            , LAST_CHANGE_DT  = SYSDATE
+         WHERE REQEST_SEQNO = #{reqestSeqno}
+    </update>
+
+    <insert id="saveTrace" parameterType="lims.test.vo.LotTraceMVo">
+        <selectKey keyProperty="ordr" resultType="lims.test.vo.LotTraceMVo" order="BEFORE">
+            SELECT COUNT(ORDR) + 1 AS ordr FROM IM_LOT_NO_REQEST WHERE REQEST_SEQNO = #{mainReqestSeqno}
+        </selectKey>
+
+        INSERT INTO IM_LOT_NO_REQEST (
+            REQEST_SEQNO
+            , ORDR
+            , BPLC_CODE
+            , LWPRT_REQEST_SEQNO
+            , SORT_ORDR
+            , DELETE_AT
+            , LAST_CHANGER_ID
+            , LAST_CHANGE_DT
+        ) VALUES (
+            #{mainReqestSeqno}
+            , #{ordr}
+            , <include refid="bplcCode"/>
+            , #{reqestSeqno}
+            , (SELECT NVL(MAX(SORT_ORDR),0) + 1 FROM IM_LOT_NO_REQEST WHERE REQEST_SEQNO = #{mainReqestSeqno})
+            , 'N'
+            , <include refid="loginId"/>
+            , SYSDATE
+        )
+    </insert>
+
+    <update id="upTrace" parameterType="lims.test.vo.LotTraceMVo">
+        UPDATE IM_LOT_NO_REQEST SET
+            SORT_ORDR         = #{sortOrdr}
+            , BPLC_CODE       = <include refid="bplcCode"/>
+            , LAST_CHANGER_ID = <include refid="loginId"/>
+            , LAST_CHANGE_DT  = SYSDATE
+        WHERE REQEST_SEQNO = #{mainReqestSeqno}
+          AND ORDR = #{ordr}
+    </update>
+
+    <select id="getTraceDetail" parameterType="lims.test.vo.LotTraceMVo" resultType="lims.test.vo.LotTraceMVo">
+        SELECT
+            A.REQEST_SEQNO AS MAIN_REQEST_SEQNO
+            , A.ORDR
+            , A.BPLC_CODE
+            , A.LWPRT_REQEST_SEQNO
+            , A.SORT_ORDR
+            , B.REQEST_SEQNO
+            , B.REQEST_NO
+            , B.SPLORE_NM
+            , B.REQEST_DEPT_CODE
+            , B.CLIENT_ID
+            , B.REQEST_DTE
+            , B.INSPCT_TY_CODE
+            , (SELECT XA.CMMN_CODE_NM FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = B.INSPCT_TY_CODE) AS INSPCT_TY_NM
+            , B.CUSTLAB_SEQNO
+            , B.MNFCTUR_DTE
+            , B.RM
+            , C.MTRIL_SEQNO
+            , C.PRDUCT_SE_CODE
+            , (SELECT XA.CMMN_CODE_NM FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = C.PRDUCT_SE_CODE) AS PRDUCT_TY_NM
+            , C.MTRIL_NM
+            , D.INSPCT_INSTT_NM AS REQEST_DEPT_NM
+            , E.USER_NM AS CLIENT_NM
+            , F.CUSTLAB_NM
+        FROM IM_LOT_NO_REQEST A
+        LEFT JOIN IM_REQEST B ON A.LWPRT_REQEST_SEQNO = B.REQEST_SEQNO
+        LEFT JOIN SY_MTRIL C ON B.MTRIL_SEQNO = C.MTRIL_SEQNO
+        LEFT JOIN SY_INSPCT_INSTT D ON B.REQEST_DEPT_CODE = D.INSPCT_INSTT_CODE
+        LEFT JOIN SY_USER E ON B.CLIENT_ID =  E.USER_ID
+        LEFT JOIN RS_CUSTLAB F ON B.CUSTLAB_SEQNO = F.CUSTLAB_SEQNO
+        WHERE A.BPLC_CODE = <include refid="bplcCode"/>
+          AND A.REQEST_SEQNO = #{reqestSeqno}
+          AND A.DELETE_AT = 'N'
+        ORDER BY SORT_ORDR
+    </select>
+
+    <update id="delLotTrace" parameterType="lims.test.vo.LotTraceMVo">
+        UPDATE IM_LOT_NO_REQEST SET
+            BPLC_CODE         = <include refid="bplcCode"/>
+            , DELETE_AT       = 'Y'
+            , LAST_CHANGER_ID = <include refid="loginId"/>
+            , LAST_CHANGE_DT  = SYSDATE
+        WHERE REQEST_SEQNO = #{mainReqestSeqno}
+          AND ORDR = #{ordr}
+          AND SORT_ORDR =#{sortOrdr}
+    </update>
+</mapper>

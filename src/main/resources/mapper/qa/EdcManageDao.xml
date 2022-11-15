@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.qa.dao.EdcManageDao">
+
+    <sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+    <sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+
+    <!-- 교육목록 조회 -->
+    <select id="getEdcList" parameterType="lims.qa.vo.EdcManageDto" resultType="lims.qa.vo.EdcManageDto">
+        SELECT
+            A.EDC_SEQNO
+            , A.EDC_SE_CODE
+            , FN_GET_CDDTLNM(A.EDC_SE_CODE) EDC_SE_NM
+            , A.EDC_SE_DETAIL_CODE
+            , FN_GET_CDDTLNM(A.EDC_SE_DETAIL_CODE) EDC_SE_DETAIL_NM
+            , A.EDC_SJ
+            , A.EDC_EVL_STDR_CODE
+            , FN_GET_CDDTLNM(A.EDC_EVL_STDR_CODE) EVL_STDR_NM
+            , A.EDC_INSTT_NM
+            , A.EDC_BEGIN_DTE
+            , A.EDC_END_DTE
+            , CASE WHEN C.USER_NM IS NOT NULL
+                   THEN (CASE WHEN B.EDC_USER_CNT > 0
+                              THEN C.USER_NM || ' 외 ' || B.EDC_USER_CNT || '명'
+                              ELSE C.USER_NM END)
+                   ELSE ''
+              END AS EDC_USER
+            , A.NXTTRM_EDC_TRGET_AT
+            , DECODE(A.NXTTRM_EDC_TRGET_AT, 'Y', '대상', 'N', '대상 아님') AS NXT_EDC_TRGET
+            , A.NXTTRM_EDC_DTE
+            , A.INNER_EVLER_AT
+            , DECODE(A.INNER_EVLER_AT, 'Y', '내부', 'N', '외부') AS INNER_EVLER
+            , A.EVLER_NM
+            , A.RM
+            , A.ATCHMNFL_SEQNO
+            , A.EVL_CN
+            , A.DELETE_AT
+        FROM RS_EDC A
+        LEFT JOIN (
+            SELECT
+                IA.EDC_SEQNO
+                , MIN(IA.USER_ID) REP_EDC_USER
+                , COUNT(IA.EDC_USER_SEQNO)-1 EDC_USER_CNT
+            FROM RS_EDC_USER IA
+            LEFT JOIN SY_USER IB ON IB.USER_ID = IA.USER_ID AND IB.USE_AT = 'Y' AND IB.DELETE_AT = 'N'
+            WHERE IA.USE_AT = 'Y'
+              AND IA.DELETE_AT = 'N'
+            GROUP BY IA.EDC_SEQNO
+        ) B ON B.EDC_SEQNO = A.EDC_SEQNO
+        LEFT JOIN SY_USER C ON C.USER_ID = B.REP_EDC_USER
+        WHERE A.BPLC_CODE = <include refid="bplcCode"/>
+          AND A.USE_AT = 'Y'
+          AND A.DELETE_AT = 'N'
+        <if test='schedcSeCode != null and schedcSeCode !=""'>
+            AND A.EDC_SE_CODE = #{schedcSeCode}
+        </if>
+        <if test='schEdcSeDetailCode != null and schEdcSeDetailCode !=""'>
+            AND A.EDC_SE_DETAIL_CODE = #{schEdcSeDetailCode}
+        </if>
+        <if test='schEdcSj != null and schEdcSj !=""'>
+            AND A.EDC_SJ = #{schedcSeCode}
+        </if>
+        <if test='schEdcBeginDte != null and schEdcBeginDte != ""'>
+            <if test='schEdcEndDte != null and schEdcEndDte != ""'>
+                AND A.EDC_BEGIN_DTE BETWEEN #{schEdcBeginDte} AND #{schEdcEndDte}
+            </if>
+
+            <if test='schEdcEndDte == null or schEdcEndDte == ""'>
+                AND A.EDC_BEGIN_DTE <![CDATA[ >= ]]> #{schEdcBeginDte}
+            </if>
+        </if>
+        <if test='schEdcEndDte != null and schEdcEndDte != ""'>
+            <if test='schEdcBeginDte == null or schEdcBeginDte == ""'>
+                AND A.EDC_BEGIN_DTE <![CDATA[ <= ]]> #{schEdcEndDte}
+            </if>
+        </if>
+        ORDER BY A.EDC_SEQNO DESC
+    </select>
+
+    <!-- 교육 등록 -->
+    <insert id="insEdc" parameterType="lims.qa.vo.EdcManageDto">
+        <selectKey keyProperty="edcSeqno" resultType="lims.qa.vo.EdcManageDto" order="BEFORE">
+            SELECT SQ_RS_EDC.NEXTVAL AS edcSeqno FROM DUAL
+        </selectKey>
+
+        INSERT INTO RS_EDC (
+            EDC_SEQNO
+            , BPLC_CODE
+            , EDC_SE_CODE
+            , EDC_SJ
+            , EDC_EVL_STDR_CODE
+            , EDC_INSTT_NM
+            , EDC_BEGIN_DTE
+            , EDC_END_DTE
+            , NXTTRM_EDC_TRGET_AT
+            , NXTTRM_EDC_DTE
+            , INNER_EVLER_AT
+            , EVLER_NM
+            , EVL_CN
+            , RM
+            , ATCHMNFL_SEQNO
+            , USE_AT
+            , DELETE_AT
+            , LAST_CHANGER_ID
+            , LAST_CHANGE_DT
+            , EDC_SE_DETAIL_CODE
+        ) VALUES (
+            #{edcSeqno}
+            , <include refid="bplcCode"/>
+            , #{edcSeCode}
+            , #{edcSj}
+            , #{edcEvlStdrCode}
+            , #{edcInsttNm}
+            , #{edcBeginDte}
+            , #{edcEndDte}
+            , #{nxttrmEdcTrgetAt}
+            , #{nxttrmEdcDte}
+            , #{innerEvlerAt}
+            , #{evlerNm}
+            , #{evlCn}
+            , #{rm}
+            , #{atchmnflSeqno}
+            , 'Y'
+            , 'N'
+            , <include refid="loginId"/>
+            , SYSDATE
+            , #{edcSeDetailCode}
+        )
+    </insert>
+
+    <!-- 교육 수정 -->
+    <update id="updEdc" parameterType="lims.qa.vo.EdcManageDto">
+        UPDATE RS_EDC
+           SET EDC_SE_CODE         = #{edcSeCode}
+             , EDC_SJ              = #{edcSj}
+             , EDC_EVL_STDR_CODE   = #{edcEvlStdrCode}
+             , EDC_INSTT_NM        = #{edcInsttNm}
+             , EDC_BEGIN_DTE       = #{edcBeginDte}
+             , EDC_END_DTE         = #{edcEndDte}
+             , NXTTRM_EDC_TRGET_AT = #{nxttrmEdcTrgetAt}
+             , NXTTRM_EDC_DTE      = #{nxttrmEdcDte}
+             , INNER_EVLER_AT      = #{innerEvlerAt}
+             , EVLER_NM            = #{evlerNm}
+             , EVL_CN              = #{evlCn}
+             , RM                  = #{rm}
+             , ATCHMNFL_SEQNO      = #{atchmnflSeqno}
+             , DELETE_AT           = #{deleteAt}
+             , LAST_CHANGER_ID     = <include refid="loginId"/>
+             , LAST_CHANGE_DT      = SYSDATE
+             , EDC_SE_DETAIL_CODE  = #{edcSeDetailCode}
+         WHERE EDC_SEQNO = #{edcSeqno}
+    </update>
+
+    <!-- 교육 대상자 조회 -->
+    <select id="getEdcUserList" parameterType="lims.qa.vo.EdcManageDto" resultType="lims.qa.vo.EdcManageDto">
+        SELECT
+            A.EDC_USER_SEQNO
+            , A.EDC_SEQNO
+            , C.INSPCT_INSTT_NM
+            , A.USER_ID
+            , B.USER_NM
+            , A.EVL_RESULT_VALUE
+            , A.EDC_QUALF_ALWNC_CODE
+            , A.DELETE_AT
+        FROM RS_EDC_USER A
+        LEFT JOIN SY_USER B ON B.USER_ID = A.USER_ID AND B.DELETE_AT = 'N'
+        LEFT JOIN SY_INSPCT_INSTT C ON C.INSPCT_INSTT_CODE = B.DEPT_CODE
+        WHERE A.DELETE_AT = 'N'
+          AND A.EDC_SEQNO = #{edcSeqno}
+    </select>
+
+    <!-- 교육 대상자 등록 -->
+    <insert id="insEdcUser" parameterType="lims.qa.vo.EdcManageDto">
+        <selectKey keyProperty="edcUserSeqno" resultType="lims.qa.vo.EdcManageDto" order="BEFORE">
+            SELECT SQ_RS_EDC_USER.NEXTVAL AS edcUserSeqno FROM DUAL
+        </selectKey>
+
+        INSERT INTO RS_EDC_USER (
+            EDC_USER_SEQNO
+            , BPLC_CODE
+            , EDC_SEQNO
+            , USER_ID
+            , EVL_RESULT_VALUE
+            , EDC_QUALF_ALWNC_CODE
+            , USE_AT
+            , DELETE_AT
+            , LAST_CHANGER_ID
+            , LAST_CHANGE_DT
+        ) VALUES (
+            #{edcUserSeqno}
+            , <include refid="bplcCode"/>
+            , #{edcSeqno}
+            , #{userId}
+            , #{evlResultValue}
+            , #{edcQualfAlwncCode}
+            , 'Y'
+            , 'N'
+            , <include refid="loginId"/>
+            , SYSDATE
+        )
+    </insert>
+
+    <!-- 교육 대상자 수정 -->
+    <update id="updEdcUser" parameterType="lims.qa.vo.EdcManageDto">
+        UPDATE RS_EDC_USER
+           SET EVL_RESULT_VALUE     = #{evlResultValue}
+             , EDC_QUALF_ALWNC_CODE = #{edcQualfAlwncCode}
+             , DELETE_AT            = #{deleteAt}
+             , LAST_CHANGER_ID      = <include refid="loginId"/>
+             , LAST_CHANGE_DT       = SYSDATE
+         WHERE EDC_USER_SEQNO = #{edcUserSeqno}
+    </update>
+
+</mapper>

@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.qa.dao.DocSeMDao">
+
+	<!-- 그룹 코드 조회 -->
+  	<select id="getDocSeMList" resultType="lims.qa.vo.DocSeMVo" parameterType="lims.qa.vo.DocSeMVo">
+		SELECT
+			 DOC_SE_SEQNO
+		     ,DOC_SE_CODE
+		     ,FN_GET_CDDTLNM(DOC_SE_CODE) AS DOC_SE_CODE_NM
+		     ,DOC_SE_NM
+		     ,SORT_ORDR
+		     ,USE_AT
+		     ,DELETE_AT
+		     ,LAST_CHANGER_ID
+		     ,LAST_CHANGE_DT
+		FROM RS_DOC_SE
+		WHERE DOC_SE_CODE = 'RS17000001'
+		AND DELETE_AT = 'N'
+			<if test="docSeNmSch != null and docSeNmSch != '' ">
+				AND UPPER(DOC_SE_NM) LIKE '%'||UPPER(#{docSeNmSch})||'%'
+			</if>
+			<if test="useAtSch != 'all'">
+				AND  USE_AT =#{useAtSch}
+			</if>
+		ORDER BY SORT_ORDR
+	</select>
+	<select id="getDocSeMDetailList" resultType="lims.qa.vo.DocSeMVo" parameterType="lims.qa.vo.DocSeMVo">
+		SELECT
+			 DOC_SE_DETAIL_SEQNO,
+			 DOC_SE_DETAIL_NM,
+			 DOC_SE_SEQNO,
+			 SORT_ORDR,
+			 USE_AT,
+			 DELETE_AT,
+			 WDTB_ESTBS_AT,
+			 MTRIL_CHOISE_ESSNTL_AT,
+			 ENTRPS_CHOISE_ESSNTL_AT,
+			 LAST_CHANGER_ID,
+			 LAST_CHANGE_DT
+		FROM RS_DOC_SE_DETAIL
+		WHERE DOC_SE_SEQNO = #{docSeSeqno}
+		AND DELETE_AT = 'N'		
+		<if test="docSeNmSch != null and docSeNmSch != '' ">
+			AND UPPER(DOC_SE_NM) LIKE '%'||UPPER(#{docSeNmSch})||'%'
+		</if>
+		<if test="useAtSch != 'all'">
+			AND  USE_AT =#{useAtSch}
+		</if>
+		ORDER BY SORT_ORDR
+	</select>
+	<!--  문서 구분 코드 삽입 -->
+	<insert id="insDocSeM" parameterType="lims.qa.vo.DocSeMVo">
+		INSERT INTO RS_DOC_SE(
+			DOC_SE_SEQNO,
+			DOC_SE_CODE,
+			DOC_SE_NM,
+			SORT_ORDR,
+			USE_AT,
+			DELETE_AT,
+			LAST_CHANGER_ID,
+			LAST_CHANGE_DT
+		) VALUES(
+			SQ_RS_DOC_SE.NEXTVAL
+			, #{docSeCode}
+			, #{docSeNm}
+			, #{sortOrdr}
+			, #{useAt}
+			, #{deleteAt}
+			, #{lastChangerId}
+			, SYSDATE
+		)
+	</insert>
+	<!--  문서 구분 코드 수정 -->
+	<update id="updDocSeM" parameterType="lims.qa.vo.DocSeMVo">
+		UPDATE RS_DOC_SE SET
+			DOC_SE_CODE = #{docSeCode}
+			,DOC_SE_NM = #{docSeNm}
+			,SORT_ORDR = #{sortOrdr}
+			,USE_AT = #{useAt}
+			,DELETE_AT = #{deleteAt}
+			,LAST_CHANGER_ID = #{lastChangerId}
+			,LAST_CHANGE_DT = SYSDATE
+		WHERE 
+			DOC_SE_SEQNO = #{docSeSeqno}
+	</update>
+	
+	<!--  문서 구분 코드 상세 삽입 -->
+	<insert id="insDocSeMDetail" parameterType="lims.qa.vo.DocSeMVo">
+		INSERT INTO RS_DOC_SE_DETAIL(
+			DOC_SE_DETAIL_SEQNO,
+			DOC_SE_DETAIL_NM,
+			DOC_SE_SEQNO,
+			SORT_ORDR,
+			USE_AT,
+			DELETE_AT,
+			WDTB_ESTBS_AT,
+			MTRIL_CHOISE_ESSNTL_AT,
+			ENTRPS_CHOISE_ESSNTL_AT,
+			LAST_CHANGER_ID,
+			LAST_CHANGE_DT
+		) VALUES(
+			SQ_RS_DOC_SE_DETAIL.NEXTVAL
+			, #{docSeDetailNm}
+			, #{docSeSeqno}
+			, #{sortOrdr}
+			, #{useAt}
+			, #{deleteAt}
+			, #{wdtbEstbsAt}
+			, #{mtrilChoiseEssntlAt}
+			, #{entrpsChoiseEssntlAt}
+			, #{lastChangerId}
+			, SYSDATE
+		)
+	</insert>
+	
+	<!--  문서 구분 코드 상세 수정 -->
+	<update id="updDocSeMDetail" parameterType="lims.qa.vo.DocSeMVo">
+		UPDATE RS_DOC_SE_DETAIL SET
+			
+			DOC_SE_DETAIL_NM = #{docSeDetailNm},
+			DOC_SE_SEQNO = #{docSeSeqno},
+			SORT_ORDR = #{sortOrdr},
+			USE_AT = #{useAt},
+			DELETE_AT = #{deleteAt},
+			WDTB_ESTBS_AT = #{wdtbEstbsAt},
+			MTRIL_CHOISE_ESSNTL_AT = #{mtrilChoiseEssntlAt},
+			ENTRPS_CHOISE_ESSNTL_AT = #{entrpsChoiseEssntlAt},
+			LAST_CHANGER_ID = #{lastChangerId},
+			LAST_CHANGE_DT = SYSDATE
+			
+		WHERE 
+			DOC_SE_DETAIL_SEQNO = #{docSeDetailSeqno}
+	</update>
+	
+	<!--  문서 구분 코드 삭제  -->
+	<update id="updDeleteAtSeM" parameterType="lims.qa.vo.DocSeMVo">
+		UPDATE RS_DOC_SE SET
+			DELETE_AT = 'Y'
+		WHERE 
+			DOC_SE_SEQNO = #{docSeSeqno}
+	</update>
+	
+		<!--  문서 구분 코드 삭제  -->
+	<update id="updDeleteAtSeDetailM" parameterType="lims.qa.vo.DocSeMVo">
+		UPDATE RS_DOC_SE_DETAIL SET
+			DELETE_AT = 'Y'
+		WHERE 
+			DOC_SE_DETAIL_SEQNO = #{docSeDetailSeqno}
+	</update>
+</mapper>

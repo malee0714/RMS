@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.UnitTMDao">
+
+<select id="getUnitList" parameterType="lims.wrk.vo.UnitTMVo" resultType="lims.wrk.vo.UnitTMVo">
+	SELECT A.UNIT_SEQNO, A.UNIT_NM, A.UNIT_SE_CODE, B.CMMN_CODE_NM AS UNIT_SE, A.USE_AT
+	FROM SY_UNIT A
+	LEFT JOIN SY_CMMN_CODE B ON A.UNIT_SE_CODE = B.CMMN_CODE
+	WHERE 1=1
+	<if test="cboUnitSe != null and cboUnitSe != '' ">
+		AND A.UNIT_SE_CODE = #{cboUnitSe}
+	</if>
+	<if test="txtUnitNM != null and txtUnitNM != '' ">
+		AND UPPER(A.UNIT_NM) LIKE '%'||UPPER(#{txtUnitNM})||'%' 
+	</if>
+	
+	<if test='useAtSearch == "Y" '>
+		AND A.USE_AT = 'Y'
+	</if>
+	
+	<if test='useAtSearch == "N" '>
+		AND A.USE_AT = 'N'
+	</if>
+	AND DELETE_AT = 'N'
+	ORDER BY A.UNIT_NM
+</select>
+<select id="overlapUnit" parameterType="lims.wrk.vo.UnitTMVo" resultType="int">
+		SELECT COUNT(*)
+		FROM SY_UNIT
+		WHERE UNIT_NM = #{unitNm} and DELETE_AT = 'N'
+</select>
+
+<insert id="insUnit" parameterType="lims.wrk.vo.UnitTMVo">
+	INSERT INTO SY_UNIT
+	(
+	  UNIT_SEQNO
+	  ,UNIT_NM
+	  ,UNIT_SE_CODE
+	  ,USE_AT
+	  ,LAST_CHANGER_ID
+	  ,LAST_CHANGE_DT
+	) VALUES (
+	  SQ_SY_UNIT.NEXTVAL
+	  ,#{unitNm}		
+	  ,#{unitSeCode}
+	  ,#{useAt}
+	  ,#{lastChangerId}
+	  ,SYSDATE
+	)
+</insert>
+
+<update id="updateUnit" parameterType="lims.wrk.vo.UnitTMVo">
+	UPDATE SY_UNIT SET
+		UNIT_NM = #{unitNm},
+		UNIT_SE_CODE = #{unitSeCode},
+    	USE_AT = #{useAt},
+		LAST_CHANGER_ID = #{lastChangerId},
+		LAST_CHANGE_DT = SYSDATE
+	WHERE UNIT_SEQNO = #{unitSeqno}
+</update>
+<update id="deleteUnit" parameterType="lims.wrk.vo.UnitTMVo">
+	UPDATE SY_UNIT SET
+		DELETE_AT = 'Y'
+		, LAST_CHANGER_ID = #{lastChangerId}
+		, LAST_CHANGE_DT = SYSDATE
+	WHERE UNIT_SEQNO = #{unitSeqno}
+</update>
+</mapper>

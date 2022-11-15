@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.rsc.dao.CheckMDao">
+
+	<!-- 구매 요청 확정 정보 조회 -->
+	<select id="getCheckMList" parameterType="lims.rsc.vo.CheckMVo" resultType="lims.rsc.vo.CheckMVo" >
+		SELECT RP.PURCHS_SEQNO
+            ,RP.PURCHS_NM
+            ,RP.PURCHS_DTE
+            ,SII.INSPCT_INSTT_NM AS REQUSTDEPTNM
+            ,RP.PURCHS_DEPT_CODE
+            ,RP.PURCHSR_ID
+            ,SU.USER_NM AS RQESTERNM
+            ,RP.TOT_AMOUNT
+            ,RP.ACPTNC_COMPT_AT   
+            ,RP.RGNT_PROGRS_SITTN_CODE
+            ,RP.RM
+            ,RP.LAST_CHANGER_ID
+            ,RP.LAST_CHANGE_DT
+            ,SII.INSPCT_INSTT_NM AS REQUSTDEPTNM
+            ,SU.LOGIN_ID
+            ,(SELECT NVL(MAX(ROWNUM), 0) 
+              FROM RS_PURCHS_ISESTATN 
+              WHERE RP.PURCHS_SEQNO = PURCHS_SEQNO) AS REQUSTNUM
+            ,SCC.CMMN_CODE_NM AS RGNTPROGRSSITTNNM
+            ,RP.ACPTNC_COMPT_DTE
+        FROM RS_PURCHS RP
+        LEFT OUTER JOIN SY_INSPCT_INSTT SII ON SII.INSPCT_INSTT_CODE = RP.PURCHS_DEPT_CODE
+        LEFT OUTER JOIN SY_USER SU ON SU.USER_ID = RP.PURCHSR_ID
+        LEFT OUTER JOIN SY_CMMN_CODE SCC ON SCC.CMMN_CODE = RP.RGNT_PROGRS_SITTN_CODE
+        WHERE 1=1
+		<if test="requstDteStart != null and requstDteStart != '' ">
+			AND TO_DATE(RP.PURCHS_DTE) <![CDATA[>=]]> TO_DATE( #{requstDteStart} ,'YYYY-MM-DD')
+		</if>
+		<if test="requstDteFinish != null and requstDteFinish != '' ">
+			AND TO_DATE(RP.PURCHS_DTE) <![CDATA[<]]> TO_DATE( #{requstDteFinish} , 'YYYY-MM-DD') +1
+		</if>
+        <if test="purchsNmSch != null and purchsNmSch != '' ">
+        	AND RP.PURCHS_NM LIKE '%'||#{purchsNmSch}||'%'
+        </if>
+		<if test="rgntProgrsSittnCodeSch != null and rgntProgrsSittnCodeSch != '' ">
+        	AND RP.RGNT_PROGRS_SITTN_CODE = #{rgntProgrsSittnCodeSch}
+        </if>
+        <if test="requstDeptCodeSch != null and requstDeptCodeSch != '' ">
+        	AND RP.PURCHS_DEPT_CODE = #{requstDeptCodeSch}
+        </if>
+        <if test="inspctInsttCode != null and inspctInsttCode != '' "> <!-- 기관코드 -->
+        	AND RP.INSPCT_INSTT_CODE = #{inspctInsttCode}
+	   </if>
+        ORDER BY RP.PURCHS_DTE ASC, RP.PURCHS_NM ASC
+	</select>
+	
+	<!-- 검수목록 그리드(Detail 그리드) 조회 -->
+	<select id="getCheckDetailMList" parameterType="lims.rsc.vo.CheckMVo" resultType="lims.rsc.vo.CheckMVo" >	
+		 SELECT A.PURCHS_SEQNO
+            ,A.PRDUCT_SEQNO
+            ,A.PURCHS_REQUST_SEQNO
+            ,A.REQUST_QTT
+            ,A.PURCHS_QTT
+            ,A.UNTPC
+            ,A.ACPTNC_RM
+            ,A.LAST_CHANGER_ID
+            ,A.LAST_CHANGE_DT
+            ,A.UNTPC*A.PURCHS_QTT AS PRICE
+            ,NVL(A.ACPTNC_DTE, TO_CHAR(TO_DATE(SYSDATE), 'YYYY-MM-DD')) AS ACPTNCDTE
+            ,B.PURCHS_REQUST_NM
+            ,C.PRDUCT_NM
+            ,D.PRDUCT_CL_NM
+            ,E.PURCHS_NM
+            ,E.PURCHS_DEPT_CODE
+            ,(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE C.PRPOS_CODE = CMMN_CODE) AS PRPOSNM
+            ,(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE C.CSTDY_STTUS_CODE = CMMN_CODE) AS CSTDYSTTUSNM
+            ,(SELECT UNIT_NM FROM SY_UNIT WHERE C.PRDUCT_UNIT_CODE = UNIT_SEQNO) AS PRDUCTUNITNM
+            ,(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE D.PRDUCT_SE_CODE = CMMN_CODE) AS PRDUCTSENM
+            ,(SELECT NVL(MAX(WRHSDLVR_QY),0)  
+                FROM RS_WRHSDLVR
+                WHERE WRHSDLVR_SE_CODE = 'RS08000001'
+                AND E.PURCHS_SEQNO = PURCHS_SEQNO
+                AND A.PURCHS_REQUST_SEQNO = PURCHS_REQUST_SEQNO
+                AND C.PRDUCT_SEQNO = PRDUCT_SEQNO) - NVL((SELECT NVL(SUM(WRHSDLVR_QY),0) 
+                                                                                        FROM RS_WRHSDLVR
+                                                                                        WHERE WRHSDLVR_SE_CODE = 'RS08000002'
+                                                                                        AND E.PURCHS_SEQNO = PURCHS_SEQNO
+                                                                                        AND A.PURCHS_REQUST_SEQNO = PURCHS_REQUST_SEQNO
+                                                                                        AND C.PRDUCT_SEQNO = PRDUCT_SEQNO),0) AS WRHSDLVRQY
+            ,A.PURCHS_QTT-NVL(F.WRHSDLVR_QY, 0) AS QTT
+            ,A.PURCHS_QTT-NVL(F.WRHSDLVR_QY, 0) AS RESETQTT
+            ,F.WRHSDLVR_SEQNO
+            ,F.CNTNR_QY
+            ,F.VALID_DTE
+            ,NVL(F.WRHSDLVR_QY,0) AS GRIDCRUD
+            ,F.WRHSDLVR_QY AS RESETWRHS
+		FROM (SELECT PURCHS_SEQNO
+		            ,PURCHS_REQUST_SEQNO
+		            ,PRDUCT_SEQNO
+		            ,REQUST_QTT
+		            ,PURCHS_QTT
+		            ,UNTPC
+		            ,ACPTNC_RM
+		            ,ACPTNC_DTE
+		            ,LAST_CHANGER_ID
+		            ,LAST_CHANGE_DT
+		        FROM RS_PURCHS_ISESTATN
+		        WHERE 1=1
+		        <if test="purchsSeqno != null and purchsSeqno != '' ">
+		        	AND PURCHS_SEQNO =  #{purchsSeqno}
+		        </if>
+		        ) A
+		INNER JOIN RS_PURCHS_REQUST B ON B.PURCHS_REQUST_SEQNO = A.PURCHS_REQUST_SEQNO
+		INNER JOIN RS_PRDUCT C ON C.PRDUCT_SEQNO = A.PRDUCT_SEQNO
+		INNER JOIN RS_PRDUCT_CL D ON D.PRDUCT_CL_SEQNO = C.PRDUCT_CL_SEQNO
+		INNER JOIN RS_PURCHS E ON E.PURCHS_SEQNO = A.PURCHS_SEQNO
+		LEFT OUTER JOIN RS_WRHSDLVR F ON F.PURCHS_SEQNO = E.PURCHS_SEQNO 
+		            AND F.PRDUCT_SEQNO = A.PRDUCT_SEQNO 
+		            AND F.PURCHS_REQUST_SEQNO = A.PURCHS_REQUST_SEQNO
+		WHERE 1=1
+		 <if test="rgntProgrsSittnCode != null and rgntProgrsSittnCode != '' and rgntProgrsSittnCode == 'RS05000005' ">
+        	AND F.WRHSDLVR_SE_CODE = 'RS08000001'
+        </if>
+		AND A.PURCHS_QTT NOT IN (SELECT ACPTNC_QTT
+		                                      FROM RS_PURCHS_ISESTATN
+		                                      WHERE PURCHS_SEQNO =  A.PURCHS_SEQNO
+		                                      AND E.RGNT_PROGRS_SITTN_CODE = 'RS05000004'
+		                                      AND PURCHS_QTT = WRHSDLVR_QY)
+
+	</select>
+	
+	
+	<!--구매내역테이블에 검수수량과 구매수량이 전체가 같은 구매일련번호는 구매테이블에 검수완료일자에 
+		  구매내역의 검수일자의 최대값 저장 및 시약진행상황코드 검수완료로 업데이트  -->
+	<!-- 구매 -->
+	<update id="updCheck" parameterType="lims.rsc.vo.CheckMVo">
+		UPDATE RS_PURCHS SET
+			RGNT_PROGRS_SITTN_CODE = #{rgntProgrsSittnCode}
+			, ACPTNC_COMPT_AT = 'Y'
+			, ACPTNC_COMPT_DTE = TO_CHAR(TO_DATE(SYSDATE), 'YYYY-MM-DD')
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE RGNT_PROGRS_SITTN_CODE = 'RS05000004'
+		AND PURCHS_SEQNO = #{purchsSeqno}
+		AND (SELECT COUNT(NVL(ACPTNC_QTT,0)) <!-- 검수 총 갯수 -->
+        		FROM RS_PURCHS_ISESTATN
+       			WHERE PURCHS_SEQNO = #{purchsSeqno}) = (SELECT COUNT(NVL(ACPTNC_QTT, 0)) <!-- 검수 완료 갯수 -->
+                                        						FROM RS_PURCHS RP
+                                       							LEFT OUTER JOIN RS_PURCHS_ISESTATN RPI ON RPI.PURCHS_SEQNO = RP.PURCHS_SEQNO
+                                        						WHERE RPI.PURCHS_QTT = RPI.ACPTNC_QTT
+                                        						AND RP.PURCHS_SEQNO =  #{purchsSeqno})
+	</update>
+
+
+	<!-- 구매내역 -->
+	<update id="updCheckDetail" parameterType="lims.rsc.vo.CheckMVo">
+		UPDATE RS_PURCHS_ISESTATN SET
+			ACPTNC_QTT = NVL(ACPTNC_QTT,0) + #{acptncQtt} <!-- 기존값 + 신규값 -->
+			, ACPTNC_DTE = #{acptncDte}
+			, ACPTNC_RM = #{acptncRm}
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE PURCHS_SEQNO = #{purchsSeqno}
+		AND PURCHS_REQUST_SEQNO = #{purchsRequstSeqno}
+		AND PRDUCT_SEQNO = #{prductSeqno}
+	</update>
+	
+	<!-- 입출고 수정 -->
+	<update id="updCheckWrhsdlvr" parameterType="lims.rsc.vo.CheckMVo">
+		UPDATE RS_WRHSDLVR SET
+			WRHSDLVRMAN_ID = #{wrhsdlvrmanId}
+			,WRHSDLVR_DTE = TO_CHAR(SYSDATE,'YYYY-MM-DD')
+			,WRHSDLVR_QY = #{acptncQtt} + #{wrhsdlvrQy}
+			,CNTNR_QY = #{cntnrQy}
+			,VALID_DTE = #{validDte}
+			,INSPCT_INSTT_CODE = #{inspctInsttCode}
+			,LAST_CHANGER_ID = #{lastChangerId}
+			,LAST_CHANGE_DT = SYSDATE
+		WHERE WRHSDLVR_SEQNO = #{wrhsdlvrSeqno}
+	</update>
+	
+	<!-- 입출고 -->
+	<insert id="insCheckWrhsdlvr" parameterType="lims.rsc.vo.CheckMVo">
+		<selectKey keyProperty="wrhsdlvrSeqno" resultType="java.lang.String" order="BEFORE">
+			SELECT SQ_RS_WRHSDLVR.NEXTVAL AS WRHSDLVRSEQNO FROM DUAL
+		</selectKey>
+		INSERT INTO RS_WRHSDLVR(
+			WRHSDLVR_SEQNO
+			,WRHSDLVR_SE_CODE
+			,WRHSDLVR_DEPT_CODE
+			,WRHSDLVRMAN_ID
+			,WRHSDLVR_DTE
+			,WRHSDLVR_QY
+			,BRCD_CREAT_AT
+			,RM
+			,PURCHS_SEQNO
+			,PURCHS_REQUST_SEQNO
+			,PRDUCT_SEQNO
+			,VALID_DTE
+			,CNTNR_QY
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) VALUES (
+		 	#{wrhsdlvrSeqno}
+			, #{wrhsdlvrSeCode}
+			, #{wrhsdlvrDeptCode}
+			, #{wrhsdlvrmanId}
+			, TO_CHAR(SYSDATE,'YYYY-MM-DD')
+			<!-- , #{wrhsdlvrQy} -->
+			,NVL(#{acptncQtt},0) <!-- 현재 재고량(초기값: 검수 수량) -->
+			,'Y'
+			, #{rm}
+			, #{purchsSeqno}
+			, #{purchsRequstSeqno}
+			, #{prductSeqno}
+			, #{validDte}
+			, #{cntnrQy}
+			, #{lastChangerId}
+			, SYSDATE
+		)
+	</insert>
+	
+	<!-- 제품바코드 -->
+	<insert id="insBrcdSeqno" parameterType="lims.rsc.vo.CheckMVo">
+		<!-- 인서트 후 제품 바코드 받아오기 -->
+		<selectKey keyProperty="brcd" resultType="lims.rsc.vo.CheckMVo" order="AFTER">
+			SELECT MAX(BRCD) AS BRCD
+        	FROM RS_PRDUCT_BRCD
+        	WHERE WRHSDLVR_SEQNO = #{wrhsdlvrSeqno}
+		</selectKey>
+		
+		INSERT INTO RS_PRDUCT_BRCD(
+			BRCD_SEQNO
+			,WRHSDLVR_SEQNO
+			,PRDUCT_SEQNO
+			,BRCD
+			,VALID_DTE
+			,CNTNR_QY
+			,OUTPT_CNT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) VALUES (
+			SQ_RS_PRDUCT_BRCD.NEXTVAL
+			, #{wrhsdlvrSeqno}
+			, #{prductSeqno}
+			, (SELECT TO_CHAR(TO_DATE(SYSDATE), 'YY')||LPAD(NVL(MAX(SUBSTR(BRCD, 3, 10))+1,1),8,'0') 
+			   FROM RS_PRDUCT_BRCD)
+			, #{validDte}
+			, #{cntnrQy}
+			,  1
+			, #{lastChangerId}
+			, SYSDATE
+		)
+	</insert>
+
+</mapper>

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.CLSearchMDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+
+	<select id="getCLVersions" parameterType="lims.wrk.vo.CLVersionVO" resultType="lims.wrk.vo.CLVersionVO">
+		/* 자재별 version 목록 */
+		SELECT  A.MTRIL_CL_VER_SEQNO
+		        ,A.MTRIL_SEQNO
+		        ,A.VER
+				,A.LAST_VER_AT
+		FROM SY_MTRIL_CL_VER A
+		WHERE   MTRIL_SEQNO = #{mtrilSeqno}
+		        AND DELETE_AT = 'N'
+		ORDER BY VER DESC
+	</select>
+	
+	<select id="getCLVersionResults" parameterType="lims.wrk.vo.CLVersionResultVO" resultType="lims.wrk.vo.CLVersionResultVO">
+		/* 자재별 verison별 결과목록 */
+		SELECT  A.MTRIL_CL_VER_SEQNO
+				,B.MTRIL_SDSPC_SEQNO
+				,C.EXPRIEM_NM
+				,B.ORDR
+				,B.UCL_VALUE
+				,B.CL_VALUE
+				,B.LCL_VALUE
+		FROM SY_MTRIL_CL_VER A
+		INNER JOIN SY_MTRIL_CL_VER_RESULT B ON A.MTRIL_CL_VER_SEQNO = B.MTRIL_CL_VER_SEQNO
+		INNER JOIN SY_EXPRIEM C ON B.EXPRIEM_SEQNO = C.EXPRIEM_SEQNO
+		WHERE   A.MTRIL_CL_VER_SEQNO = #{mtrilClVerSeqno}
+		        AND B.USE_AT = 'Y'
+		ORDER BY B.ORDR
+	</select>
+	
+	<update id="updateClVersionResult" parameterType="lims.wrk.vo.CLVersionResultVO">
+		/* CL 결과 목록 수정 */
+		UPDATE SY_MTRIL_CL_VER_RESULT SET
+			UCL_VALUE = #{uclValue},
+			CL_VALUE = #{clValue},
+			LCL_VALUE = #{lclValue},
+			LAST_CHANGER_ID = <include refid="loginId"/>,
+			LAST_CHANGE_DT = SYSDATE
+		WHERE MTRIL_CL_VER_SEQNO = #{mtrilClVerSeqno}
+		AND ORDR = #{ordr}
+	</update>
+	
+	<update id="updateMtrilSdspc" parameterType="lims.wrk.vo.CLVersionResultVO">
+		/* 자재 기준규격 ucl,lcl update */
+		UPDATE SY_MTRIL_SDSPC SET
+			LCL_VALUE           = #{lclValue}
+			,UCL_VALUE          = #{uclValue}
+            ,LAST_CHANGER_ID    = <include refid="loginId"/>
+            ,LAST_CHANGE_DT     = SYSDATE
+		WHERE MTRIL_SDSPC_SEQNO = #{mtrilSdspcSeqno}
+	</update>
+</mapper>

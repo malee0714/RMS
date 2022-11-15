@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.qa.dao.VendorAuditMDao">
+	<select id="getVendorAuditMList" resultType="lims.qa.vo.VendorAuditMVo" parameterType="lims.qa.vo.VendorAuditMVo">
+	SELECT
+		A.AUDIT_SEQNO
+		,A.WDTB_SEQNO
+		,A.ENTRPS_SE_CODE
+		,A.SJ
+		,A.AUDIT_RCEPT_NO
+		,A.REFORM_NO
+		,A.WRITNG_DEPT_CODE
+		,A.WRTER_ID
+		,A.WRITNG_DTE
+		,A.FDRM_AT
+		,DECODE(A.FDRM_AT,'Y','정기','비정기') AS FDRM_GUBUN
+		,A.AUDIT_OPRTN_MTH_CODE
+		,A.ENTRPS_SEQNO
+		,B.ENTRPS_NM
+		,A.MTRIL_SEQNO
+		,C.MTRIL_NM
+		,A.AUDIT_CN
+		,A.AUDIT_PURPS
+		,A.ADTR_NM
+		,A.VISIT_BEGIN_DTE
+		,A.VISIT_END_DTE
+		,A.LGSTR_MATTER_NUM
+		,A.LGSTR_MATTER_SEMI_NUM
+		,NVL(A.LGSTR_MATTER_NUM + A.LGSTR_MATTER_SEMI_NUM + A.RCMND_MATTER_NUM,0) AS LGSTR_MATTER_SUM <!-- 지적사항 합계 -->
+		,A.RCMND_MATTER_NUM
+		,A.AUDIT_SUMRY
+		,A.AUDIT_GRAD_CODE
+		,(SELECT SCC.CMMN_CODE_NM FROM SY_CMMN_CODE SCC WHERE SCC.CMMN_CODE = A.AUDIT_GRAD_CODE) AS AUDIT_GRAD
+		,A.CHKLST_ATCHMNFL_SEQNO
+		,A.ATCHMNFL_SEQNO
+		,A.DELETE_AT
+		,A.LAST_CHANGER_ID
+		,A.LAST_CHANGE_DT
+	FROM RS_AUDIT A
+	LEFT JOIN SY_ENTRPS B ON A.ENTRPS_SEQNO = B.ENTRPS_SEQNO
+	LEFT JOIN SY_MTRIL C ON A.MTRIL_SEQNO = C.MTRIL_SEQNO
+	WHERE 1=1
+	AND A.DELETE_AT = 'N'
+	AND A.ENTRPS_SE_CODE = 'SY08000003'
+	<if test="schEntrpsNm != null and schEntrpsNm != ''">
+        AND UPPER(B.ENTRPS_NM) LIKE UPPER('%' ||  #{schEntrpsNm} || '%')
+    </if>
+    <if test="schWritngStDte != null and schWritngStDte != ''">
+        AND A.WRITNG_DTE <![CDATA[ >= ]]> #{schWritngStDte}
+    </if>
+    <if test="schWritngEndDte != null and schWritngEndDte != ''">
+        AND A.WRITNG_DTE <![CDATA[ <= ]]> #{schWritngEndDte}
+    </if>
+    <if test="schMtrilNm != null and schMtrilNm != ''">
+        AND UPPER(C.MTRIL_NM) LIKE UPPER('%' ||  #{schMtrilNm} || '%')
+    </if>
+    <if test="schAuditRceptNo != null and schAuditRceptNo != ''">
+        AND UPPER(A.AUDIT_RCEPT_NO) LIKE UPPER('%' ||  #{schAuditRceptNo} || '%')
+    </if>
+	</select>
+
+	<insert id="insVendorAudit" parameterType="lims.qa.vo.VendorAuditMVo">
+		/* RS_AUDIT 저장 쿼리 */
+		INSERT INTO RS_AUDIT(
+			AUDIT_SEQNO
+			,ENTRPS_SE_CODE
+			,SJ
+			,AUDIT_RCEPT_NO
+			,REFORM_NO
+			,WRITNG_DEPT_CODE
+			,WRTER_ID
+			,WRITNG_DTE
+			,FDRM_AT
+			,AUDIT_OPRTN_MTH_CODE
+			,ENTRPS_SEQNO
+			,MTRIL_SEQNO
+			,AUDIT_CN
+			,AUDIT_PURPS
+			,ADTR_NM
+			,VISIT_BEGIN_DTE
+			,VISIT_END_DTE
+			,LGSTR_MATTER_NUM
+			,LGSTR_MATTER_SEMI_NUM
+			,RCMND_MATTER_NUM
+			,AUDIT_SUMRY
+			,AUDIT_GRAD_CODE
+			,CHKLST_ATCHMNFL_SEQNO
+			,ATCHMNFL_SEQNO
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		)VALUES(
+			SQ_RS_AUDIT.NEXTVAL
+			, 'SY08000003'
+			, #{sj}
+			, #{auditRceptNo}
+			, #{reformNo}
+			, #{writngDeptCode}
+			, #{wrterId}
+			, #{writngDte}
+			, #{fdrmAt}
+			, #{auditOprtnMthCode}
+			, #{entrpsSeqno}
+			, #{mtrilSeqno}
+			, #{auditCn}
+			, #{auditPurps}
+			, #{adtrNm}
+			, #{visitBeginDte}
+			, #{visitEndDte}
+			, #{lgstrMatterNum}
+			, #{lgstrMatterSemiNum}
+			, #{rcmndMatterNum}
+			, #{auditSumry}
+			, #{auditGradCode}
+			, #{chklstAtchmnflSeqno}
+			, #{atchmnflSeqno}
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+		)
+	</insert>
+
+	<update id="updVendorAudit" parameterType="lims.qa.vo.VendorAuditMVo">
+	UPDATE RS_AUDIT SET
+		SJ = #{sj}
+		, WRITNG_DEPT_CODE = #{writngDeptCode}
+		, WRTER_ID = #{wrterId}
+		, WRITNG_DTE = #{writngDte}
+		, FDRM_AT = #{fdrmAt}
+		, AUDIT_OPRTN_MTH_CODE = #{auditOprtnMthCode}
+		, ENTRPS_SEQNO = #{entrpsSeqno}
+		, MTRIL_SEQNO = #{mtrilSeqno}
+		, AUDIT_CN = #{auditCn}
+		, AUDIT_PURPS = #{auditPurps}
+		, ADTR_NM = #{adtrNm}
+		, VISIT_BEGIN_DTE = #{visitBeginDte}
+		, VISIT_END_DTE = #{visitEndDte}
+		, LGSTR_MATTER_NUM = #{lgstrMatterNum}
+		, LGSTR_MATTER_SEMI_NUM = #{lgstrMatterSemiNum}
+		, RCMND_MATTER_NUM = #{rcmndMatterNum}
+		, AUDIT_SUMRY = #{auditSumry}
+		, AUDIT_GRAD_CODE = #{auditGradCode}
+		, CHKLST_ATCHMNFL_SEQNO = #{chklstAtchmnflSeqno}
+		, ATCHMNFL_SEQNO = #{atchmnflSeqno}
+		, LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+		, LAST_CHANGE_DT = SYSDATE
+	WHERE AUDIT_SEQNO = #{auditSeqno}
+	</update>
+	
+	
+	<update id="delVendorAudit" parameterType="lims.qa.vo.VendorAuditMVo">
+	UPDATE RS_AUDIT SET
+		DELETE_AT = 'Y'
+	WHERE AUDIT_SEQNO = #{auditSeqno}
+	</update>
+
+</mapper>

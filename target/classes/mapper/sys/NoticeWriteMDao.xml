@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.sys.dao.NoticeWriteMDao">
+
+	<!-- 게시판 바인딩  -->
+	<select id="getBbsCode" resultType="lims.sys.vo.NoticeWriteMVo" parameterType="lims.sys.vo.NoticeWriteMVo">
+		SELECT BBS_CODE VALUE
+					, BBS_NM KEY
+					,POPUP_AT
+					,ANSWER_AT
+					,USER_SNTNCWRITE_AT
+					,ATCHMNFL_AT
+					,RM
+					,USE_AT
+        FROM SY_BBS
+        WHERE BBS_CODE IS NOT NULL
+        AND USE_AT = 'Y'
+	</select>
+
+	<!-- 게시판 조회  -->
+	<select id="getNoticeWriteMList" resultType="lims.sys.vo.NoticeWriteMVo" parameterType="lims.sys.vo.NoticeWriteMVo">
+		SELECT
+            SBS.SNTNC_SEQNO
+            ,SBS.BBS_CODE
+            ,SBS.WRTER_ID
+            ,SBS.WRTER_NM
+            ,SBS.WRITNG_DE
+            ,SBS.SJ
+            ,SBS.CN
+            ,SBS.DATA AS BLOB_CN
+            ,SBS.EMAIL
+            ,SBS.INQIRE_CNT
+            ,SBS.POPUP_AT
+            ,SBS.POPUP_BEGIN_DE
+            ,SBS.POPUP_END_DE
+            ,SBS.ATCHMNFL_SEQNO
+            ,SBS.DELETE_AT
+            ,SBS.LAST_CHANGER_ID
+            ,SBS.LAST_CHANGE_DT
+            ,(SELECT COUNT(*)
+              FROM SY_BBS_ANSWER
+              WHERE SNTNC_SEQNO = SBS.SNTNC_SEQNO AND DELETE_AT = 'N') AS ANSWERCNT
+        FROM SY_BBS_SNTNC SBS
+        WHERE DELETE_AT = 'N'
+		AND SBS.BBS_CODE = #{bbsCodeSch}
+		<if test="sjSch != null and sjSch != '' ">
+			AND SBS.SJ LIKE '%'||#{sjSch}||'%'
+		</if>
+		<if test="wrterIdSch != null and wrterIdSch != '' ">
+			AND SBS.WRTER_NM LIKE '%'||#{wrterIdSch}||'%'
+		</if>
+		<if test="writngDeStart != null and writngDeStart != '' ">
+			AND TO_DATE(SBS.WRITNG_DE) <![CDATA[>=]]> TO_DATE( #{writngDeStart} ,'YYYY-MM-DD')
+		</if>
+		<if test="writngDeFinish != null and writngDeFinish != '' ">
+			AND TO_DATE(SBS.WRITNG_DE) <![CDATA[<]]> TO_DATE( #{writngDeFinish} , 'YYYY-MM-DD') +1
+		</if>
+
+		<if test="authorCd != 1 and authorCd != 27 and bbsCodeSch == '0000000002'">
+			AND SBS.WRTER_ID = '${@lims.util.GetUserSession@getUserId()}'
+		</if>
+		ORDER BY SBS.SNTNC_SEQNO DESC
+	</select>
+
+	<!-- 저장 -->
+	<insert id="insNoticeWriteM" parameterType="lims.sys.vo.NoticeWriteMVo" >
+		<selectKey keyProperty="sntncSeqno" resultType="lims.sys.vo.NoticeWriteMVo" order="BEFORE">
+			SELECT SQ_SY_BBS_SNTNC.NEXTVAL AS sntncSeqno FROM DUAL
+		</selectKey>
+
+		INSERT INTO SY_BBS_SNTNC(
+			SNTNC_SEQNO
+			,BBS_CODE
+			,WRTER_ID
+			,WRTER_NM
+			,WRITNG_DE
+			,SJ
+			,CN
+			,DATA
+			,EMAIL
+			,INQIRE_CNT
+			,POPUP_AT
+			,POPUP_BEGIN_DE
+			,POPUP_END_DE
+			,ATCHMNFL_SEQNO
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) VALUES (
+			#{sntncSeqno}
+			, #{bbsCode}
+			, #{wrterId}
+			, #{wrterNm}
+			, TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+			, #{sj}
+			, 'CLOT TO BLOB'
+			, #{blobCn}
+			, #{email}
+			, 0 <!-- 조회 카운트 -->
+			, #{popupAt}
+			, #{popupBeginDe}
+			, #{popupEndDe}
+			, #{atchmnflSeqno}
+			, 'N' <!-- 삭제 여부  -->
+			, #{lastChangerId}
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- 수정 -->
+	<update id="updNoticeWriteM" parameterType="lims.sys.vo.NoticeWriteMVo" >
+		UPDATE SY_BBS_SNTNC SET
+			SJ = #{sj}
+			, CN = 'CLOT TO BLOB'
+			, DATA = #{blobCn}
+			, EMAIL = #{email}
+			, POPUP_AT = #{popupAt}
+			, POPUP_BEGIN_DE = #{popupBeginDe}
+			, POPUP_END_DE = #{popupEndDe}
+			, ATCHMNFL_SEQNO = #{atchmnflSeqno}
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE BBS_CODE = #{bbsCode}
+		AND SNTNC_SEQNO = #{sntncSeqno}
+	</update>
+
+	<!-- 삭제 -->
+	<update id="delNoticeWriteM" parameterType="lims.sys.vo.NoticeWriteMVo" >
+		UPDATE SY_BBS_SNTNC SET
+			DELETE_AT = 'Y'
+		WHERE BBS_CODE = #{bbsCode}
+		AND SNTNC_SEQNO = #{sntncSeqno}
+	</update>
+
+	<!-- 조회수 -->
+	<update id="countNoticeWriteM" parameterType="lims.sys.vo.NoticeWriteMVo" >
+		UPDATE SY_BBS_SNTNC SET
+			INQIRE_CNT = INQIRE_CNT+1
+		WHERE DELETE_AT = 'N'
+		AND BBS_CODE = #{bbsCode}
+		AND SNTNC_SEQNO = #{sntncSeqno}
+	</update>
+
+	<!-- 답변 조회 -->
+	<select id="getNoticeAnswerM" resultType="lims.sys.vo.NoticeWriteMVo" parameterType="lims.sys.vo.NoticeWriteMVo">
+		SELECT
+			SNTNC_SEQNO
+			,ANSWER_SEQNO
+			,(SELECT USER_NM FROM SY_USER WHERE USER_ID = ANSWRR_ID) AS ANSWRR_ID
+			,ANSWER_CN
+			,DATA AS BLOB_ANSWER_CN
+			,ANSWER_DE
+			,DELETE_AT
+			,ATCHMNFL_SEQNO
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		FROM SY_BBS_ANSWER
+		WHERE DELETE_AT = 'N'
+		AND SNTNC_SEQNO = #{sntncSeqno}
+
+	</select>
+
+	<!--답변 저장 -->
+	<insert id="insNoticeAnswerM" parameterType="lims.sys.vo.NoticeWriteMVo" >
+		INSERT INTO SY_BBS_ANSWER(
+			SNTNC_SEQNO
+			,ANSWER_SEQNO
+			,ANSWRR_ID
+			,ANSWER_CN
+			,DATA
+			,ANSWER_DE
+			,DELETE_AT
+			,ATCHMNFL_SEQNO
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) VALUES (
+			#{sntncSeqno}
+			, SQ_SY_BBS_ANSWER.NEXTVAL
+			, #{answrrId}
+			, 'CLOT TO BLOB'
+			, #{blobAnswerCn}
+			, TO_CHAR(TO_DATE(SYSDATE),'YYYY-MM-DD')
+			, 'N'
+			, #{atchmnflSeqno}
+			, #{lastChangerId}
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- 답변 수정 -->
+	<update id="updNoticeAnswerM" parameterType="lims.sys.vo.NoticeWriteMVo" >
+		UPDATE SY_BBS_ANSWER SET
+			ANSWER_CN = 'CLOT TO BLOB'
+			,DATA = #{blobAnswerCn}
+			,ATCHMNFL_SEQNO = #{atchmnflSeqno}
+			,LAST_CHANGER_ID = #{lastChangerId}
+			,LAST_CHANGE_DT = SYSDATE
+		WHERE SNTNC_SEQNO = #{sntncSeqno}
+		AND ANSWER_SEQNO = #{answerSeqno}
+	</update>
+
+	<!-- 답변 삭제 -->
+	<update id="delNoticeAnswerM" parameterType="lims.sys.vo.NoticeWriteMVo" >
+		UPDATE SY_BBS_ANSWER SET
+			DELETE_AT = 'Y'
+		WHERE SNTNC_SEQNO = #{sntncSeqno}
+		AND ANSWER_SEQNO = #{answerSeqno}
+	</update>
+	<select id="chkLoginAuthor" resultType="String">
+		SELECT AUTHOR_CODE FROM  SY_AUTHOR_USER
+		WHERE USER_ID = '${@lims.util.GetUserSession@getUserId()}'
+		AND ROWNUM = 1
+		ORDER BY DECODE(AUTHOR_CODE,'1',1,'27',2)
+	</select>
+
+</mapper>

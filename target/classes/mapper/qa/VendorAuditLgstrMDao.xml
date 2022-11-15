@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.qa.dao.VendorAuditLgstrMDao">
+	<select id = "getVendorAuditLgstrMList" parameterType="lims.qa.vo.VendorAuditLgstrMVo" resultType="lims.qa.vo.VendorAuditLgstrMVo">
+	SELECT
+		A.AUDIT_CAR_SEQNO
+		,A.AUDIT_SEQNO
+		,A.CAR_NO
+		,A.PBLICTE_DTE
+		,A.PBLSHR_NM
+		,A.ENTRPS_SEQNO
+		,A.SUPLY_ENTRPS_NM
+		,A.OPEN_AT
+		,DECODE(A.OPEN_AT,'Y','Open','Close') AS OPEN_AT_NM
+		,A.MNGT_DEPT_NM
+		,A.CHCKER_NM
+		,A.PBLICTE_ENTRPS_NM
+		,A.IMPROPT_CN
+		,A.IMPROPT_CAUSE
+		,A.IMPROPT_ATCHMNFL_SEQNO
+		,A.IMPRVM_BFE_CN
+		,A.IMPRVM_AFTER_CN
+		,A.COREC_MANAGT_DTE
+		,A.COREC_CHARGER_NM
+		,A.EFFECT_VRIFY_CN
+		,A.PREVNT_MANAGT_CN
+		,A.MANAGT_RESULT_DTE
+		,A.MANAGT_CHARGER_NM
+		,A.MANAGT_RESULT_ATCHMNFL_SEQNO
+		,A.MANAGT_RESULT_CHARGER_NM
+		,A.MANAGT_RESULT_CHCKER_NM
+		,A.MANAGT_RESULT_CONFMER_NM
+		,A.DELETE_AT
+		,A.LAST_CHANGER_ID
+		,A.LAST_CHANGE_DT
+	FROM RS_AUDIT_CAR A
+	JOIN RS_AUDIT B ON A.AUDIT_SEQNO = B.AUDIT_SEQNO
+	LEFT JOIN SY_ENTRPS C ON A.ENTRPS_SEQNO = C.ENTRPS_SEQNO
+	LEFT JOIN SY_MTRIL D ON B.MTRIL_SEQNO = D.MTRIL_SEQNO
+	WHERE 1=1
+	AND B.ENTRPS_SE_CODE = 'SY08000003'
+	AND A.DELETE_AT = 'N'
+	AND B.DELETE_AT = 'N'
+	<if test="schEntrpsNm != null and schEntrpsNm != ''">
+        AND UPPER(C.ENTRPS_NM) LIKE UPPER('%' ||  #{schEntrpsNm} || '%')
+    </if>
+    <if test="schPblicteStDte != null and schPblicteStDte != ''">
+        AND A.PBLICTE_DTE <![CDATA[ >= ]]> #{schPblicteStDte}
+    </if>
+    <if test="schPblicteEndDte != null and schPblicteEndDte != ''">
+        AND A.PBLICTE_DTE <![CDATA[ <= ]]> #{schPblicteEndDte}
+    </if>
+    <if test="schMtrilNm != null and schMtrilNm != ''">
+        AND UPPER(D.MTRIL_NM) LIKE UPPER('%' ||  #{schMtrilNm} || '%')
+    </if>
+    <if test="schAuditRceptNo != null and schAuditRceptNo != ''">
+        AND UPPER(B.AUDIT_RCEPT_NO) LIKE UPPER('%' ||  #{schAuditRceptNo} || '%')
+    </if>
+    ORDER BY A.CAR_NO
+	</select>
+
+	<insert id="insVendorAuditLgstr" parameterType="lims.qa.vo.VendorAuditLgstrMVo">
+	INSERT INTO RS_AUDIT_CAR(
+		AUDIT_CAR_SEQNO
+		,AUDIT_SEQNO
+		,CAR_NO
+		,PBLICTE_DTE
+		,PBLSHR_NM
+		,ENTRPS_SEQNO
+		,SUPLY_ENTRPS_NM
+		,OPEN_AT
+		,MNGT_DEPT_NM
+		,CHCKER_NM
+		,PBLICTE_ENTRPS_NM
+		,IMPROPT_CN
+		,IMPROPT_CAUSE
+		,IMPROPT_ATCHMNFL_SEQNO
+		,IMPRVM_BFE_CN
+		,IMPRVM_AFTER_CN
+		,COREC_MANAGT_DTE
+		,COREC_CHARGER_NM
+		,EFFECT_VRIFY_CN
+		,PREVNT_MANAGT_CN
+		,MANAGT_RESULT_DTE
+		,MANAGT_CHARGER_NM
+		,MANAGT_RESULT_ATCHMNFL_SEQNO
+		,MANAGT_RESULT_CHARGER_NM
+		,MANAGT_RESULT_CHCKER_NM
+		,MANAGT_RESULT_CONFMER_NM
+		,LAST_CHANGER_ID
+		,LAST_CHANGE_DT
+	) VALUES (
+		SQ_RS_AUDIT_CAR.NEXTVAL
+		, #{auditSeqno}
+		, #{carNo}
+		, #{pblicteDte}
+		, #{pblshrNm}
+		, #{entrpsSeqno}
+		, #{suplyEntrpsNm}
+		, #{openAt}
+		, #{mngtDeptNm}
+		, #{chckerNm}
+		, #{pblicteEntrpsNm}
+		, #{improptCn}
+		, #{improptCause}
+		, #{improptAtchmnflSeqno}
+		, #{imprvmBfeCn}
+		, #{imprvmAfterCn}
+		, #{corecManagtDte}
+		, #{corecChargerNm}
+		, #{effectVrifyCn}
+		, #{prevntManagtCn}
+		, #{managtResultDte}
+		, #{managtChargerNm}
+		, #{managtResultAtchmnflSeqno}
+		, #{managtResultChargerNm}
+		, #{managtResultChckerNm}
+		, #{managtResultConfmerNm}
+		, '${@lims.util.GetUserSession@getUserId()}'
+		, SYSDATE
+	)
+	</insert>
+
+	<update id = "updVendorAuditLgstr" parameterType="lims.qa.vo.VendorAuditLgstrMVo">
+	UPDATE RS_AUDIT_CAR SET
+		AUDIT_SEQNO = #{auditSeqno}
+		, CAR_NO = #{carNo}
+		, PBLICTE_DTE = #{pblicteDte}
+		, PBLSHR_NM = #{pblshrNm}
+		, ENTRPS_SEQNO = #{entrpsSeqno}
+		, SUPLY_ENTRPS_NM = #{suplyEntrpsNm}
+		, OPEN_AT = #{openAt}
+		, MNGT_DEPT_NM = #{mngtDeptNm}
+		, CHCKER_NM = #{chckerNm}
+		, PBLICTE_ENTRPS_NM = #{pblicteEntrpsNm}
+		, IMPROPT_CN = #{improptCn}
+		, IMPROPT_CAUSE = #{improptCause}
+		, IMPROPT_ATCHMNFL_SEQNO = #{improptAtchmnflSeqno}
+		, IMPRVM_BFE_CN = #{imprvmBfeCn}
+		, IMPRVM_AFTER_CN = #{imprvmAfterCn}
+		, COREC_MANAGT_DTE = #{corecManagtDte}
+		, COREC_CHARGER_NM = #{corecChargerNm}
+		, EFFECT_VRIFY_CN = #{effectVrifyCn}
+		, PREVNT_MANAGT_CN = #{prevntManagtCn}
+		, MANAGT_RESULT_DTE = #{managtResultDte}
+		, MANAGT_CHARGER_NM = #{managtChargerNm}
+		, MANAGT_RESULT_ATCHMNFL_SEQNO = #{managtResultAtchmnflSeqno}
+		, MANAGT_RESULT_CHARGER_NM = #{managtResultChargerNm}
+		, MANAGT_RESULT_CHCKER_NM = #{managtResultChckerNm}
+		, MANAGT_RESULT_CONFMER_NM = #{managtResultConfmerNm}
+		, LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+		, LAST_CHANGE_DT = SYSDATE
+	WHERE AUDIT_CAR_SEQNO = #{auditCarSeqno}
+	</update>
+	
+	<update id="delVendorAuditLgstr" parameterType="lims.qa.vo.VendorAuditLgstrMVo">
+	UPDATE RS_AUDIT_CAR SET
+	DELETE_AT = 'Y'
+	WHERE AUDIT_CAR_SEQNO = #{auditCarSeqno}
+	</update>
+</mapper>

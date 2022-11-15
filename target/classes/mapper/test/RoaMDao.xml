@@ -1,0 +1,687 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.test.dao.RoaMDao">
+
+	<sql id="loginUserDeptCode">'${@lims.util.GetUserSession@getDeptCode()}'</sql>
+	
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+	
+	<select id="getReqList" parameterType="lims.test.vo.RoaMVo" resultType="lims.test.vo.RoaMVo">
+		SELECT
+			IR.REQEST_SEQNO
+			, IR.REQEST_DEPT_CODE
+			, SII.INSPCT_INSTT_NM AS REQEST_DEPT_CODE_NM
+			, IR.CLIENT_ID
+			, SU.USER_NM AS CLIENT_NM
+			, IR.REQEST_DTE
+			, IR.REQEST_NO
+			, IR.INSPCT_TY_CODE
+			, SCC1.CMMN_CODE_NM AS INSPCT_TY_CODE_NM
+			, IR.CUSTLAB_SEQNO
+			, RC.CUSTLAB_NM
+			, SCC2.CMMN_CODE_NM AS PRDUCT_SE_CODE_NM
+			, IR.MTRIL_SEQNO
+			, SM.MTRIL_NM
+			, IR.MNFCTUR_DTE
+			, IR.SPLORE_NM
+			, IR.ELCTC_QY
+			, IR.ELCTC_CN
+			, SE.ENTRPS_NM
+		    , IR.ENTRPS_SEQNO
+			, IR.PRDUCT_DC
+			, IR.RM
+			, IR.PROGRS_SITTN_CODE
+			, SCC3.CMMN_CODE_NM AS PROGRS_SITTN_CODE_NM
+			, IR.JDGMNT_WORD_CODE
+		FROM IM_REQEST IR
+		JOIN SY_INSPCT_INSTT SII on IR.REQEST_DEPT_CODE = SII.INSPCT_INSTT_CODE
+		JOIN SY_USER SU ON SU.USER_ID = IR.CLIENT_ID AND SU.USE_AT = 'Y' AND SU.DELETE_AT = 'N'
+		LEFT JOIN SY_CMMN_CODE SCC1 ON SCC1.CMMN_CODE = IR.INSPCT_TY_CODE AND SCC1.USE_AT = 'Y'
+		LEFT JOIN RS_CUSTLAB RC ON IR.CUSTLAB_SEQNO = RC.CUSTLAB_SEQNO AND RC.USE_AT = 'Y' AND RC.DELETE_AT = 'N'
+		JOIN SY_MTRIL SM ON IR.MTRIL_SEQNO = SM.MTRIL_SEQNO
+		LEFT JOIN SY_CMMN_CODE SCC2 ON SCC2.CMMN_CODE = SM.PRDUCT_SE_CODE
+		LEFT JOIN SY_ENTRPS SE ON SE.ENTRPS_SEQNO = IR.ENTRPS_SEQNO
+		LEFT JOIN SY_CMMN_CODE SCC3 ON SCC3.CMMN_CODE = IR.PROGRS_SITTN_CODE AND SCC3.USE_AT = 'Y'
+		WHERE SII.DELETE_AT = 'N' AND SII.USE_AT = 'Y'
+		/* 사업장 */
+		AND IR.BPLC_CODE = <include refid="bplcCode"/>
+		<if test="progrsSittnCode != null and progrsSittnCode != ''">
+			AND IR.PROGRS_SITTN_CODE = #{progrsSittnCode}
+		</if>
+		<if test="custlabSeqno != null and custlabSeqno != ''">
+			AND IR.CUSTLAB_SEQNO = #{custlabSeqno}
+		</if>
+
+		<if test="mtrilNm != null and mtrilNm != ''">
+			AND SM.MTRIL_NM LIKE '%' || TRIM(#{mtrilNm}) || '%'
+		</if>
+
+		<if test="reqestNo != null and reqestNo != ''">
+			AND IR.REQEST_NO LIKE '%' || TRIM(#{reqestNo}) || '%'
+		</if>
+
+		<if test="inspctTyCode != null and inspctTyCode != ''">
+			AND IR.INSPCT_TY_CODE = #{inspctTyCode}
+		</if>
+
+		<if test="reqestBeginDte != null and reqestBeginDte != '' and reqestEndDte != null and reqestEndDte != ''">
+			AND IR.REQEST_DTE BETWEEN #{reqestBeginDte} AND #{reqestEndDte}
+		</if>
+
+		<if test="mnfcturBeginDte != null and mnfcturBeginDte != '' and mnfcturEndDte != null and mnfcturEndDte != ''">
+			AND IR.MNFCTUR_DTE BETWEEN #{mnfcturBeginDte} AND #{mnfcturEndDte}
+		</if>
+		
+		ORDER BY IR.MNFCTUR_DTE
+	</select>
+	
+	
+	<select id="roaList" resultType="lims.test.vo.RoaMVo" parameterType="lims.test.vo.RoaMVo">
+		WITH T AS(
+		    SELECT
+			    IRE.*,
+			    IR.MTRIL_SEQNO,
+			    SM.MTRIL_CODE,
+			    IR.INSPCT_TY_CODE,
+			    IR.REQEST_DTE,
+		        IR.REQEST_NO,
+		        IR.SPLORE_NM,
+		        IR.MNFCTUR_DTE,
+			    SCC.CMMN_CODE_NM PROGRS_SITTN_CODE_NM
+		    FROM IM_REQEST IR
+            LEFT JOIN IM_REQEST_EXPRIEM IRE ON IRE.REQEST_SEQNO = IR.REQEST_SEQNO
+            LEFT JOIN SY_MTRIL SM ON SM.MTRIL_SEQNO = IR.MTRIL_SEQNO
+            LEFT JOIN SY_CMMN_CODE SCC ON SCC.CMMN_CODE = IRE.PROGRS_SITTN_CODE
+		    WHERE 1=1
+		    AND IRE.DELETE_AT = 'N' AND IR.DELETE_AT = 'N' AND IR.VENDOR_REQEST_AT = 'N'
+			AND IR.REQEST_SEQNO = #{reqestSeqno}
+		) SELECT
+			T.REQEST_EXPRIEM_SEQNO,
+		    T.REQEST_NO,
+		    T.MNFCTUR_DTE,
+		    T.SPLORE_NM,
+			T.LAST_EXPR_ODR EXPR_ODR,
+		    T.MTRIL_SEQNO,
+		    T.BPLC_CODE,
+			T.INSPCT_TY_CODE,
+			T.EXPRIEM_SEQNO,
+			T.MTRIL_SDSPC_SEQNO,
+			T.JDGMNT_WORD_CODE,
+			T.SDSPC_NM,
+			T.JDGMNT_FOM_CODE,
+			T.REQEST_SEQNO,
+			T.MTRIL_CODE,
+			T.LAST_RESULT_REGISTER_ID,
+			SUSUSU.USER_NM AS LAST_RESULT_REGISTER_NM,
+			T.UNIT_SEQNO,
+			T.LCL_VALUE || ' ~ ' || T.UCL_VALUE LCL_UCL,
+			T.MTRIL_SEQNO,
+            T.PROGRS_SITTN_CODE,
+            T.PROGRS_SITTN_CODE_NM,
+			T.LSL_VALUE || ' ~ ' || T.USL_VALUE LSL_USL,
+			T.LSL_VALUE,
+			T.USL_VALUE,
+			T.LSL_VALUE_SE_CODE,
+			T.USL_VALUE_SE_CODE,
+			T.TEXT_STDR,
+			T.JDGMNT_FOM_CODE,
+			<if test="prductCtmmnySeqno != null and prductCtmmnySeqno != ''">
+				CTMMNY.LSL_VALUE || ' ~ ' ||  CTMMNY.USL_VALUE CTMMNY_LSL_USL,
+				CTMMNY.LSL_VALUE CTMMNY_LSL_VALUE,
+				CTMMNY.USL_VALUE CTMMNY_USL_VALUE,
+				CTMMNY.LSL_VALUE_SE_CODE CTMMNY_LSL_VALUE_SE_CODE,
+				CTMMNY.USL_VALUE_SE_CODE CTMMNY_USL_VALUE_SE_CODE,
+				CTMMNY.TEXT_STDR CTMMNY_TEXT_STDR,
+		        CTMMNY.ENTRPS_SEQNO CTMMNY_ENTRPS_SEQNO,
+			</if>
+			IRER.MARK_CPHR MARK_CPHR,
+
+			IRER.QC_RESULT_VALUE RESULT_VALUE,
+
+			IRER.QC_RESULT_REGIST_DTE RESULT_REGIST_DTE,
+
+			IRER.VRIABL_ID VRIABL_ID,
+
+			IRER.CALC_LAW_SEQNO CALC_LAW_SEQNO,
+
+			IRER.UPDT_RDMS_DOC_NO UPDT_RDMS_DOC_NO,
+
+			IRER.RDMS_DOC_NO RDMS_DOC_NO,
+
+			IRER.RDMS_UUID RDMS_UUID,
+
+			IRER.RVSOP_CPHR_RANDOM_CREAT_AT,
+
+			IRER.DELETE_AT DELETE_AT,
+
+			IRER.RDMS_REGIST_AT RDMS_REGIST_AT,
+
+			IRER.JDGMNT_WORD_CODE JDGMNT_WORD_CODE,
+
+            IRER.NOMFRM_NM NOMFRM_NM,
+			IRER.NOMFRM_CN NOMFRM_CN,
+			IRER.RVSOP_CN RVSOP_CN,
+            
+		    FN_GET_CDDTLNM(SE.EXPRIEM_CL_CODE) EXPRIEM_CL_NM,
+		    SE.EXPRIEM_CL_CODE,
+			SE.EXPRIEM_NM,
+			SU.UNIT_NM,
+            IRER.QC_RESULT_REGITER_ID AS LAST_CHANGER_ID,
+		    IRER.LAST_CHANGER_NM AS LAST_CHANGER_NM
+		FROM T
+		LEFT JOIN SY_EXPRIEM SE ON T.EXPRIEM_SEQNO = SE.EXPRIEM_SEQNO
+		LEFT JOIN SY_UNIT SU ON T.UNIT_SEQNO = SU.UNIT_SEQNO
+		LEFT JOIN SY_USER SUSUSU ON T.LAST_RESULT_REGISTER_ID = SUSUSU.USER_ID
+		LEFT JOIN SY_MTRIL SP ON T.MTRIL_SEQNO = SP.MTRIL_SEQNO
+		 <if test="prductCtmmnySeqno != null and prductCtmmnySeqno != ''">
+             LEFT JOIN (
+                SELECT DISTINCT SPS.MTRIL_SDSPC_SEQNO
+                  ,SE.EXPRIEM_SEQNO
+                  ,SPS.MTRIL_SEQNO
+                  ,PRD.ENTRPS_SEQNO
+                  ,PRD.VER
+                  ,SPC.LSL_VALUE
+                  ,SPC.LSL_VALUE_SE_CODE
+                  ,SPC.USL_VALUE
+                  ,SPC.USL_VALUE_SE_CODE
+                  ,SPS.TEXT_STDR
+                  ,BEGIN_DTE
+                  ,END_DTE
+               FROM SY_PRDUCT_CTMMNY PRD
+                    JOIN SY_PRDUCT_CTMMNY_SDSPC SPC ON PRD.PRDUCT_CTMMNY_SEQNO = SPC.PRDUCT_CTMMNY_SEQNO
+                    JOIN SY_MTRIL_SDSPC SPS ON SPC.MTRIL_SDSPC_SEQNO = SPS.MTRIL_SDSPC_SEQNO
+                    JOIN SY_EXPRIEM SE ON SPS.EXPRIEM_SEQNO = SE.EXPRIEM_SEQNO
+                 WHERE SPC.PRDUCT_CTMMNY_SEQNO =  #{prductCtmmnySeqno}
+						AND SE.DELETE_AT = 'N' AND SE.USE_AT = 'Y'
+                 		AND SPS.DELETE_AT = 'N' AND SPS.USE_AT = 'Y' 
+                 AND (SELECT MAX(VER) FROM SY_PRDUCT_CTMMNY WHERE PRDUCT_CTMMNY_SEQNO =#{prductCtmmnySeqno}) = PRD.VER
+                    AND PRD.VER = SPC.VER
+            ) CTMMNY ON T.EXPRIEM_SEQNO = CTMMNY.EXPRIEM_SEQNO AND T.MTRIL_SDSPC_SEQNO = CTMMNY.MTRIL_SDSPC_SEQNO AND T.REQEST_DTE BETWEEN CTMMNY.BEGIN_DTE AND CTMMNY.END_DTE
+	    </if>
+		LEFT JOIN
+		(
+		    SELECT
+                IIRER.*,
+                NVL(IIRER.QC_RESULT_REGISTER_ID, IIRER.RESULT_REGISTER_ID) QC_RESULT_REGITER_ID,
+		        ISU.USER_NM AS LAST_CHANGER_NM
+            FROM IM_REQEST_EXPRIEM IIT
+            LEFT JOIN IM_REQEST_EXPRIEM_RESULT IIRER ON IIT.REQEST_EXPRIEM_SEQNO = IIRER.REQEST_EXPRIEM_SEQNO
+		    LEFT JOIN SY_USER ISU ON ISU.USER_ID = IIRER.LAST_CHANGER_ID
+            WHERE  IIRER.DELETE_AT = 'N'
+			AND IIT.REQEST_SEQNO = #{reqestSeqno}
+		) IRER ON T.REQEST_EXPRIEM_SEQNO = IRER.REQEST_EXPRIEM_SEQNO AND T.LAST_EXPR_ODR = IRER.EXPR_ODR
+		WHERE 1=1
+		ORDER BY IRER.EXPR_ODR DESC, T.SORT_ORDR
+	</select>
+	
+	
+	<select id="resultRegisterUserList" resultType="lims.test.vo.RoaMVo" parameterType="lims.test.vo.RoaMVo">
+		SELECT
+			USER_ID VALUE,
+			USER_NM KEY
+		FROM SY_USER
+		WHERE DEPT_CODE = <include refid="loginUserDeptCode"/>
+	</select>
+	
+	<update id="updRoaResultData" parameterType="lims.test.vo.RoaMVo">
+		UPDATE IM_REQEST_EXPRIEM_RESULT SET
+			JDGMNT_WORD_CODE = #{jdgmntWordCode},
+			QC_RESULT_VALUE = TRIM(#{resultValue}),
+			QC_RESULT_REGIST_DTE = TO_CHAR(SYSDATE, 'YYYY-MM-DD'),
+			QC_RESULT_REGISTER_ID = <include refid="loginId"/>,
+			LAST_CHANGER_ID = <include refid="loginId"/>,
+			LAST_CHANGE_DT = SYSDATE
+		WHERE REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno}
+		AND EXPR_ODR = #{exprOdr}
+	</update>
+	
+	<select id="getEntrpsList" resultType="lims.test.vo.RoaMVo" parameterType="lims.test.vo.RoaMVo">
+        SELECT DISTINCT A.PRDUCT_CTMMNY_SEQNO VALUE,
+			D.ENTRPS_NM || ' ' || A.STDR_NM KEY
+		FROM SY_PRDUCT_CTMMNY A
+		LEFT JOIN SY_PRDUCT_CTMMNY_MTRIL C ON A.PRDUCT_CTMMNY_SEQNO = C.PRDUCT_CTMMNY_SEQNO
+		LEFT JOIN SY_ENTRPS D ON A.ENTRPS_SEQNO = D.ENTRPS_SEQNO
+		WHERE 1=1 AND A.DELETE_AT = 'N' AND C.DELETE_AT = 'N' AND D.USE_AT = 'Y'
+		AND C.BPLC_CODE = <include refid="bplcCode"/>
+		<if test="mtrilSeqno != null and mtrilSeqno != ''">
+			AND C.MTRIL_SEQNO = #{mtrilSeqno}
+		</if>
+
+	</select>
+	
+	<select id="getUpperLotList" resultType="lims.test.vo.RoaMVo" parameterType="lims.test.vo.RoaMVo">
+        SELECT A.UPPER_MTRIL_CODE || A.REQEST_NO || ' ' || FN_GET_CDDTLNM((SELECT C.PROCESS_TY_CODE FROM IM_REQEST C WHERE REQEST_SEQNO = A.REQEST_NO_REQEST_SEQNO)) KEY,
+            A.REQEST_NO_REQEST_SEQNO VALUE
+        FROM IM_REQEST_UPPER_REQEST_NO A
+        LEFT JOIN IM_REQEST B ON A.REQEST_SEQNO = B.REQEST_SEQNO
+        WHERE A.REQEST_SEQNO = #{reqestSeqno}
+        AND A.REQEST_NO_REQEST_SEQNO IS NOT NULL
+	</select>
+
+	<update id="genRoa" parameterType="lims.test.vo.RoaMVo">
+		UPDATE IM_REQEST SET
+			PROGRS_SITTN_CODE = 'IM03000005',
+			ROA_CREAT_AT = 'Y',
+			LAST_CHANGER_ID = <include refid="loginId"/>,
+			LAST_CHANGE_DT = SYSDATE
+		WHERE REQEST_SEQNO = #{reqestSeqno}
+	</update>
+	
+	<update id="genRoaExpriem" parameterType="lims.test.vo.RoaMVo">
+		UPDATE IM_REQEST_EXPRIEM SET
+			PROGRS_SITTN_CODE = 'IM03000005',
+			LAST_CHANGER_ID = <include refid="loginId"/>,
+			LAST_CHANGE_DT = SYSDATE
+		WHERE 1= 1 
+		AND REQEST_SEQNO = #{reqestSeqno}
+	</update>
+	
+	<select id="getLotChartList" parameterType="lims.test.vo.RoaMVo" resultType="lims.test.vo.RoaMVo">
+		SELECT IR.REQEST_NO, 
+		    IRE.LSL_VALUE,
+		    IRE.USL_VALUE,
+			IRER.QC_RESULT_VALUE,
+		    SP.MTRIL_NM,
+		    U.UNIT_NM
+		FROM IM_REQEST_EXPRIEM IRE
+		LEFT JOIN IM_REQEST IR ON IRE.REQEST_SEQNO = IR.REQEST_SEQNO
+		LEFT JOIN IM_REQEST_EXPRIEM_RESULT IRER ON IRE.REQEST_EXPRIEM_SEQNO = IRER.REQEST_EXPRIEM_SEQNO AND IRE.LAST_EXPR_ODR = IRER.EXPR_ODR
+		LEFT JOIN SY_MTRIL SP ON IR.MTRIL_SEQNO = SP.MTRIL_SEQNO
+		LEFT JOIN SY_UNIT U ON IRE.UNIT_SEQNO = U.UNIT_SEQNO
+		WHERE IRE.EXPRIEM_SEQNO = #{expriemSeqno}
+		<if test="mtrilSeqno != null and mtrilSeqno != ''">
+			AND IR.MTRIL_SEQNO = #{mtrilSeqno}
+		</if>
+		<if test="mtrilCode != null and mtrilCode != ''">
+			AND SP.MTRIL_CODE = #{mtrilCode}
+		</if>
+		ORDER BY REQEST_NO
+	</select>
+	
+	<select id="getRdmsDateList" parameterType="lims.test.vo.RoaMVo" resultType="lims.test.vo.RoaMVo">
+		SELECT
+		    A.REQEST_NO,
+		    A.REQEST_SEQNO,
+		    E.EXPRIEM_NM,
+		    D.REQEST_EXPRIEM_SEQNO,
+		    D.EXPR_ODR,
+		    D.NO,
+		    D.QC_TMPLAT_NM,
+		    D.QC_RESULT_VALUE,
+		    D.RDMS_UUID,
+		    D.RDMS_DOC_NO,
+		    D.UPDT_RDMS_DOC_NO,
+		    F.MTRIL_NM,
+			A.BPLC_CODE
+		FROM IM_REQEST A
+		LEFT JOIN IM_REQEST_EXPRIEM B ON A.REQEST_SEQNO = B.REQEST_SEQNO
+		LEFT JOIN IM_REQEST_EXPRIEM_RESULT C ON B.REQEST_EXPRIEM_SEQNO = C.REQEST_EXPRIEM_SEQNO
+		LEFT JOIN IM_REQEST_EXPRIEM_RESULT_RDMS D ON C.REQEST_EXPRIEM_SEQNO = D.REQEST_EXPRIEM_SEQNO AND C.EXPR_ODR = D.EXPR_ODR
+		LEFT JOIN SY_EXPRIEM E ON B.EXPRIEM_SEQNO = E.EXPRIEM_SEQNO
+		LEFT JOIN SY_MTRIL F ON F.MTRIL_SEQNO = A.MTRIL_SEQNO
+		WHERE D.RDMS_UUID IS NOT NULL 
+		AND D.RDMS_DOC_NO IS NOT NULL
+		AND D.UPDT_RDMS_DOC_NO IS NOT NULL
+		AND A.REQEST_SEQNO = #{reqestSeqno}
+	</select>
+	
+	<update id="updRdmsDate" parameterType="lims.test.vo.RoaMVo">
+		UPDATE IM_REQEST_EXPRIEM_RESULT_RDMS SET
+			QC_RESULT_VALUE = #{qcResultValue},
+			LAST_CHANGER_ID = <include refid="loginId"/>,
+			LAST_CHANGE_DT = SYSDATE
+		WHERE REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno}
+		AND EXPR_ODR = #{exprOdr}
+		AND NO = #{no}
+	</update>
+	
+	
+	<select id="getPrductSdspcList" parameterType="lims.test.vo.RoaMVo" resultType="lims.test.vo.RoaMVo">
+	   SELECT
+	   		A.MTRIL_SEQNO,
+	   		A.REQEST_SEQNO,
+	        E.MTRIL_SDSPC_SEQNO,
+	        E.EXPRIEM_SEQNO,
+	        E.JDGMNT_FOM_CODE,
+	        E.LCL_VALUE_SE_CODE,
+	        E.LCL_VALUE,
+	        E.UCL_VALUE_SE_CODE,
+	        E.UCL_VALUE,
+	        E.LSL_VALUE_SE_CODE,
+	        E.LSL_VALUE,
+	        E.USL_VALUE_SE_CODE,
+	        E.USL_VALUE,
+	        E.MARK_CPHR,
+	        E.TEXT_STDR,
+	        E.UNIT_SEQNO,
+	        E.USE_AT,
+	        E.COA_USE_AT,
+	        E.SORT_ORDR,
+	        E.FRST_ANALS_AT,
+	        E.MIDDLE_ANALS_AT,
+	        E.LAST_ANALS_AT,
+	        E.COA_UPDT_POSBL_AT,
+	        E.SDSPC_NM,
+	        'Y' AS FLAG,
+	        E.EQPMN_CL_CODE
+	    FROM IM_REQEST A
+		LEFT JOIN SY_MTRIL_SDSPC E ON A.MTRIL_SEQNO = E.MTRIL_SEQNO
+	    WHERE A.REQEST_SEQNO = #{reqestSeqno}
+		AND E.DELETE_AT = 'N' AND E.USE_AT = 'Y'
+<!-- 		ORDER BY  -->
+	</select>
+	
+	<select id="getReqestExpriemList" parameterType="lims.test.vo.RoaMVo" resultType="lims.test.vo.RoaMVo">
+		SELECT
+			A.REQEST_SEQNO,
+			B.REQEST_EXPRIEM_SEQNO,
+			B.MTRIL_SDSPC_SEQNO,
+			A.MTRIL_SEQNO,
+			B.EXPRIEM_SEQNO,
+			'Y' AS FLAG,
+		    A.BPLC_CODE
+		FROM IM_REQEST A
+		LEFT JOIN IM_REQEST_EXPRIEM B ON A.REQEST_SEQNO = B.REQEST_SEQNO
+		WHERE A.REQEST_SEQNO = #{reqestSeqno}
+		AND A.DELETE_AT = 'N'
+	</select>
+	
+	<update id="updReqestExpriem" parameterType="lims.test.vo.RoaMVo">
+		UPDATE IM_REQEST_EXPRIEM SET
+			LCL_VALUE = #{lclValue}
+			,LCL_VALUE_SE_CODE = #{lclValueSeCode}
+			,UCL_VALUE = #{uclValue}
+			,UCL_VALUE_SE_CODE = #{uclValueSeCode}
+			,LSL_VALUE = #{lslValue}
+			,LSL_VALUE_SE_CODE = #{lslValueSeCode}
+			,USL_VALUE = #{uslValue}
+			,USL_VALUE_SE_CODE = #{uslValueSeCode}
+			,JDGMNT_FOM_CODE = #{jdgmntFomCode}
+			,TEXT_STDR = #{textStdr}
+			,MARK_CPHR = #{markCphr}
+			,UNIT_SEQNO = #{unitSeqno}
+			,SDSPC_NM = #{sdspcNm}
+			,SORT_ORDR = #{sortOrdr}
+			,EQPMN_CL_CODE = #{eqpmnClCode}
+			,DELETE_AT = 'N'
+			,LAST_CHANGER_ID = <include refid="loginId" />
+			,LAST_CHANGE_DT = SYSDATE
+		WHERE REQEST_SEQNO = #{reqestSeqno} AND MTRIL_SDSPC_SEQNO = #{mtrilSdspcSeqno}
+	</update>
+	
+	<insert id="insReqestExpriem" parameterType="lims.test.vo.RoaMVo">
+		INSERT INTO IM_REQEST_EXPRIEM(
+			REQEST_EXPRIEM_SEQNO,
+			BPLC_CODE,
+			EXPRIEM_SEQNO,
+			REQEST_SEQNO,
+			MTRIL_SDSPC_SEQNO,
+			LCL_VALUE,
+			LCL_VALUE_SE_CODE,
+			UCL_VALUE,
+			UCL_VALUE_SE_CODE,
+			UNIT_SEQNO,
+			SORT_ORDR,
+			PROGRS_SITTN_CODE,
+			DELETE_AT,
+			LAST_CHANGER_ID,
+			LAST_CHANGE_DT,
+			TEXT_STDR,
+        	LAST_EXPR_ODR,
+        	JDGMNT_FOM_CODE,
+        	MARK_CPHR,
+        	LSL_VALUE,
+        	USL_VALUE,
+        	LSL_VALUE_SE_CODE,        	
+        	USL_VALUE_SE_CODE,
+        	SDSPC_NM,
+            EQPMN_CL_CODE
+		) SELECT			
+			SQ_IM_REQEST_EXPRIEM.NEXTVAL,
+			BPLC_CODE,
+			#{expriemSeqno},
+			#{reqestSeqno},
+			#{mtrilSdspcSeqno},
+			#{lclValue},
+			#{lclValueSeCode},
+			#{uclValue},
+			#{uclValueSeCode},
+			#{unitSeqno},
+			NVL(#{sortOrdr}, (SELECT NVL(MAX(IIRE.SORT_ORDR),0) + 1 FROM IM_REQEST_EXPRIEM IIRE WHERE IIRE.REQEST_SEQNO = IRE.REQEST_SEQNO)),
+			'IM03000003',
+			'N',
+			<include refid="loginId"/>,
+			SYSDATE,
+			#{textStdr},
+			1,
+			#{jdgmntFomCode},
+        	#{markCphr},
+        	#{lslValue},
+        	#{uslValue},
+        	#{lslValueSeCode},
+        	#{uslValueSeCode},
+        	#{sdspcNm},
+        	#{eqpmnClCode}
+		FROM IM_REQEST_EXPRIEM IRE
+		WHERE IRE.REQEST_SEQNO = #{reqestSeqno} AND ROWNUM = 1 
+	</insert>
+	
+	<insert id="insReqestExpriemResult" parameterType="lims.test.vo.RoaMVo">
+		INSERT INTO IM_REQEST_EXPRIEM_RESULT(
+			REQEST_EXPRIEM_SEQNO,
+			BPLC_CODE,
+			EXPR_ODR,
+			LAST_CHANGER_ID,
+			LAST_CHANGE_DT,
+			LAST_RESULT_INPUT_AT,
+			DELETE_AT
+		) SELECT
+			A.REQEST_EXPRIEM_SEQNO,
+			A.BPLC_CODE,
+			0,
+			<include refid="loginId"/>,
+			SYSDATE,
+			'N',
+			DECODE(#{deleteAt}, 'N', 'N', 'Y')
+		FROM IM_REQEST_EXPRIEM A 
+		WHERE 1 = 1 AND A.REQEST_SEQNO = #{reqestSeqno}
+		AND A.EXPRIEM_SEQNO = #{expriemSeqno}
+		AND A.DELETE_AT = 'N'
+		
+	</insert>
+	
+	<update id="delReqestExpriem" parameterType="lims.test.vo.RoaMVo">
+		UPDATE IM_REQEST_EXPRIEM SET
+			DELETE_AT = 'Y',
+			LAST_CHANGER_ID = <include refid="loginId"/>,
+			LAST_CHANGE_DT = SYSDATE
+		WHERE REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno}
+	</update>
+
+	<insert id="insResultAvrg" parameterType="lims.test.vo.RoaMVo">
+		INSERT INTO IM_REQEST_EXPRIEM_RESULT_AVRG(
+			REQEST_EXPRIEM_SEQNO,
+			EXPR_ODR,
+			BPLC_CODE,
+			LAST_CHANGER_ID,
+			LAST_CHANGE_DT
+		)SELECT
+			A.REQEST_EXPRIEM_SEQNO,
+			0,
+			A.BPLC_CODE,
+			<include refid="loginId"/>,
+			SYSDATE
+		FROM
+		IM_REQEST_EXPRIEM A 
+		WHERE 1 = 1
+		AND A.REQEST_SEQNO = #{reqestSeqno}
+		AND A.EXPRIEM_SEQNO = #{expriemSeqno}
+		AND A.DELETE_AT = 'N'
+	</insert>
+
+	<select id="getRealAnalsData" parameterType="lims.test.vo.RoaMVo" resultType= "hashMap" >
+	SELECT
+		TO_CHAR(A.REAL_ANALS_DT, 'YYYY-MM-DD HH24:MI:SS') REAL_ANALS_DT,
+		B.USER_NM
+	FROM(
+		SELECT 
+			ROW_NUMBER() OVER(ORDER BY B.REAL_ANALS_DT) ROW_NUM
+			,MIN(B.REAL_ANALS_DT) REAL_ANALS_DT, MIN(B.RESULT_REGISTER_ID)
+			RESULT_REGISTER_ID, B.REQEST_EXPRIEM_SEQNO 
+		FROM IM_REQEST_EXPRIEM A
+		INNER JOIN IM_REQEST_EXPRIEM_RESULT B ON A.REQEST_EXPRIEM_SEQNO = B.REQEST_EXPRIEM_SEQNO
+		INNER JOIN SY_EXPRIEM C ON A.EXPRIEM_SEQNO = C.EXPRIEM_SEQNO
+		WHERE A.REQEST_SEQNO = #{reqestSeqno}
+		AND C.EXPRIEM_CL_CODE = #{expriemClCode}
+		AND B.DELETE_AT = 'N'
+		GROUP BY B.REAL_ANALS_DT, B.REQEST_EXPRIEM_SEQNO
+	) A
+	LEFT JOIN SY_USER B ON A.RESULT_REGISTER_ID = B.USER_ID
+	WHERE A.ROW_NUM = 1
+	AND A.RESULT_REGISTER_ID IS NOT NULL
+	</select>
+	
+	<select id="getRoaEditHistList" parameterType="lims.test.vo.RoaMVo" resultType="lims.test.vo.RoaMVo">
+		SELECT
+			A.PROCESS_NM,
+            A.CHANGE_AFTER_CN,
+            B.USER_NM CHANGER_ID,
+            A.HIST_PBLICTE_DT
+        FROM AT_EXPR_HIST A
+        LEFT JOIN SY_USER B ON A.CHANGER_ID = B.USER_ID
+        WHERE A.REQEST_SEQNO = #{reqestSeqno}
+        ORDER BY A.HIST_PBLICTE_DT DESC, A.HIST_SEQNO DESC
+	</select>
+	
+	<update id="setRoaRollback" parameterType="lims.test.vo.RoaMVo">
+		BEGIN
+			UPDATE IM_REQEST SET PROGRS_SITTN_CODE = 'IM03000004' WHERE REQEST_SEQNO = #{reqestSeqno} AND DELETE_AT = 'N'; 
+
+			UPDATE  IM_REQEST_EXPRIEM SET  PROGRS_SITTN_CODE = 'IM03000004' WHERE REQEST_SEQNO = #{reqestSeqno};
+		END;
+	</update>
+	
+	<select id="getRdmsCalcData" parameterType="lims.test.vo.RoaMVo" resultType="lims.test.vo.RoaMVo">
+		SELECT 
+			A.UPDT_RDMS_DOC_NO,
+			A.QC_VRIABL_VALUE,
+			A.RDMS_UUID			
+		FROM IM_NOMFRM_VRIABL A
+        JOIN IM_REQEST_EXPRIEM_RESULT B ON A.REQEST_EXPRIEM_SEQNO = B.REQEST_EXPRIEM_SEQNO AND A.EXPR_ODR = B.EXPR_ODR
+        JOIN IM_REQEST_EXPRIEM C ON C.REQEST_EXPRIEM_SEQNO = B.REQEST_EXPRIEM_SEQNO
+        WHERE C.LAST_EXPR_ODR = B.EXPR_ODR AND C.REQEST_SEQNO = #{reqestSeqno} 
+        AND A.DELETE_AT = 'N' AND B.DELETE_AT = 'N' AND C.DELETE_AT = 'N' AND B.RDMS_REGIST_AT = 'Y'
+        AND B.VRIABL_ID = A.VRIABL_ID
+	</select>
+	
+	<update id="updExpriemProgrs" parameterType="lims.test.vo.RoaMVo">
+		UPDATE IM_REQEST IR
+			SET IR.PROGRS_SITTN_CODE = (
+											SELECT 
+												MIN(IIR.PROGRS_SITTN_CODE) 
+											FROM IM_REQEST_EXPRIEM IIR 
+											WHERE IIR.REQEST_SEQNO = #{reqestSeqno} AND DELETE_AT = 'N'
+										)
+		WHERE IR.REQEST_SEQNO = #{reqestSeqno}
+	</update>
+	
+	<select id="getCalcInfo" parameterType="lims.test.vo.RoaMVo" resultType="lims.test.vo.RoaMVo">
+		SELECT	
+			A.VRIABL_ID
+		    , A.VRIABL_NM
+			, A.BASS_VALUE
+			, A.MARK_CPHR
+			, A.VRIABL_VALUE
+			, A.QC_VRIABL_VALUE
+			, A.RDMS_UUID
+			, A.RDMS_DOC_NO
+			, A.UPDT_RDMS_DOC_NO
+			, B.RVSOP_CPHR_RANDOM_CREAT_AT
+			, B.EXCEL_REGIST_AT
+		FROM IM_REQEST_EXPRIEM_VRIABL A
+		JOIN IM_REQEST_EXPRIEM_RESULT B ON A.REQEST_EXPRIEM_SEQNO = B.REQEST_EXPRIEM_SEQNO AND A.EXPR_ODR = B.EXPR_ODR
+		WHERE A.REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno} AND A.EXPR_ODR = #{exprOdr}
+		AND A.DELETE_AT = 'N'
+	
+	</select>
+	
+	<update id="updtRvsopVriablValue" parameterType="lims.test.vo.RoaMVo">
+		UPDATE IM_REQEST_EXPRIEM_VRIABL A
+		SET	
+			A.QC_VRIABL_VALUE = #{updtResultValue}
+			, A.LAST_CHANGER_ID = <include refid="loginId"/>
+			, A.LAST_CHANGE_DT = SYSDATE
+		WHERE A.REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno} 
+			  AND A.EXPR_ODR = #{exprOdr} 
+			  AND A.VRIABL_ID = #{vriablId}
+	</update>
+
+	<select id="getOrgnRoaData" parameterType="lims.test.vo.RoaMVo" resultType="lims.test.vo.RoaMVo">
+		SELECT
+			A.REQEST_EXPRIEM_SEQNO
+			, A.EXPR_ODR
+			, A.CALC_LAW_SEQNO
+			, A.NOMFRM_NM
+			, A.NOMFRM_CN
+			, A.RVSOP_CN
+			, A.VRIABL_ID
+			, A.RESULT_VALUE
+			, A.MARK_VALUE
+			, A.RESULT_REGISTER_ID
+			, #{resultDte} AS RESULT_REGIST_DTE
+			, A.MARK_CPHR
+			, A.QC_RESULT_VALUE
+			, A.QC_MARK_VALUE
+			, A.QC_RESULT_REGISTER_ID
+			, A.JDGMNT_WORD_CODE
+			, A.RDMS_UUID
+			, A.RDMS_DOC_NO
+			, A.UPDT_RDMS_DOC_NO
+			, A.LAS_REGIST_AT
+			, A.LAS_CN
+			, A.REAL_ANALS_AT
+			, A.REAL_ANALS_DT
+			, A.ORGINL_RDMS_DOC_NO
+			, A.ORGINL_UPDT_RDMS_DOC_NO
+			, A.LAST_RESULT_INPUT_AT
+			, A.RVSOP_CPHR_RANDOM_CREAT_AT
+			, A.DELETE_AT
+			, B.JDGMNT_FOM_CODE
+		FROM IM_REQEST_EXPRIEM_RESULT A
+		LEFT JOIN IM_REQEST_EXPRIEM B ON A.REQEST_EXPRIEM_SEQNO = B.REQEST_EXPRIEM_SEQNO
+		WHERE 1 = 1
+		AND B.REQEST_SEQNO = #{reqestSeqno}
+		AND A.EXPR_ODR = B.LAST_EXPR_ODR
+		
+	</select>
+
+	<update id="updRoaData" parameterType="lims.test.vo.RoaMVo">
+		UPDATE IM_REQEST_EXPRIEM SET
+			LAST_QC_RESULT_REGIST_DTE = TO_CHAR(SYSDATE, 'YYYY-MM-DD'),
+			LAST_QC_RESULT_REGISTER_ID = #{lastResultRegisterId},
+			LAST_RESULT_REGISTER_ID = #{lastResultRegisterId},
+			JDGMNT_WORD_CODE = (SELECT MIN(JDGMNT_WORD_CODE) FROM IM_REQEST_EXPRIEM_RESULT WHERE REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno} AND EXPR_ODR = #{exprOdr}),
+			LAST_CHANGER_ID = <include refid="loginId"/>,
+			LAST_CHANGE_DT = SYSDATE
+		WHERE REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno}
+	</update>
+	<update id="updReqFailAt" parameterType="lims.test.vo.RoaMVo">
+		UPDATE IM_REQEST A
+		SET A.JDGMNT_WORD_CODE = (SELECT MIN(IA.JDGMNT_WORD_CODE) FROM IM_REQEST_EXPRIEM IA WHERE IA.REQEST_SEQNO = A.REQEST_SEQNO AND IA.DELETE_AT = 'N')
+		WHERE A.REQEST_SEQNO = #{reqestSeqno}
+
+	</update>
+
+	<select id="getBplcAddress" parameterType="lims.test.vo.RoaMVo" resultType="string">
+
+		SELECT
+		    RDMS_SERVER_IP
+		FROM SY_INSPCT_INSTT
+		WHERE UPPER_INSPCT_INSTT_CODE IS NULL
+		AND RDMS_SERVER_IP IS NOT NULL
+		AND INSPCT_INSTT_CODE = <include refid="bplcCode"/> AND DELETE_AT = 'N' AND USE_AT = 'Y'
+
+	</select>
+</mapper>

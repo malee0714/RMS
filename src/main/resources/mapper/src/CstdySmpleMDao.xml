@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.src.dao.CstdySmpleMDao">
+	
+	<!-- 담당 팀별 접수 건수 조회 -->
+	<select id="getCstdyList" parameterType="lims.src.vo.CstdySmpleMVo" resultType="lims.src.vo.CstdySmpleMVo">
+		 SELECT
+			IR.REQEST_SEQNO <!-- 의뢰일련번호 -->
+			, IR.BPLC_CODE <!-- 사업장코드 -->
+			,(SELECT ZA.INSPCT_INSTT_NM FROM SY_INSPCT_INSTT ZA WHERE ZA.INSPCT_INSTT_CODE=IR.BPLC_CODE) AS BPLC_NM
+			, IR.UPPER_REQEST_SEQNO <!-- 상위의뢰일련번호 -->
+			, IR.REQEST_NO <!-- 의뢰번호 -->
+			, IR.MTRIL_SEQNO <!-- 자재일련번호 -->
+			, SP.MTRIL_NM <!-- 자재명 -->
+			, SP.LOT_CODE <!-- 랏트코드 -->
+			, IR.INSPCT_TY_CODE <!-- 검사유형코드 -->
+			, (SELECT XA.CMMN_CODE_NM FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = IR.INSPCT_TY_CODE) AS INSPCT_TY_CODE_NM
+			, IR.PARTCLR_MATTER_CODE <!-- 특이사항코드 -->
+			, IR.REQEST_DTE <!-- 의뢰일자 -->
+			, IR.MNFCTUR_DTE <!-- 제조일자 -->
+			, IR.EMRGNCY_AT <!-- 긴급여부 -->
+			, IR.ORDR <!-- 순서 -->
+			, IR.MTRIL_EQP_SE_SEQNO <!-- 자재 설비 구분 일련번호 -->
+			, IR.MTRIL_VENDOR_SEQNO <!-- 자재 벤더 일련번호 -->
+			, IR.LOT_NO <!-- 랏트번호 -->
+			, IR.FRST_LOT_NO <!-- 최초랏트번호 -->
+			,  (SELECT XA.VENDOR_LOT_NO FROM IM_REQEST XA WHERE XA.REQEST_SEQNO = IR.VENDOR_COA_REQEST_SEQNO) AS VENDOR_LOT_NO <!-- 벤더랏트번호 -->
+			, IR.REQEST_DEPT_CODE <!-- 의뢰부서코드 -->
+			, DEPT.INSPCT_INSTT_NM AS REQEST_DEPT_NM <!-- 의뢰부서명 -->
+			, IR.CLIENT_ID <!-- 의뢰자ID -->
+			, SU.USER_NM AS CLIENT_NM <!-- 의뢰자명 -->
+			, IR.EXPRIEM_CO <!-- 시험항목수 -->
+			, IR.RM <!-- 비고 -->
+			, IR.VIRTL_LOT_AT <!-- 가상랏트여부 -->
+			, IR.RE_REQEST_AT <!-- 재의뢰여부 -->
+			, IR.JDGMNT_WORD_CODE <!-- 판정용어코드 -->
+			, IR.PROGRS_SITTN_CODE <!-- 진행상황코드 -->
+			, (SELECT XA.CMMN_CODE_NM FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = IR.PROGRS_SITTN_CODE) AS PROGRS_SITTN_CODE_NM
+			, IR.LAST_ANALS_DT <!-- 최종분석일시 -->
+			, IR.REREQEST_NUM <!-- 재의뢰건수 -->
+			, IR.ROA_CREAT_AT <!-- ROA생성여부 -->
+			, IR.CTMMNY_OTHBC_AT <!-- 고객사공개여부 -->
+			, IR.LOCK_AT <!-- 잠금여부 -->
+			, IR.DELETE_AT <!-- 삭제여부 -->
+			, IR.LAST_CHANGER_ID <!-- 최종변경자ID -->
+			, IR.LAST_CHANGE_DT <!-- 최종변경일시 -->
+			, IR.VALID_PD_CYCLE || (SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE = IR.VALID_PD_CYCLE_CODE) as VALID_PD_CYCLE<!--유효 기간 주기 -->
+			, IR.VALID_DTE<!--유효 일자-->
+			, IR.DSUSE_DTE<!--폐기 일자-->
+			, IR.DUSPSN_ID<!--폐기자 ID-->
+			,(SELECT USER_NM FROM SY_USER WHERE USER_ID = DUSPSN_ID) AS DUSPSN_NM
+	    FROM <!-- 의뢰 -->
+	      	IM_REQEST IR
+	    LEFT JOIN <!-- 자재 -->
+	      	SY_MTRIL SP ON SP.MTRIL_SEQNO = IR.MTRIL_SEQNO
+	    LEFT JOIN <!-- 검사기관 -->
+	      	SY_INSPCT_INSTT DEPT ON IR.REQEST_DEPT_CODE = DEPT.INSPCT_INSTT_CODE
+	    LEFT JOIN <!-- 이용자 -->
+	      	SY_USER SU ON SU.USER_ID = IR.CLIENT_ID
+	    WHERE
+	      	IR.DELETE_AT = 'N'
+		<if test="bplcCodeSch != null and bplcCodeSch != ''">
+			AND IR.BPLC_CODE =#{bplcCodeSch}
+		</if>
+		<if test="mtrilSch != null and mtrilSch != ''">
+			AND UPPER(SP.MTRIL_NM) LIKE '%' || TRIM(UPPER(#{mtrilSch})) || '%'
+		</if>
+		<if test="lotNoSch != null and lotNoSch != ''">
+			AND UPPER(IR.LOT_NO) LIKE '%' || TRIM(UPPER(#{lotNoSch}))||'%'
+		</if>
+		<if test="reqestNoSch != null and reqestNoSch != ''">
+			AND UPPER(IR.REQEST_NO) LIKE '%' || TRIM(UPPER(#{reqestNoSch})) ||'%'
+		</if>
+		<if test="inspctTyCodeSch != null and inspctTyCodeSch != ''">
+			AND IR.INSPCT_TY_CODE =#{inspctTyCodeSch}
+		</if>
+		<if test="schDteID == 'reqest'">
+		AND IR.REQEST_DTE BETWEEN #{schBeginDte} AND #{schEndDte}
+		</if>
+		<if test="schDteID == 'mnfctur'">
+		AND IR.MNFCTUR_DTE BETWEEN #{schBeginDte} AND #{schEndDte}
+		</if>
+		<if test="schDteID == 'dsuse'">
+		AND IR.DSUSE_DTE BETWEEN #{schBeginDte} AND #{schEndDte}
+		</if>
+		<if test="dsuseAtSch != null and dsuseAtSch != '' ">
+		<choose>
+			<when test="dsuseAtSch =='Y'.toString()">
+        	 AND IR.DSUSE_DTE IS NULL
+         </when>
+         <when test="dsuseAtSch == 'N'.toString()">
+         		AND IR.DSUSE_DTE IS NOT NULL
+         </when>
+         </choose>	 
+		</if>
+		<if test="progrsSittnCodeSch != null and progrsSittnCodeSch != ''">
+			AND IR.PROGRS_SITTN_CODE =#{progrsSittnCodeSch}
+		</if>
+		AND
+	    	VENDOR_COA_AT = 'N'
+	    ORDER BY
+	      	IR.MNFCTUR_DTE, SUBSTR(IR.LOT_NO,9)
+		
+	</select>
+	
+	<update id="delRequestCntList" parameterType="lims.src.vo.CstdySmpleMVo">
+	  UPDATE IM_REQEST
+	 <choose>
+			<when test="dsuseDte !=null and dsuseDte != ''">
+		SET DSUSE_DTE = #{dsuseDte}, DUSPSN_ID = '${@lims.util.GetUserSession@getUserId()}'
+			</when>
+			<when test="dsuseDte ==''">
+		SET DSUSE_DTE = null, DUSPSN_ID = null
+			</when>	
+	</choose>
+		WHERE REQEST_SEQNO = #{reqestSeqno}
+	</update>
+</mapper>

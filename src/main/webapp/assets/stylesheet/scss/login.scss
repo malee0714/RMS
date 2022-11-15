@@ -1,0 +1,29 @@
+@import "mixin"; 
+#wrap { width:100%; height:100%; position: fixed; background: url(../image/loginBg.png); }
+.loginArea {  width:367px; height:415px; @include posMdCt; 
+& > img { width: 329px; margin: 0 auto; margin: 0 0 8px 17px;}
+& .loginInnerArea {width:367px; height:336px; background: #fff; border-top: 2px solid #1b97d3; position: relative; }
+& .loginTit { text-align: center; margin-top: 70px;
+& dt { font: { size:30px; family:'NanumGothicBold'} }
+& dd {}    
+}
+& .iLogin {
+    & .iLoginUser, & .iLoginPass {width:339px; height:40px; border:0; border-bottom: 1px solid #cccccc; @include posCt; padding-left: 34px; color:#666;}
+    & .iLoginUser:focus, & .iLoginPass:focus {border-bottom: 1px solid #4faadc;}
+    & .iLoginUser {top:180px; background: #fff url(../image/loginId_off.png) no-repeat 8px center;
+    &:focus {background: #fff url(../image/loginId_on.png) no-repeat 8px center;}
+    }
+    & .iLoginPass {top:228px; background: #fff url(../image/loginPass_off.png) no-repeat 8px center;
+     &:focus {background: #fff url(../image/loginPass_on.png) no-repeat 8px center;}        
+    }   
+    & .iLoginBtn { width:100%; height:42px; background: #1b97d3; font-size: 13px; position: absolute; bottom:0; left:0; border-radius: 0;
+    &:hover {background: #1886bc;}
+    }    
+}
+& .loginFooter {color:#fff; text-align: center; font-size: 11px; margin-top:7px;}
+}
+
+.hfCir { width:91px; height:46px; background: #1b97d3; border-radius:0 0 100px 100px; @include posCt;
+& img { @include posMdCt; }
+}
+  

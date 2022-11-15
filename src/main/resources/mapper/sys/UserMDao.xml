@@ -1,0 +1,604 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.sys.dao.UserMDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+
+	<!-- 부서 콤보박스
+	<select id="getDeptComboList" parameterType="lims.sys.vo.UserMVo" resultType="lims.sys.vo.UserMVo">
+		SELECT
+        	CASE
+        		WHEN
+        			LEVEL <![CDATA[<=]]> 2
+        		THEN
+        			INSPCT_INSTT_NM ELSE LPAD(' ', 2*(LEVEL-1), 'ㅤ') || '└ ' || INSPCT_INSTT_NM END AS KEY
+        			, INSPCT_INSTT_CODE AS VALUE
+        FROM
+        	SY_INSPCT_INSTT
+        WHERE
+        	USE_AT = 'Y'
+        AND
+        	DELETE_AT = 'N'
+        AND
+        	INSPCT_INSTT_CODE NOT IN (#{bestInspctInsttCode})
+        START WITH
+        	INSPCT_INSTT_CODE =  #{bestInspctInsttCode}
+        CONNECT BY PRIOR
+        	INSPCT_INSTT_CODE = UPPER_INSPCT_INSTT_CODE
+        ORDER SIBLINGS BY
+        	INSPCT_INSTT_NM
+	</select>
+	-->
+
+	<select id="getUserBplcCode" parameterType="lims.sys.vo.UserMVo" resultType="java.lang.String">
+		SELECT
+			BPLC_CODE
+		FROM SY_USER
+		WHERE USER_ID = #{userId}
+	</select>
+
+	<select id="getDeptComboList" parameterType="lims.sys.vo.UserMVo" resultType="lims.sys.vo.UserMVo">
+		SELECT
+			CASE
+		    	WHEN
+		      		LEVEL <![CDATA[<=]]> 1
+		    	THEN
+		      		A.INSPCT_INSTT_NM ELSE LPAD(' ', 2*(LEVEL-1), 'ㅤ') || '└ ' || A.INSPCT_INSTT_NM END AS KEY
+		      		, A.INSPCT_INSTT_CODE AS VALUE
+		FROM
+			SY_INSPCT_INSTT A
+		JOIN (
+			SELECT
+		    	IA.INSPCT_INSTT_CODE
+		      	, IA.UPPER_INSPCT_INSTT_CODE
+		    FROM
+				SY_INSPCT_INSTT IA
+			WHERE
+		       	IA.USE_AT = 'Y'
+		    AND
+		       	IA.DELETE_AT = 'N'
+		    AND
+		       	IA.INSPCT_INSTT_CODE NOT IN (#{bestInspctInsttCode})
+		    <if test="eblgblEvlAt != null and eblgblEvlAt !=''">
+            AND  (IA.UPPER_INSPCT_INSTT_CODE=#{bestInspctInsttCode} OR  IA.ELGBL_EVL_AT =#{eblgblEvlAt})
+		    </if>
+		    START WITH
+		       	IA.INSPCT_INSTT_CODE = #{bestInspctInsttCode}
+		    CONNECT BY PRIOR
+		       	IA.INSPCT_INSTT_CODE = IA.UPPER_INSPCT_INSTT_CODE
+
+			UNION
+
+		    SELECT
+		    	IB.INSPCT_INSTT_CODE
+				, IB.UPPER_INSPCT_INSTT_CODE
+			FROM
+				SY_INSPCT_INSTT IB
+			WHERE
+		    	IB.USE_AT = 'Y'
+		    AND
+		    	IB.DELETE_AT = 'N'
+		    AND
+				IB.INSPCT_INSTT_CODE NOT IN (#{bestInspctInsttCode})
+			START WITH
+				IB.INSPCT_INSTT_CODE = #{bestInspctInsttCode}
+			CONNECT BY PRIOR
+				IB.UPPER_INSPCT_INSTT_CODE = IB.INSPCT_INSTT_CODE
+
+		    MINUS
+
+		    SELECT
+				IC.INSPCT_INSTT_CODE
+		        , IC.UPPER_INSPCT_INSTT_CODE
+			FROM
+				SY_INSPCT_INSTT IC
+			CONNECT BY NOCYCLE PRIOR
+				IC.INSPCT_INSTT_CODE = IC.UPPER_INSPCT_INSTT_CODE
+			START WITH IC.INSPCT_INSTT_CODE IN (
+				SELECT
+					SC.INSPCT_INSTT_CODE
+		        FROM
+		            SY_INSPCT_INSTT SC
+		        WHERE 1=1
+		        AND
+		            SC.DELETE_AT = 'N'
+		        AND
+		            SC.USE_AT = 'N'
+			)
+		)B
+			ON B.INSPCT_INSTT_CODE = A.INSPCT_INSTT_CODE
+<!--		<if test="eblgblEvlAt != null and eblgblEvlAt !=''">-->
+<!--			WHERE B.ELGBL_EVL_AT = 'Y'-->
+<!--		</if>-->
+		START WITH
+			A.UPPER_INSPCT_INSTT_CODE = #{bestInspctInsttCode}
+		CONNECT BY PRIOR
+			A.INSPCT_INSTT_CODE = A.UPPER_INSPCT_INSTT_CODE
+	</select>
+
+	<!--
+		사용자 조회 및 가입승인 대기 사용자 조회
+		@Param sbscrbConfmAt 값으로 구분
+	-->
+	<select id="getUserMList" parameterType="lims.sys.vo.UserMVo" resultType="lims.sys.vo.UserMVo" >
+		SELECT
+	        SU.USER_ID
+	        , SU.BPLC_CODE
+	        , (SELECT XA.INSPCT_INSTT_NM FROM SY_INSPCT_INSTT XA WHERE XA.INSPCT_INSTT_CODE = SU.BPLC_CODE) AS BPLC_CODE_NM
+	        , SU.DEPT_CODE
+	        , SII.INSPCT_INSTT_NM
+	        , SU.USER_NM
+	        , SU.LOGIN_ID
+	        , SU.MOBLPHON
+	        , SU.EMAIL
+	        , SU.AUTHOR_SE_CODE
+	        , (SELECT XA.CMMN_CODE_NM FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = SU.AUTHOR_SE_CODE) AS AUTHOR_SE_NM
+	        , SU.TIMHDER_AT
+	        , SU.SBSCRB_CONFM_AT
+	        , SU.USE_AT
+	        , SU.LOCK_AT
+	        , SU.LOCK_RESN
+	        , (SELECT PKG_CRYPTO.DECRYPT(SU.PASSWORD) FROM DUAL) PASSWORD
+	        , OFCPS_CODE
+	       	, CLSF_CODE
+	       	, SU.ENCPN
+	       	, SU.RESIGNDTE
+	        , SU.SIGN_ATCHMNFL_SEQNO
+	        , SU.LAST_CHANGER_ID
+	        , SU.LAST_CHANGE_DT
+	    FROM
+	    	SY_USER SU
+	    LEFT OUTER JOIN
+	    	SY_INSPCT_INSTT SII ON SII.INSPCT_INSTT_CODE = SU.DEPT_CODE
+		WHERE SU.DELETE_AT = 'N'
+		AND SU.BPLC_CODE = <include refid="bplcCode"/>
+		<if test='sbscrbConfmAt == "N"'>
+			AND SU.SBSCRB_CONFM_AT = 'N'
+		</if>
+		<if test="deptCodeSch != null and deptCodeSch != '' ">
+			<if test="userNmSch == null or userNmSch == '' ">
+				AND
+					SU.DEPT_CODE IN (
+			                         SELECT 
+			                         	INSPCT_INSTT_CODE
+			                         FROM SY_INSPCT_INSTT 
+			                         WHERE UPPER_INSPCT_INSTT_CODE = #{deptCodeSch}
+			                         
+			                         UNION
+			                         
+			                         SELECT 
+			                         	INSPCT_INSTT_CODE
+			                         FROM SY_INSPCT_INSTT 
+			                         WHERE INSPCT_INSTT_CODE = #{deptCodeSch}
+			                        )
+			</if>
+			<if test="userNmSch != null and userNmSch != '' ">
+				AND
+					SU.DEPT_CODE IN (
+			                         SELECT 
+			                         	INSPCT_INSTT_CODE
+			                         FROM SY_INSPCT_INSTT 
+			                         WHERE UPPER_INSPCT_INSTT_CODE = #{deptCodeSch}
+			                         
+			                         UNION
+			                         
+			                         SELECT 
+			                         	INSPCT_INSTT_CODE
+			                         FROM SY_INSPCT_INSTT 
+			                         WHERE INSPCT_INSTT_CODE = #{deptCodeSch}
+			                        )
+			    AND
+			    	UPPER(SU.USER_NM) LIKE '%'|| UPPER(TRIM(#{userNmSch})) || '%'
+			</if>
+		</if>
+		<if test="userNmSch != null and userNmSch != '' ">
+			<if test="deptCodeSch == null or deptCodeSch == '' ">
+				AND
+					UPPER(SU.USER_NM) LIKE '%'|| UPPER(TRIM(#{userNmSch})) || '%'
+			</if>
+		</if>
+		<if test="useAtSch != 'all'">
+			AND
+				SU.USE_AT = #{useAtSch}
+		</if>
+		<if test='@lims.util.GetUserSession@getAuthorSeCode() != "SY09000001" and  @lims.util.GetUserSession@getAuthorSeCode() != "SY09000002"'>
+			AND SU.USER_ID = <include refid="loginId"/>
+		</if>
+	    ORDER BY
+	    	LOGIN_ID
+	</select>
+	
+	<!-- 사용안함 -->
+	<update id="updNotUse" parameterType="lims.sys.vo.UserMVo">
+		UPDATE
+			SY_USER A
+		SET
+			A.USE_AT = 'N'
+		WHERE
+			A.USER_ID = #{userId}
+	</update>
+	
+	<!-- 6개월 이상 미접속자 조회 -->
+	<select id="getNotLoginSixMonth" resultType="lims.sys.vo.UserMVo">
+		SELECT
+	        SU.USER_ID
+	        , SU.BPLC_CODE
+	        , (SELECT XA.INSPCT_INSTT_NM FROM SY_INSPCT_INSTT XA WHERE XA.INSPCT_INSTT_CODE = SU.BPLC_CODE) AS BPLC_CODE_NM
+	        , SU.DEPT_CODE
+	        , SII.INSPCT_INSTT_NM
+	        , SU.USER_NM
+	        , SU.LOGIN_ID
+	        , SU.MOBLPHON
+	        , SU.EMAIL
+	        , SU.AUTHOR_SE_CODE
+	        , (SELECT XA.CMMN_CODE_NM FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = SU.AUTHOR_SE_CODE) AS AUTHOR_SE_NM
+	        , SU.TIMHDER_AT
+	        , SU.SBSCRB_CONFM_AT
+	        , SU.USE_AT
+	        , SU.LOCK_AT
+	        , SU.LOCK_RESN
+	        , (SELECT PKG_CRYPTO.DECRYPT(SU.PASSWORD) FROM DUAL) PASSWORD
+	        , OFCPS_CODE
+	       	, CLSF_CODE
+	       	, SU.ENCPN
+	       	, SU.RESIGNDTE
+	        , SU.SIGN_ATCHMNFL_SEQNO
+	        , SU.LAST_CHANGER_ID
+	        , SU.LAST_CHANGE_DT
+	        , SU.LAST_LOGIN_DT
+	    FROM
+	    	SY_USER SU
+	    LEFT OUTER JOIN
+	    	SY_INSPCT_INSTT SII ON SII.INSPCT_INSTT_CODE = SU.DEPT_CODE
+		WHERE SU.LAST_LOGIN_DT <![CDATA[ <= ]]> ADD_MONTHS(SYSDATE,-6)
+	</select>
+	
+	<!-- 가입승인 -->
+	<update id="updSbscrbConfm" parameterType="lims.sys.vo.UserMVo">
+		UPDATE
+			SY_USER A
+		SET
+			A.SBSCRB_CONFM_AT = 'Y'
+		WHERE
+			A.USER_ID = #{userId}
+	</update>
+
+	<!-- 비밀번호 초기화 -->
+	<update id="updResetPassword" parameterType="lims.sys.vo.UserMVo">
+		UPDATE
+			SY_USER A
+		SET
+			A.PASSWORD = (SELECT PKG_CRYPTO.ENCRYPT((SELECT XA.INITL_PASSWORD FROM SY_SYS_MANAGE XA)) FROM DUAL)
+			, A.PASSWORD_FAILR_CO = 0
+		WHERE
+			A.USER_ID = #{userId}
+	</update>
+	
+	<!-- 초기화 비밀번호 가져오기 -->
+	<select id="getIntlPw" resultType="String">
+		SELECT
+			INITL_PASSWORD
+		FROM SY_SYS_MANAGE
+	</select>
+
+	<select id="getUserNm" parameterType="lims.sys.vo.UserMVo" resultType="lims.sys.vo.UserMVo" >
+		SELECT
+		<if test="userId != null and userId != ''">
+			USER_NM
+		</if>
+		<if test="loginId != null and loginId != ''">
+			USER_ID
+		</if>
+		FROM   SY_USER
+		WHERE 1=1
+		<if test="userId != null and userId != ''">
+			AND USER_ID = #{userId}
+		</if>
+		<if test="loginId != null and loginId != ''">
+			AND LOGIN_ID = #{loginId}
+		</if>
+
+	</select>
+
+	<!-- 권한코드 바인딩 -->
+	<select id="getAuthorSeCode" resultType="lims.sys.vo.UserMVo" parameterType="lims.sys.vo.UserMVo">
+		SELECT CMMN_CODE VALUE, CMMN_CODE_NM KEY
+		FROM SY_CMMN_CODE
+		WHERE UPPER_CMMN_CODE IS NOT NULL
+		AND UPPER_CMMN_CODE = 'SY09'
+		AND USE_AT = 'Y'
+	</select>
+
+	<!-- 서명 첨부파일 일련번호 바인딩 -->
+	<select id="getSignAtchmnflSeqno" resultType="lims.sys.vo.UserMVo" parameterType="lims.sys.vo.UserMVo">
+		SELECT SAD.ATCHMNFL_SEQNO VALUE, SAD.ORGINL_FILE_NM KEY
+		FROM SY_ATCHMNFL SA JOIN SY_ATCHMNFL_DETAIL SAD
+		ON SA.ATCHMNFL_SEQNO = SAD.ATCHMNFL_SEQNO
+	</select>
+
+	<!-- 전체사용자 부서목록 -->
+	<select id="getInspctCode" resultType="lims.sys.vo.InsttMVo" parameterType="lims.sys.vo.InsttMVo">
+		SELECT
+			SII1.INSPCT_INSTT_CODE
+			,SII1.INSPCT_INSTT_NM
+			,SII2.INSPCT_INSTT_CODE BEST_INSPCT_INSTT_CODE
+			,SII2.INSPCT_INSTT_NM BEST_INSPCT_INSTT_CODE_NM
+			,SII3.INSPCT_INSTT_CODE UPPER_INSPCT_INSTT_CODE
+			,SII3.INSPCT_INSTT_NM UPPER_INSPCT_INSTT_CODE_NM
+			,SII1.RDMS_GROUP_ID
+		FROM
+			SY_INSPCT_INSTT SII1
+			LEFT OUTER JOIN SY_INSPCT_INSTT SII2 ON SII1.BEST_INSPCT_INSTT_CODE = SII2.INSPCT_INSTT_CODE
+			LEFT OUTER JOIN SY_INSPCT_INSTT SII3 ON SII1.UPPER_INSPCT_INSTT_CODE = SII3.INSPCT_INSTT_CODE
+		WHERE 1=1
+		<if test="mmnySeCode != null and mmnySeCode != ''">
+			AND SII1.MMNY_SE_CODE = #{mmnySeCode}
+		</if>
+		<if test="inspctInsttNmSch != null and inspctInsttNmSch != ''">
+			AND SII1.INSPCT_INSTT_NM LIKE '%' || #{inspctInsttNmSch} || '%'
+		</if>
+		<if test="analsAt != null and analsAt != ''">
+			AND SII1.ANALS_AT = #{analsAt}
+		</if>
+	</select>
+
+	<!-- 사용자ID 중복체크 -->
+	<select id="getLoginIdChk" resultType="int" parameterType="lims.sys.vo.UserMVo">
+		SELECT COUNT(LOGIN_ID)
+		FROM SY_USER
+	    WHERE LOGIN_ID = #{loginId}
+	</select>
+
+	<!-- 사용자 정보 저장 -->
+	<insert id="insUserM" parameterType="lims.sys.vo.UserMVo" >
+		<selectKey keyProperty="userId" order="BEFORE"	resultType="String">
+			SELECT SQ_SY_USER.NEXTVAL AS USER_ID FROM DUAL
+		</selectKey>
+		INSERT INTO SY_USER (
+			USER_ID
+			, LOGIN_ID
+			, BPLC_CODE
+			, DEPT_CODE
+			, USER_NM
+			, PASSWORD
+			, MOBLPHON
+			, EMAIL
+			, OFCPS_CODE
+			, CLSF_CODE
+			, AUTHOR_SE_CODE
+			, ENCPN
+			, RESIGNDTE
+			, TIMHDER_AT
+			, LOCK_AT
+			, LOCK_RESN
+			, SBSCRB_CONFM_AT
+			, USE_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+			, SIGN_ATCHMNFL_SEQNO
+			, PASSWORD_FAILR_CO
+		) VALUES(
+			#{userId}
+			, #{loginId}
+			, <include refid="bplcCode"/>
+			, #{deptCode}
+			, #{userNm}
+			, (SELECT PKG_CRYPTO.ENCRYPT(#{password}) FROM DUAL)
+			, #{moblphon}
+			, #{email}
+			, #{ofcpsCode}
+			, #{clsfCode}
+			, #{authorSeCode}
+			, #{encpn}
+			, #{resigndte}
+			, CASE WHEN #{timhderAt} = 'on' THEN 'Y' ELSE 'N' END
+			, #{lockAt}
+			, #{lockResn}
+			, #{sbscrbConfmAt}
+			, #{useAt}
+			, <include refid="loginId"/>
+			, SYSDATE
+			, #{signAtchmnflSeqno}
+			, 0
+		)
+	</insert>
+
+	<!-- 사용자 정보 수정 -->
+	<update id="updUserM" parameterType="lims.sys.vo.UserMVo" >
+		UPDATE SY_USER
+			SET
+			    DEPT_CODE = #{deptCode}
+				, USER_NM = #{userNm}
+				, PASSWORD = (SELECT PKG_CRYPTO.ENCRYPT(#{password}) FROM DUAL)
+				, MOBLPHON = #{moblphon}
+				, EMAIL = #{email}
+				, OFCPS_CODE = #{ofcpsCode}
+				, CLSF_CODE = #{clsfCode}
+				, ENCPN = #{encpn}
+				, RESIGNDTE = #{resigndte}
+				, AUTHOR_SE_CODE = #{authorSeCode}
+				, TIMHDER_AT = CASE WHEN #{timhderAt} = 'on' THEN 'Y' ELSE 'N' END
+				, LOCK_AT = #{lockAt}
+				, LOCK_RESN = #{lockResn}
+				, SBSCRB_CONFM_AT = #{sbscrbConfmAt}
+				, USE_AT = #{useAt}
+				, LAST_CHANGER_ID = <include refid="loginId"/>
+				, LAST_CHANGE_DT = SYSDATE
+				, SIGN_ATCHMNFL_SEQNO = #{signAtchmnflSeqno}
+		WHERE
+			USER_ID = #{userId}
+
+	</update>
+
+	<update id="deleteUserInfo">
+		UPDATE SY_USER SET DELETE_AT = 'Y'
+		WHERE USER_ID = #{userId}
+	</update>
+
+	<select id="getUserAuthList" resultType="lims.sys.vo.UserMVo" parameterType="lims.sys.vo.UserMVo">
+		SELECT
+			A.AUTHOR_TRGTER_SEQNO
+			,A.BPLC_CODE
+			,C.DEPT_CODE
+			,(SELECT A.INSPCT_INSTT_NM FROM SY_INSPCT_INSTT A WHERE A.INSPCT_INSTT_CODE = C.DEPT_CODE) AS DEPT_NM
+			,A.USE_AT
+			,B.INSPCT_INSTT_NM
+			,C.AUTHOR_SE_CODE
+			,C.USER_ID
+			,C.USER_NM
+		FROM SY_DEPT_ACCTO_AUTHOR_TRGTER A
+		LEFT OUTER JOIN SY_INSPCT_INSTT B ON B.INSPCT_INSTT_CODE = A.BPLC_CODE AND B.UPPER_INSPCT_INSTT_CODE IS NULL
+		LEFT OUTER JOIN SY_USER C ON A.USER_ID = C.USER_ID AND C.USE_AT = 'Y'
+		WHERE B.USE_AT = 'Y'
+		AND B.DELETE_AT = 'N'
+		AND A.BPLC_CODE = <include refid="bplcCode"/>
+		<if test="authorSeCode != null and authorSeCode != ''">
+			AND C.AUTHOR_SE_CODE = #{authorSeCode}
+		</if>
+		<!--<if test="bplcCode != null and bplcCode != ''">
+			AND A.BPLC_CODE = #{bplcCode}
+		</if>-->
+	</select>
+
+	<insert id="insAuthorTrgter" parameterType="lims.sys.vo.UserMVo">
+		INSERT INTO SY_DEPT_ACCTO_AUTHOR_TRGTER(
+			AUTHOR_TRGTER_SEQNO
+			, AUTHOR_SE_CODE
+			, BPLC_CODE
+			, USER_ID
+			, USE_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		)VALUES(
+			SQ_SY_DEPT_ACCTO_AUTHOR_TRGTER.NEXTVAL
+			, #{authorSeCode}
+			, <include refid="bplcCode"/>
+			, #{userId}
+			, 'Y'
+			, <include refid="loginId"/>
+			, SYSDATE
+		)
+	</insert>
+
+	<update id="upd04LowerAuthorTrgter" parameterType="lims.sys.vo.UserMVo">
+		UPDATE SY_DEPT_ACCTO_AUTHOR_TRGTER
+			SET
+				USE_AT = 'N'
+				, LAST_CHANGER_ID = <include refid="loginId"/>
+				, LAST_CHANGE_DT = SYSDATE
+			WHERE
+				USER_ID = #{userId}
+	</update>
+
+	<insert id="updAuthorTrgter" parameterType="lims.sys.vo.UserMVo">
+		MERGE INTO SY_DEPT_ACCTO_AUTHOR_TRGTER
+       		USING DUAL ON ( BPLC_CODE = <include refid="bplcCode"/> AND USER_ID = #{userId} AND AUTHOR_SE_CODE = #{authorSeCode})
+        		WHEN MATCHED THEN
+        			UPDATE
+        				SET
+							USE_AT = 'Y'
+							, LAST_CHANGER_ID = <include refid="loginId"/>
+							, LAST_CHANGE_DT = SYSDATE
+        		WHEN NOT MATCHED THEN
+        			INSERT(
+						AUTHOR_TRGTER_SEQNO
+					    , BPLC_CODE
+					    , USER_ID
+					    , USE_AT
+					    , LAST_CHANGER_ID
+					    , LAST_CHANGE_DT
+					    , AUTHOR_SE_CODE
+					) VALUES(
+						SQ_SY_DEPT_ACCTO_AUTHOR_TRGTER.NEXTVAL
+						, <include refid="bplcCode"/>
+						, #{userId}
+						, 'Y'
+						, <include refid="loginId"/>
+						, SYSDATE
+						, #{authorSeCode}
+					)
+	</insert>
+
+	<!-- 고객사에서 일반사용자로 권한 변경 -->
+	<update id="delCustomerResult" parameterType="lims.sys.vo.UserMVo">
+		UPDATE SY_USER
+			SET
+				AUTHOR_SE_CODE = 'SY09000003'
+				, LAST_CHANGER_ID = <include refid="loginId"/>
+				, LAST_CHANGE_DT = SYSDATE
+			WHERE
+				USER_ID = #{userId}
+	</update>
+
+	<!-- 고객사 권한삭제 -->
+	<update id="delAuthTrg" parameterType="lims.sys.vo.UserMVo">
+		DELETE
+			SY_DEPT_ACCTO_AUTHOR_TRGTER
+		WHERE
+			USER_ID = #{userId}
+		AND
+			AUTHOR_SE_CODE = #{authorSeCode}
+		AND
+			BPLC_CODE = <include refid="bplcCode"/>
+	</update>
+
+	<!-- 고객사 권한 저장 -->
+	<update id="upCustomerResult" parameterType="lims.sys.vo.UserMVo">
+		UPDATE SY_USER
+			SET
+				AUTHOR_SE_CODE = #{authorSeCode}
+				, LAST_CHANGER_ID = <include refid="loginId"/>
+				, LAST_CHANGE_DT = SYSDATE
+			WHERE
+				USER_ID = #{userId}
+	</update>
+
+	<!-- 기존에 등록되어있는 고객사 권한 사용여부 'N' -->
+	<update id="useAuthTrg" parameterType="lims.sys.vo.UserMVo">
+		UPDATE SY_DEPT_ACCTO_AUTHOR_TRGTER
+			SET
+				USE_AT = 'N'
+				, LAST_CHANGER_ID = <include refid="loginId"/>
+				, LAST_CHANGE_DT = SYSDATE
+			WHERE
+				USER_ID = #{userId}
+	</update>
+
+	<!-- 고객사 권한 저장 -->
+	<insert id="insAuthTrg" parameterType="lims.sys.vo.UserMVo">
+		INSERT INTO SY_DEPT_ACCTO_AUTHOR_TRGTER(
+			AUTHOR_TRGTER_SEQNO
+			, AUTHOR_SE_CODE
+			, BPLC_CODE
+			, USER_ID
+			, USE_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		)VALUES(
+			SQ_SY_DEPT_ACCTO_AUTHOR_TRGTER.NEXTVAL
+			, #{authorSeCode}
+			, <include refid="bplcCode"/>
+			, #{userId}
+			, 'Y'
+			, <include refid="loginId"/>
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- 고객사 권한 수정 -->
+	<update id="upAuthTrg" parameterType="lims.sys.vo.UserMVo">
+		UPDATE SY_DEPT_ACCTO_AUTHOR_TRGTER
+			SET
+				USE_AT = #{useAt}
+				, LAST_CHANGER_ID = <include refid="loginId"/>
+				, LAST_CHANGE_DT = SYSDATE
+			WHERE
+				USER_ID = #{userId}
+			AND
+				BPLC_CODE = <include refid="bplcCode"/>
+			AND
+				AUTHOR_SE_CODE = #{authorSeCode}
+	</update>
+	
+</mapper>

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.src.dao.InspctTyReqCntMDao">
+
+	<select id="getReqCntByInspctTy" parameterType="lims.src.vo.InspctTyReqCntMVo" resultType="lims.src.vo.InspctTyReqCntMVo">
+		SELECT
+			BPLC_NM
+		    ,INSPCT_TY_CODE
+		    ,INSPCT_TY_NM
+		    ,REQEST_DTE
+			,REQEST_CNT
+		FROM (
+				SELECT
+					SII.INSPCT_INSTT_NM AS BPLC_NM
+					,A.INSPCT_TY_CODE
+					,SCC.CMMN_CODE_NM AS INSPCT_TY_NM
+					,SUBSTR(A.REQEST_DTE,0,7) AS REQEST_DTE
+					,SUM(B.REQ_CNT) AS REQEST_CNT
+				FROM IM_REQEST A
+				LEFT JOIN SY_INSPCT_INSTT SII ON SII.INSPCT_INSTT_CODE = A.BPLC_CODE
+				LEFT JOIN SY_CMMN_CODE SCC ON SCC.CMMN_CODE = A.INSPCT_TY_CODE
+				LEFT JOIN (
+							SELECT
+								IR.REQEST_SEQNO
+								,IR.INSPCT_TY_CODE
+								,TO_CHAR(TO_DATE(IR.REQEST_DTE, 'YYYY-MM-DD'), 'MM') AS REQ_MNTH
+								,COUNT(IR.REQEST_DTE) AS REQ_CNT
+							FROM IM_REQEST IR
+							WHERE REQEST_DTE BETWEEN NVL(#{yearSch}, TO_CHAR(SYSDATE, 'YYYY')) || '-01-01' AND NVL(#{yearSch}, TO_CHAR(SYSDATE, 'YYYY')) || '-12-31'
+							AND IR.BPLC_CODE = #{bplcCodeSch}
+							GROUP BY IR.REQEST_SEQNO, IR.INSPCT_TY_CODE, TO_CHAR(TO_DATE(IR.REQEST_DTE, 'YYYY-MM-DD'), 'MM')
+							ORDER BY IR.INSPCT_TY_CODE, TO_CHAR(TO_DATE(IR.REQEST_DTE, 'YYYY-MM-DD'), 'MM')
+						  ) B ON A.REQEST_SEQNO = B.REQEST_SEQNO
+				WHERE
+					A.REQEST_DEPT_CODE IS NOT NULL
+				AND
+					REQEST_DTE BETWEEN NVL(#{yearSch}, TO_CHAR(SYSDATE, 'YYYY')) || '-01-01' AND NVL(#{yearSch}, TO_CHAR(SYSDATE, 'YYYY')) || '-12-31'
+				AND
+					A.BPLC_CODE = #{bplcCodeSch}
+				AND
+					A.INSPCT_TY_CODE IS NOT NULL
+				GROUP BY
+					SII.INSPCT_INSTT_NM
+					,A.INSPCT_TY_CODE
+					,SCC.CMMN_CODE_NM
+					,SUBSTR(A.REQEST_DTE,0,7)
+			)
+		ORDER BY
+			INSPCT_TY_CODE, REQEST_DTE
+	</select>
+
+	<select id="getMnthByYear" parameterType="lims.src.vo.InspctTyReqCntMVo" resultType="lims.src.vo.InspctTyReqCntMVo">
+		SELECT
+			IA.YEAR_MNTH
+		FROM (
+				SELECT
+				    #{yearSch} || '-' || LPAD(LEVEL, 2, 0) AS YEAR_MNTH
+				FROM DUAL
+				CONNECT BY LEVEL <![CDATA[ <= ]]> 12
+			 ) IA
+		WHERE IA.YEAR_MNTH <![CDATA[ <= ]]> TO_CHAR(SYSDATE, 'YYYY-MM')
+	</select>
+
+</mapper>

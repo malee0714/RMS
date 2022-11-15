@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.src.dao.ReceiptCntMDao">
+	
+	<!-- 담당 팀별 접수 건수 조회 -->
+	<select id="getReceiptCntList" parameterType="lims.src.vo.ReceiptCntMVo" resultType="lims.src.vo.ReceiptCntMVo">
+		SELECT A.RCEPT_PC_IP,
+	         (SELECT CHRG_TEAM_SE_NM
+	            FROM SY_CHRG_TEAM_IP X
+	           WHERE X.RCEPT_PC_IP = A.RCEPT_PC_IP)
+	            AS ANALS_TEAM_NM,
+	         A.HOUR,
+	         A.CHRG_tEAM_IP_SEQNO,
+	         NVL (B.RCEPT_CNT, 0) AS RCEPT_CNT
+	    FROM (  SELECT RCEPT_PC_IP, ANALS_TEAM_SEQNO, HOUR, CHRG_TEAM_IP_SEQNO
+	              FROM (    SELECT LPAD (LEVEL - 1, 2, '0') HOUR
+	                          FROM DUAL
+	                    CONNECT BY LEVEL <![CDATA[<=]]> 24) HOUR,
+	                   (
+	                   	SELECT 
+	                        B.RCEPT_PC_IP
+	                      , A.CHRG_TEAM_SEQNO AS ANALS_TEAM_SEQNO
+	                      , B.CHRG_TEAM_IP_SEQNO
+	                    FROM SY_CHRG_TEAM A
+	                    INNER JOIN SY_CHRG_TEAM_IP B ON A.CHRG_TEAM_SEQNO = B.CHRG_TEAM_SEQNO
+	                    WHERE 1=1
+	                    <if test="shrAnalsTeamIp != null and shrAnalsTeamIp !=''">
+                           AND B.CHRG_TEAM_IP_SEQNO = #{shrAnalsTeamIp}
+                       </if>
+                        <if test="shrAnalsTeam != null and shrAnalsTeam != ''">
+	                   		AND A.CHRG_TEAM_sEQNO = #{shrAnalsTeam}
+	                   </if>
+						        ) ANA
+	          ORDER BY RCEPT_PC_IP ASC, HOUR ASC) A,
+	         (  SELECT ANALS_TEAM_SEQNO,
+	                   D.RCEPT_PC_IP,
+	                   TO_CHAR (RCEPT_DT, 'HH24') AS DT_HOURS,
+	                   COUNT (RCEPT_DT) over(PARTITION BY D.RCEPT_PC_IP, TO_CHAR (RCEPT_DT, 'HH24')) AS RCEPT_CNT,
+	                   A.REQEST_DTE,
+	                   B.RCEPT_DT
+	              FROM IM_REQEST A,
+                   IM_REQEST_RCEPT_BRCD B,
+                   SY_CHRG_TEAM_IP D
+             WHERE     A.REQEST_SEQNO = B.REQEST_SEQNO
+                   AND B.RCEPT_PC_IP = D.RCEPT_PC_IP
+                   	   <if test="authorSeCode =='SY09000004'">
+                   	   	    AND A.CTMMNY_OTHBC_AT = 'Y'
+                   	   </if>
+	                   <if test="shrAnalsTeam != null and shrAnalsTeam != ''">
+	                   		AND B.ANALS_TEAM_sEQNO = #{shrAnalsTeam}
+	                   </if>
+	                   <if test="shrReqestDeptCode != null and shrReqestDeptCode != ''">
+	                   		AND A.REQEST_DEPT_CODE = #{shrReqestDeptCode}
+	                   </if>
+	                   <if test="shrAnalsTeamIp != null and shrAnalsTeamIp !=''">
+                           AND D.CHRG_TEAM_IP_SEQNO = #{shrAnalsTeamIp}
+                       </if>
+                       <if test="srchType == 'reqestDte'">
+                       		<if test="shrReqestBeginDte != null and shrReqestBeginDte != '' and shrReqestEndDte != null and shrReqestEndDte != ''">
+				              AND A.REQEST_DTE BETWEEN TO_DATE(#{shrReqestBeginDte}) AND TO_DATE(#{shrReqestEndDte})
+			       			</if>  		
+                       </if>
+                       <if test="srchType == 'rceptDte'">
+                       		<if test="shrReqestBeginDte != null and shrReqestBeginDte != '' and shrReqestEndDte != null and shrReqestEndDte != ''">
+				              AND B.RCEPT_DT BETWEEN TO_DATE(#{shrReqestBeginDte}) AND TO_DATE(#{shrReqestEndDte})
+			       			</if>  	
+                       </if>
+	          GROUP BY ANALS_TEAM_SEQNO,
+	                   TO_CHAR (RCEPT_DT, 'HH24'),
+	                   A.REQEST_DTE,
+	                   B.RCEPT_DT,
+	                   D.RCEPT_PC_IP) B
+	   WHERE     A.RCEPT_PC_IP = B.RCEPT_PC_IP(+)
+	         AND A.HOUR = B.DT_HOURS(+)
+	        
+	GROUP BY A.RCEPT_PC_IP, A.HOUR, RCEPT_CNT, A.CHRG_tEAM_IP_SEQNO
+	ORDER BY A.RCEPT_PC_IP ASC, HOUR ASC
+	
+	</select>
+</mapper>

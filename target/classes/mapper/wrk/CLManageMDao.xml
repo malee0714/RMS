@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.CLManageMDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	
+	<select id="getCLManageList" parameterType="lims.wrk.vo.CLManageMVo" resultType="lims.wrk.vo.CLManageMVo">
+		/* 자재목록 JOIN 자재별 CL관리목록 조회 */
+		SELECT  B.MTRIL_CL_MANAGE_SEQNO
+		        ,A.MTRIL_SEQNO
+		        ,A.MTRIL_CODE
+		        ,A.MTRIL_NM
+		        ,A.MMNY_SE_CODE
+		     	,(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE  WHERE CMMN_CODE= A.PRDUCT_SE_CODE) AS PRDUCT_SE_CODE
+		        ,C.CMMN_CODE_NM AS MMNY_SE_CODE_NM
+		        ,B.LOT_NUM
+		        ,B.SEARCH_CYCLE
+		        ,B.SGM_LEVL
+		        ,B.LAST_EXECUT_DTE
+		        ,B.NEXT_EXECUT_DTE
+		        ,B.EXECUT_CYCLE
+		        ,B.CYCLE_CODE
+		        ,B.USE_AT
+		FROM SY_MTRIL A
+		LEFT JOIN SY_MTRIL_CL_MANAGE B ON A.MTRIL_SEQNO = B.MTRIL_SEQNO
+		LEFT JOIN SY_CMMN_CODE C ON A.MMNY_SE_CODE = C.CMMN_CODE
+		WHERE 	A.DELETE_AT = 'N'
+				AND A.USE_AT = 'Y'
+    	<if test=" prductSeCodeSch != '' and prductSeCodeSch != null ">
+			AND A.PRDUCT_SE_CODE = #{prductSeCodeSch}
+		</if>
+    	<if test=" bplcCodeSch != '' and bplcCodeSch != null ">
+			AND A.bplc_code = #{bplcCodeSch}
+		</if>
+    	<if test=" useAtSch != '' and useAtSch != null ">
+			AND B.USE_AT = #{useAtSch}
+		</if>
+    	<if test=" mtrilCodeSch != '' and mtrilCodeSch != null ">
+			AND UPPER(A.MTRIL_CODE) LIKE '%' || UPPER(#{mtrilCodeSch}) || '%'
+		</if>
+    	<if test=" mtrilNmSch != '' and mtrilNmSch != null ">
+			AND UPPER(A.MTRIL_NM) LIKE '%' || UPPER(#{mtrilNmSch}) || '%'
+		</if>
+		ORDER BY A.MTRIL_CODE, A.MTRIL_NM
+	</select>
+	
+	<update id="updateCLM" parameterType ="lims.wrk.vo.CLManageMVo">
+		/* 자재별 CL관리 update */
+		UPDATE SY_MTRIL_CL_MANAGE SET
+		    MTRIL_CL_MANAGE_SEQNO 	= #{mtrilClManageSeqno}
+		    ,MTRIL_SEQNO    		= #{mtrilSeqno}
+		    ,LOT_NUM    			= #{lotNum}
+		    ,SEARCH_CYCLE   		= #{searchCycle}
+		    ,SGM_LEVL   			= #{sgmLevl}
+		    ,NEXT_EXECUT_DTE    	= #{nextExecutDte}
+		    ,EXECUT_CYCLE   		= #{executCycle}
+		    ,CYCLE_CODE 			= #{cycleCode}
+		    ,USE_AT 				= #{useAt}
+		    ,LAST_CHANGER_ID    	= <include refid="loginId" />
+		    ,LAST_CHANGE_DT 		= SYSDATE
+		WHERE MTRIL_CL_MANAGE_SEQNO = #{mtrilClManageSeqno}
+	</update>
+  		
+	<insert id="insertCLM" parameterType ="lims.wrk.vo.CLManageMVo">
+		/* 자재별 CL관리 insert */
+		INSERT INTO SY_MTRIL_CL_MANAGE(
+			MTRIL_CL_MANAGE_SEQNO
+			,MTRIL_SEQNO
+			,LOT_NUM
+			,SEARCH_CYCLE
+			,SGM_LEVL
+			,NEXT_EXECUT_DTE
+			,EXECUT_CYCLE
+			,CYCLE_CODE
+			,USE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		)VALUES(
+			SQ_SY_MTRIL_CL_MANAGE.NEXTVAL
+			, #{mtrilSeqno}
+			, #{lotNum}
+			, #{searchCycle}
+			, #{sgmLevl}
+			, #{nextExecutDte}
+			, #{executCycle}
+			, #{cycleCode}
+			, 'Y'
+			, <include refid="loginId" />
+			, SYSDATE
+		)
+	</insert>
+</mapper>

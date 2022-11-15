@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.com.dao.LocaleDao">
+
+<select id="getListLanguage" resultType="lims.com.vo.LocaleVo" parameterType="lims.com.vo.LocaleVo">
+<!-- kwon 19.08.27 
+SELECT
+    DTL_CD AS LANG_CD,
+    DTL_NM AS LANG_NM
+FROM CM_CD_DTL_TEST 
+WHERE HIR_CD = 'S38' 
+AND USE_YN = 'Y'
+ -->
+	SELECT
+	 	CMMN_CODE,
+	 	CMMN_CODE_NM,
+	 	TMPR_FIELD1_VALUE AS LANG_VALUE
+	 FROM SY_CMMN_CODE 
+	 WHERE UPPER_CMMN_CODE = 'SY06'
+	 AND USE_AT = 'Y'
+</select>
+
+<select id="getComLggNm" resultType="lims.com.vo.LocaleVo" parameterType="lims.com.vo.LocaleVo">
+<!-- kwon 19.08.27  
+SELECT
+    CLC.COM_CD,
+    CLC.LBL_CD,
+    CLD.LGG_NM
+FROM
+CM_LGG_COM_TEST CLC
+JOIN CM_LGG_DTL_TEST CLD ON CLC.LGG_IDX = CLD.LGG_IDX
+WHERE CLD.GLG_CTG_CD = #{langCd}
+ORDER BY CLC.COM_CD, CLC.LBL_CD -->
+SELECT 
+    A.LANG_MASTR_SEQNO,
+    A.LANG_CODE,
+    B.LANG_NM
+FROM SY_LANG_MASTR A
+LEFT OUTER JOIN SY_LANG_DETAIL B ON A.LANG_MASTR_SEQNO = B.LANG_MASTR_SEQNO
+WHERE A.LANG_CODE = #{langCode}
+
+
+</select>
+
+<!--  -->
+<select id="getListMenuLggCd" resultType="lims.com.vo.LocaleVo">
+<!-- kwon 19.08.27 -->
+<!-- SELECT  -->
+<!-- 	DISTINCT MENU_CD -->
+<!-- FROM CM_LGG_PAG_TEST -->
+<!-- ORDER BY MENU_CD  -->
+	SELECT
+	 	CMMN_CODE,
+	 	CMMN_CODE_NM
+	 FROM SY_CMMN_CODE 
+	 WHERE UPPER_CMMN_CODE = 'SY06'
+	 AND USE_AT = 'Y'
+<!-- -->
+</select>
+
+<!--모든 LOCALE 언어 조회 -->
+<select id="getMenusLggNm" resultType="lims.com.vo.LocaleVo" parameterType="lims.com.vo.LocaleVo">
+<!--kwon 19.08.27
+ SELECT 
+    CLP.MENU_CD,
+    CLP.LBL_CD,
+    CLD.LGG_NM
+FROM CM_LGG_PAG_TEST CLP
+JOIN CM_LGG_DTL_TEST CLD ON CLP.LGG_IDX = CLD.LGG_IDX
+WHERE CLD.GLG_CTG_CD = #{locale}
+ORDER BY CLP.MENU_CD, CLP.LBL_CD
+-->
+<!--      SELECT B.LANG_NM as LGGNM,
+            A.LANG_CODE AS LBLCD,
+            B.NATION_LANG_CODE AS menuCd
+     FROM SY_LANG_MASTR A
+     LEFT OUTER JOIN SY_LANG_DETAIL B ON A.LANG_MASTR_SEQNO = B.LANG_MASTR_SEQNO
+     WHERE A.USE_AT = 'Y' -->
+    SELECT  NVL(B.LANG_NM,NVL(A.LANG_NM, '')) as LANGUAGE,
+            A.LANG_CODE
+    FROM SY_LANG_MASTR A
+    LEFT OUTER JOIN SY_LANG_DETAIL B ON A.LANG_MASTR_SEQNO = B.LANG_MASTR_SEQNO AND B.NATION_LANG_CODE = #{locale}
+    WHERE A.USE_AT = 'Y'
+</select>
+
+<!-- 메뉴별 LOCALE 언어 조회 -->
+<select id="getMenuLggNm" resultType="lims.com.vo.LocaleVo" parameterType="lims.com.vo.LocaleVo">
+<!-- kwon 19.08.27
+SELECT 
+    CLP.MENU_CD,
+    CLP.LBL_CD,
+    CLD.LGG_NM
+FROM CM_LGG_PAG_TEST CLP
+JOIN CM_LGG_DTL_TEST CLD ON CLP.LGG_IDX = CLD.LGG_IDX
+WHERE CLP.MENU_CD = #{menuCd} 
+    AND CLD.GLG_CTG_CD = #{locale}
+ORDER BY CLP.MENU_CD, CLP.LBL_CD
+-->
+</select>
+
+<select id="getLocale" resultType="lims.com.vo.LocaleVo" parameterType="String">
+<!-- kwon 19.08.27
+ SELECT
+    A.DTL_CD AS LANG_CD,
+    B.DTL_CD AS PRT_LGG_CD,
+    B.DTL_NM AS PRT_LGG_NM
+FROM
+(
+SELECT
+    DTL_CD
+FROM CM_CD_DTL_TESTS
+WHERE HIR_CD = 'S38' AND USE_YN = 'Y' AND DTL_CD = #{value}
+) A
+JOIN CM_CD_DTL_TEST B ON A.DTL_CD = B.EXT_CD1
+ -->
+
+<!--   SELECT
+	    A.CMMN_CODE,
+	    B.CMMN_CODE AS PRT_LGG_CD,
+	    B.CMMN_CODE_NM AS PRT_LGG_NM
+	FROM
+	(
+	SELECT
+	       CMMN_CODE
+	FROM SY_CMMN_CODE
+	WHERE UPPER_CMMN_CODE ='SY06' AND USE_AT = 'Y' AND CMMN_CODE = #{value}
+	) A
+	JOIN SY_CMMN_CODE B ON A.CMMN_CODE =  B.CMMN_CODE  -->
+	SELECT 
+        CMMN_CODE
+    FROM SY_CMMN_CODE
+    WHERE UPPER_CMMN_CODE ='SY06' AND CMMN_CODE = #{value}
+</select>
+
+<select id="getOneLocale" resultType="lims.com.vo.LocaleVo" parameterType="lims.com.vo.LocaleVo">
+<!-- SELECT
+    CLC.COM_CD,
+    CLC.LBL_CD,
+    CLD.LGG_NM
+FROM
+CM_LGG_COM_TEST CLC
+JOIN CM_LGG_DTL_TEST CLD ON CLC.LGG_IDX = CLD.LGG_IDX
+WHERE CLD.GLG_CTG_CD = #{langCd} AND CLC.COM_CD = #{comCd} AND CLC.LBL_CD = #{lblCd}
+ORDER BY CLC.COM_CD, CLC.LBL_CD  -->
+</select>
+<!-- kwon 19.08.27
+<select id="getLocaleNm" resultType="String" parameterType="String">
+SELECT
+	DTL_NM
+FROM CM_CD_DTL_TEST
+WHERE HIR_CD = 'S38' AND DTL_CD = #{value}
+</select>
+-->
+
+<!-- kwon 19.08.27
+<select id="getBrcNm" resultType="String" parameterType="String">
+SELECT
+	BRC_NM
+FROM CM_BRC
+WHERE BRC_IDX = #{value}
+</select>
+ -->
+
+</mapper>

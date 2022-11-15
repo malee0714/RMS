@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.com.dao.CmExmntDao">
+	
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	
+	<insert id="insertExmnt" parameterType="lims.com.vo.CmExmntDto">
+		<selectKey keyProperty="exmntSeqno" resultType="lims.com.vo.CmExmntDto" order="AFTER">
+			SELECT SQ_CM_EXMNT.CURRVAL as exmntSeqno FROM DUAL
+		</selectKey>
+		INSERT INTO CM_EXMNT(
+			EXMNT_SEQNO
+			, CHCKER_ID
+			, EXMNT_DTE
+			, EXMNT_CN
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		)VALUES (
+			SQ_CM_EXMNT.NEXTVAL
+			, <include refid="loginId"/>
+			, TO_CHAR(SYSDATE, 'YYYY-MM-DD')
+			, #{exmntCn}
+			, <include refid="loginId"/>
+			, SYSDATE
+		)
+	</insert>
+	
+	<insert id="insertExmntHistory" parameterType="lims.com.vo.CmExmntDto">
+		/* 검토 이력 저장후 신규 검토내용 update */
+		<selectKey keyProperty="ordr" resultType="lims.com.vo.CmExmntDto" order="BEFORE">
+			SELECT COUNT(ORDR) + 1 as ordr 
+			FROM CM_EXMNT_HIST
+			WHERE EXMNT_SEQNO = #{exmntSeqno}
+		</selectKey>
+		
+		INSERT INTO CM_EXMNT_HIST(
+			ORDR
+			,EXMNT_SEQNO
+			,EXMNT_DTE
+			,EXMNT_CN
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) VALUES (
+			#{ordr}
+			, #{exmntSeqno}
+			, TO_CHAR(SYSDATE, 'YYYY-MM-DD')
+			, #{exmntCn} 
+			, <include refid="loginId"/> 
+			, SYSDATE 
+		)
+	</insert>
+	
+	<insert id="updateExmnt" parameterType="lims.com.vo.CmExmntDto">
+		UPDATE CM_EXMNT SET
+			CHCKER_ID = <include refid="loginId"/> 
+			, EXMNT_DTE = TO_CHAR(SYSDATE, 'YYYY-MM-DD') 
+			, EXMNT_CN = #{exmntCn} 
+			, LAST_CHANGER_ID = <include refid="loginId"/> 
+			, LAST_CHANGE_DT = SYSDATE 
+		WHERE EXMNT_SEQNO = #{exmntSeqno}
+	</insert>
+	
+	<select id="getExmntHistory" resultType="lims.com.vo.CmExmntDto" parameterType="lims.com.vo.CmExmntDto">
+		SELECT ORDR,EXMNT_SEQNO,EXMNT_DTE,EXMNT_CN
+		FROM CM_EXMNT_HIST A
+		WHERE A.EXMNT_SEQNO = #{exmntSeqno}
+		ORDER BY A.ORDR DESC
+	</select>
+</mapper>

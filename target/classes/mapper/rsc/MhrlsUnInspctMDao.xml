@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.rsc.dao.MhrlsUnInspctMDao">
+	
+	<!-- 미등록 설비 검교정 목록 조회 -->
+	<select id="getMhrlsUnInspctM" parameterType="lims.rsc.vo.MhrlsUnInspctMVo" resultType="lims.rsc.vo.MhrlsUnInspctMVo">
+		SELECT UNREGIST_EQP_SEQNO
+		 	  ,DEPT_CODE
+		 	  ,(SELECT INSPCT_INSTT_NM FROM SY_INSPCT_INSTT X WHERE DEPT_CODE = X.INSPCT_INSTT_CODE) AS DEPT_NM
+			  ,MHRLS_NM
+			  ,INSPCT_CRRCT_CHARGER_NM
+			  ,MHRLS_MANAGE_NO
+			  ,INSPCT_CRRCT_MTH_CODE
+			  ,INSPCT_CRRCT_CYCLE
+			  ,INSPCT_CRRCT_DTE
+			  ,INSPCT_CRRCT_PLAN_DTE
+			  ,NEXT_INSPCT_CRRCT_DTE
+			  ,SANCTN_DRFT_DTE
+			  ,INSPCT_CRRCT_OPERTN_AT
+			  ,DELETE_AT
+			  ,LAST_CHANGER_ID
+			  ,LAST_CHANGE_DT
+	    FROM   RS_MHRLS_UNREGIST_INSPCT_CRRCT
+	    WHERE  DELETE_AT = 'N'
+	    <if test="shrDeptCode != null and shrDeptCode != '' ">
+	       AND DEPT_CODE = #{shrDeptCode}
+	    </if>
+	    <if test="shrInspctCrrctMthCode != null and shrInspctCrrctMthCode != '' ">
+	       AND INSPCT_CRRCT_MTH_CODE = #{shrInspctCrrctMthCode}
+	    </if>
+	    <if test="shrInspctCrrctOpertnAt != null and shrInspctCrrctOpertnAt != '' ">
+	       AND INSPCT_CRRCT_OPERTN_AT = #{shrInspctCrrctOpertnAt}
+	    </if>
+	    <if test="shrInspctCrrctBeginDte != null and shrInspctCrrctBeginDte != ''">
+	    	<if test="shrInspctCrrctEndDte != null and shrInspctCrrctEndDte != ''">
+		       AND INSPCT_CRRCT_PLAN_DTE BETWEEN #{shrInspctCrrctBeginDte} AND #{shrInspctCrrctEndDte}
+	    	</if>
+	    	<if test="shrInspctCrrctEndDte == null or shrInspctCrrctEndDte == ''">
+		       AND INSPCT_CRRCT_PLAN_DTE <![CDATA[>]]> #{shrInspctCrrctBeginDte}
+	    	</if>
+	    </if>
+	    <if test="shrInspctCrrctBeginDte == null or shrInspctCrrctBeginDte == ''">
+	    	<if test="shrInspctCrrctEndDte != null and shrInspctCrrctEndDte != ''">
+		       AND INSPCT_CRRCT_PLAN_DTE <![CDATA[<]]> #{shrInspctCrrctEndDte}
+	    	</if>
+	    </if>
+	    ORDER BY LAST_CHANGE_DT DESC
+	</select>
+	
+	<!-- 미등록 설비 검교정 목록 조회 (월별)-->
+	<select id="getMonthMhrlsUnInspctM" parameterType="lims.rsc.vo.MhrlsUnInspctMVo" resultType="lims.rsc.vo.MhrlsUnInspctMVo">
+      WITH T AS (
+	        SELECT TO_CHAR(TO_DATE(INSPCT_CRRCT_PLAN_DTE), 'YYYY-MM') as MONTH,
+	        COUNT(INSPCT_CRRCT_PLAN_DTE) AS MONTHDATA,
+	        COUNT(CASE WHEN INSPCT_CRRCT_OPERTN_AT ='Y' THEN 1 END ) AS IMPLEMENT
+	        FROM RS_MHRLS_UNREGIST_INSPCT_CRRCT
+	        WHERE DELETE_AT = 'N'
+	        <if test="shrInspctCrrctEndDte != null and shrInspctCrrctEndDte != ''">
+		    	AND INSPCT_CRRCT_PLAN_DTE BETWEEN #{shrInspctCrrctBeginDte} AND #{shrInspctCrrctEndDte}
+	    	</if>
+	    	<if test="shrDeptCode != null and shrDeptCode != '' ">
+	      		AND DEPT_CODE = #{shrDeptCode}
+	    	</if>
+	    	<if test="shrInspctCrrctMthCode != null and shrInspctCrrctMthCode != '' ">
+	        	AND INSPCT_CRRCT_MTH_CODE = #{shrInspctCrrctMthCode}
+	    	</if>
+		    <if test="shrInspctCrrctOpertnAt != null and shrInspctCrrctOpertnAt != '' ">
+		       AND INSPCT_CRRCT_OPERTN_AT = #{shrInspctCrrctOpertnAt}
+		    </if>	    	
+	        GROUP BY TO_CHAR(TO_DATE(INSPCT_CRRCT_PLAN_DTE), 'YYYY-MM')
+        ) SELECT * FROM T 
+        ORDER BY MONTH ASC
+	</select>
+	
+	<!-- 미등록 설비 검교정 목록 조회 (부서별)-->
+	<select id="getdeptMhrlsUnInspctM" parameterType="lims.rsc.vo.MhrlsUnInspctMVo" resultType="lims.rsc.vo.MhrlsUnInspctMVo">
+	  SELECT 
+           A.INSPCT_INSTT_NM AS DEPT_NM, NVL(B.DEPTMONTHDATA, 0) AS DEPTMONTHDATA, NVL(DEPTIMPLEMENT, 0) AS DEPTIMPLEMENT   
+        FROM SY_INSPCT_INSTT A
+        LEFT OUTER JOIN (
+         SELECT  
+            COUNT(INSPCT_CRRCT_PLAN_DTE) AS DEPTMONTHDATA,
+            COUNT(CASE WHEN INSPCT_CRRCT_OPERTN_AT ='Y' THEN 1 END ) AS DEPTIMPLEMENT,
+            (SELECT INSPCT_INSTT_NM FROM SY_INSPCT_INSTT X WHERE DEPT_CODE = X.INSPCT_INSTT_CODE) AS DEPT_NM,
+            DEPT_CODE
+         FROM RS_MHRLS_UNREGIST_INSPCT_CRRCT 
+         WHERE DELETE_AT = 'N'
+         <if test="shrInspctCrrctEndDte != null and shrInspctCrrctEndDte != ''">
+               AND INSPCT_CRRCT_PLAN_DTE BETWEEN #{shrInspctCrrctBeginDte} AND #{shrInspctCrrctEndDte}
+        </if>
+        <if test="shrDeptCode != null and shrDeptCode != '' ">
+           AND DEPT_CODE = #{shrDeptCode}
+        </if>
+        <if test="shrInspctCrrctMthCode != null and shrInspctCrrctMthCode != '' ">
+           AND INSPCT_CRRCT_MTH_CODE = #{shrInspctCrrctMthCode}
+        </if>
+        <if test="shrInspctCrrctOpertnAt != null and shrInspctCrrctOpertnAt != '' ">
+           AND INSPCT_CRRCT_OPERTN_AT = #{shrInspctCrrctOpertnAt}
+        </if>        
+         GROUP BY DEPT_CODE
+        ORDER BY DEPT_NM ASC)B ON A.INSPCT_INSTT_CODE = B.DEPT_CODE
+        WHERE A.DELETE_AT='N'
+        AND A.USE_AT = 'Y'
+        AND A.MMNY_SE_CODE = 'SY01000001'
+        AND A.ANALS_AT = 'Y'
+        ORDER BY DEPT_NM ASC
+	</select>
+	
+	<!-- 실제 존재하는 부서인지 조회 -->
+	<select id="getDeptCodeCnt" parameterType="java.util.HashMap" resultType= "lims.rsc.vo.MhrlsUnInspctMVo">
+		SELECT MAX(INSPCT_INSTT_CODE) AS DEPT_CODE
+		  FROM SY_INSPCT_INSTT
+		 WHERE 1=1
+           AND DELETE_AT = 'N'
+           AND USE_AT = 'Y'
+           AND MMNY_SE_CODE = 'SY01000001'
+           AND ANALS_AT =  'Y'
+		   AND UPPER(INSPCT_INSTT_NM) = UPPER(TRIM(#{deptCode}))		   
+	</select>
+	
+	<!-- 미등록 설비 검교정 저장 -->
+	<insert id="insertMhrlsUnInspctM" parameterType="lims.rsc.vo.MhrlsUnInspctMVo">	
+		INSERT INTO RS_MHRLS_UNREGIST_INSPCT_CRRCT(
+			 UNREGIST_EQP_SEQNO
+			,DEPT_CODE
+			,MHRLS_NM
+			,INSPCT_CRRCT_CHARGER_NM
+			,MHRLS_MANAGE_NO
+			,INSPCT_CRRCT_MTH_CODE
+			,INSPCT_CRRCT_CYCLE
+			,INSPCT_CRRCT_DTE
+			,INSPCT_CRRCT_PLAN_DTE
+			,NEXT_INSPCT_CRRCT_DTE
+			,SANCTN_DRFT_DTE
+			,INSPCT_CRRCT_OPERTN_AT
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		)VALUES(
+			 SQ_RS_MHRLS_UNREGIST_INSPCT.NEXTVAL
+			,#{deptCode}
+			,#{mhrlsNm}
+			,#{inspctCrrctChargerNm}
+			,#{mhrlsManageNo}
+			,#{inspctCrrctMthCode}
+			,#{inspctCrrctCycle}
+			,#{inspctCrrctDte}
+			,#{inspctCrrctPlanDte}
+			,#{nextInspctCrrctDte}
+			,#{sanctnDrftDte}
+			,#{inspctCrrctOpertnAt}
+			,'N'
+			,'${@lims.util.GetUserSession@getUserId()}'
+			,SYSDATE
+		)														
+	</insert>
+	
+	<!-- 미등록 설비 검교정 수정 -->
+	<update id="updateMhrlsUnInspctM" parameterType="lims.rsc.vo.MhrlsUnInspctMVo">
+		UPDATE RS_MHRLS_UNREGIST_INSPCT_CRRCT SET			
+			   DEPT_CODE		       = #{deptCode}
+			  ,MHRLS_NM 			   = #{mhrlsNm}
+			  ,INSPCT_CRRCT_CHARGER_NM = #{inspctCrrctChargerNm}
+			  ,MHRLS_MANAGE_NO 		   = #{mhrlsManageNo}
+			  ,INSPCT_CRRCT_MTH_CODE   = #{inspctCrrctMthCode}
+			  ,INSPCT_CRRCT_CYCLE	   = #{inspctCrrctCycle}
+			  ,INSPCT_CRRCT_DTE		   = #{inspctCrrctDte}
+			  ,INSPCT_CRRCT_PLAN_DTE   = #{inspctCrrctPlanDte}
+			  ,NEXT_INSPCT_CRRCT_DTE   = #{nextInspctCrrctDte}
+			  ,SANCTN_DRFT_DTE 		   = #{sanctnDrftDte}
+			  ,INSPCT_CRRCT_OPERTN_AT  = #{inspctCrrctOpertnAt}
+			  ,LAST_CHANGER_ID		   = '${@lims.util.GetUserSession@getUserId()}'
+			  ,LAST_CHANGE_DT		   = SYSDATE
+		WHERE UNREGIST_EQP_SEQNO = #{unregistEqpSeqno}
+	</update>
+	
+	<!-- 미등록 설비 검교정 삭제 -->
+	<update id="deleteMhrlsUnInspctM" parameterType="lims.rsc.vo.MhrlsUnInspctMVo">
+		UPDATE RS_MHRLS_UNREGIST_INSPCT_CRRCT SET			
+			   DELETE_AT       = 'Y'
+			  ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			  ,LAST_CHANGE_DT  = SYSDATE
+		WHERE UNREGIST_EQP_SEQNO = #{unregistEqpSeqno}
+	</update>
+
+		
+</mapper>

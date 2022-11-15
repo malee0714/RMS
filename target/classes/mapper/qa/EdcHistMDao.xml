@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.qa.dao.EdcHistMDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+    <sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+
+	<select id="getEdcAllList" parameterType="lims.qa.vo.EdcManageDto" resultType="lims.qa.vo.EdcManageDto">
+    	SELECT
+			C.USER_NM,
+			E.CMMN_CODE_NM as edcSeNm,
+			D.EDC_SJ,
+		  	FN_GET_CDDTLNM(D.EDC_SE_DETAIL_CODE) AS edcSeDetailNm,
+		  	CASE WHEN C.USER_NM IS NOT NULL
+		        THEN (CASE WHEN B.EDC_USER_CNT > 0
+		                   THEN C.USER_NM || ' 외 ' || B.EDC_USER_CNT || '명'
+		                   ELSE C.USER_NM
+		              END)
+		        ELSE ''
+		  	END EDC_USER,
+		  	D.EDC_BEGIN_DTE,
+		 	D.EDC_END_DTE,
+		 	D.EVLER_NM,
+		 	D.EVL_CN,
+		  	A.EVL_RESULT_VALUE,
+			F.CMMN_CODE_NM AS edcQualfAlwncCodeNm,
+		 	CASE WHEN D.NXTTRM_EDC_TRGET_AT = 'Y'
+		                  THEN '대상'
+		                  ELSE '대상 아님'
+		             END NXT_EDC_TRGET_AT_NM,
+			G.INSPCT_INSTT_NM
+		FROM RS_EDC_USER A
+		LEFT JOIN (
+	            SELECT
+	                IA.EDC_SEQNO
+	                ,MIN(IA.USER_ID) REP_EDC_USER
+	                ,COUNT(IA.EDC_USER_SEQNO)-1 EDC_USER_CNT
+	            FROM RS_EDC_USER IA
+	            LEFT JOIN SY_USER IB ON IB.USER_ID = IA.USER_ID AND IB.USE_AT = 'Y' AND IB.DELETE_AT = 'N'
+	            WHERE IA.USE_AT = 'Y'
+	              AND IA.DELETE_AT = 'N'
+	            GROUP BY IA.EDC_SEQNO
+	        ) B ON B.EDC_SEQNO = A.EDC_SEQNO
+		LEFT JOIN SY_USER C ON A.USER_ID = C.USER_ID
+		LEFT JOIN RS_EDC D ON A.EDC_SEQNO = D.EDC_SEQNO
+		LEFT JOIN SY_CMMN_CODE E ON D.EDC_SE_CODE = E.CMMN_CODE
+		LEFT JOIN SY_CMMN_CODE F ON F.CMMN_CODE = A.EDC_QUALF_ALWNC_CODE
+		LEFT JOIN SY_INSPCT_INSTT G ON G.INSPCT_INSTT_CODE = C.DEPT_CODE
+		WHERE C.DELETE_AT = 'N'
+		AND D.DELETE_AT = 'N'
+		AND A.DELETE_AT = 'N'
+		<if test='schedcSeCode != null and schedcSeCode !=""'>
+          AND D.EDC_SE_CODE = #{schedcSeCode}
+        </if>
+        <if test='schEdcSeDetailCode != null and schEdcSeDetailCode !=""'>
+          AND D.EDC_SE_DETAIL_CODE = #{schEdcSeDetailCode}
+        </if>
+        <if test='schEdcSj != null and schEdcSj !=""'>
+          AND D.EDC_SJ like '%' || #{schEdcSj} || '%'
+        </if>
+        <if test='schEdcBeginDte != null and schEdcBeginDte != ""'>
+            <if test='schEdcEndDte != null and schEdcEndDte != ""'>
+                AND D.EDC_BEGIN_DTE BETWEEN #{schEdcBeginDte} AND #{schEdcEndDte}
+            </if>
+
+            <if test='schEdcEndDte == null or schEdcEndDte == ""'>
+                AND D.EDC_BEGIN_DTE <![CDATA[ >= ]]> #{schEdcBeginDte}
+            </if>
+        </if>
+        <if test='schEdcEndDte != null and schEdcEndDte != ""'>
+            <if test='schEdcBeginDte == null or schEdcBeginDte == ""'>
+                AND D.EDC_BEGIN_DTE <![CDATA[ <= ]]> #{schEdcEndDte}
+            </if>
+        </if>
+        <if test='schDeptCode != null and schDeptCode != ""'>
+        	AND G.INSPCT_INSTT_CODE = #{schDeptCode}
+        </if>
+        <if test='schUserNm != null and schUserNm != ""'>
+        	AND C.USER_NM like '%' || #{schUserNm} || '%'
+        </if>
+        ORDER BY A.EDC_SEQNO DESC
+    </select>
+</mapper>

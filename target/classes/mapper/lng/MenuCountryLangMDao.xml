@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.lng.dao.MenuCountryLangMDao">
+
+	<select id="getMconlang" parameterType="lims.sys.vo.MenuMVo"
+		resultType="lims.sys.vo.MenuMVo">
+			WITH T AS(SELECT A.MENU_SEQNO, A.UPPER_MENU_SEQNO, A.MNL_CN, A.MENU_NM, A.MENU_DC, A.USE_AT, A.SORT_ORDR, A.MENU_URL ,level menu_Lv, A.LAST_CHANGER_ID, A.LAST_CHANGE_DT,B.LANG_NM,B.LANG_MENU_SEQNO
+            FROM SY_MENU A
+            LEFT OUTER JOIN SY_LANG_MENU B ON A.MENU_SEQNO = B.MENU_SEQNO
+            <if test="nationLangCode != null and nationLangCode != ''">
+			AND NATION_LANG_CODE = #{nationLangCode}
+			</if>
+            WHERE A.USE_AT = 'Y'
+            CONNECT BY PRIOR A.MENU_SEQNO = A.UPPER_MENU_SEQNO
+            START WITH A.UPPER_MENU_SEQNO IS NULL
+            ORDER SIBLINGS BY SORT_ORDR)
+			SELECT * FROM T, (SELECT MENU_SEQNO
+            FROM SY_MENU
+            WHERE USE_AT = 'Y'
+            START WITH 
+			<choose>
+				<when test="menuNmSearch != null and menuNmSearch != '' ">
+					MENU_NM LIKE '%' || #{menuNmSearch} || '%' 
+				</when>
+				<when test="menuTwo != null and menuTwo != '' and menuTwo != 0 ">
+					MENU_SEQNO = #{menuTwo}
+				</when>
+				<when test="menuOne != null and menuOne != '' and menuOne != 0 ">
+					MENU_SEQNO = #{menuOne}
+				</when>
+			
+				<otherwise>
+					UPPER_MENU_SEQNO IS NULL
+				</otherwise>
+			</choose>
+            CONNECT BY PRIOR MENU_SEQNO = UPPER_MENU_SEQNO
+            GROUP BY MENU_SEQNO
+            UNION
+            SELECT MENU_SEQNO
+            FROM SY_MENU
+            WHERE USE_AT = 'Y'
+            START WITH 
+			<choose>
+				<when test="menuNmSearch != null and menuNmSearch != '' ">
+					MENU_NM LIKE '%' || #{menuNmSearch} || '%' 
+				</when>
+				<when test="menuTwo != null and menuTwo != '' and menuTwo != 0 ">
+					MENU_SEQNO = #{menuTwo}
+				</when>
+				<when test="menuOne != null and menuOne != '' and menuOne != 0 ">
+					MENU_SEQNO = #{menuOne}
+				</when>
+				<otherwise>
+					UPPER_MENU_SEQNO IS NULL
+				</otherwise>
+			</choose>
+            CONNECT BY PRIOR UPPER_MENU_SEQNO = MENU_SEQNO
+            GROUP BY MENU_SEQNO
+            ) M
+        	WHERE T.MENU_SEQNO = M.MENU_SEQNO
+	</select>
+	
+	<insert id="saveMconlang" parameterType="lims.lng.vo.MenuCountryLangMVo">
+		INSERT INTO SY_LANG_MENU(
+			LANG_MENU_SEQNO
+			,MENU_SEQNO
+			,NATION_LANG_CODE
+			,LANG_NM
+			,USE_AT
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) VALUES (
+			SQ_SY_LANG_MENU.NEXTVAL
+			, #{menuSeqno}
+			, #{nationLangCode}
+			, #{langNm}
+			, #{useAt}
+			, 'N'
+			, #{lastChangerId}
+			, SYSDATE
+			)
+	</insert> 
+	
+	<update id="upMconlang" parameterType="lims.lng.vo.MenuCountryLangMVo">
+		UPDATE SY_LANG_MENU SET
+			 MENU_SEQNO = #{menuSeqno}
+			, NATION_LANG_CODE = #{nationLangCode}
+			, LANG_NM = #{langNm}
+			, USE_AT = #{useAt}
+			, DELETE_AT = 'N'
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE LANG_MENU_SEQNO = #{langMenuSeqno}
+		AND DELETE_AT = 'N'	
+	</update>
+	
+</mapper>	

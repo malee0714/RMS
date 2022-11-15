@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.adm.dao.ProcessLogMDao">
+
+	<!-- 시험 이력 리스트 -->
+	<select id="getProcessLogMList" parameterType="lims.adm.vo.ProcessLogMVo" resultType="lims.adm.vo.ProcessLogMVo" >
+		SELECT 
+		    SCC1.CMMN_CODE_NM AS HIST_SE_NM,
+		    AH.MENU_URL,
+		    AH.CHANGE_AFTER_CN,
+		    AH.REQEST_SEQNO,
+		    AH.EXPRIEM_SEQNO,
+		    AH.CONECT_IP,
+		    AH.EXPR_ODR,
+		    AH.EXPR_NUMOT,
+		    AH.PROCESS_NM,
+		    IR.LOT_NO,
+		    SP.MTRIL_NM,
+		    AH.HIST_PBLICTE_DT,
+			NVL(SU.USER_NM,'미접속') USER_NM
+		FROM AT_EXPR_HIST AH
+		LEFT JOIN SY_USER SU ON AH.CHANGER_ID = TO_CHAR(SU.USER_ID)
+		LEFT JOIN IM_REQEST IR ON AH.REQEST_SEQNO = IR.REQEST_SEQNO
+		LEFT JOIN SY_MTRIL SP ON IR.MTRIL_SEQNO = SP.MTRIL_SEQNO 
+		LEFT JOIN SY_CMMN_CODE SCC1 ON AH.HIST_SE_CODE = SCC1.CMMN_CODE
+		WHERE SCC1.UPPER_CMMN_CODE = 'CM03' AND SCC1.TMPR_FIELD1_VALUE = 'TEST'
+		<if test="histSeCodeSch != null and histSeCodeSch != ''">
+			AND AH.HIST_SE_CODE = #{histSeCodeSch}
+		</if>
+		<if test="processNmSch != null and processNmSch != ''">
+			AND UPPER(AH.PROCESS_NM) LIKE '%' || UPPER(#{processNmSch}) || '%'
+		</if>
+		<if test="lotIdSch != null and lotIdSch != ''">
+			AND IR.LOT_NO LIKE '%'|| #{lotIdSch} || '%'
+		</if>
+		<if test="reqestSeqno != null and reqestSeqno != ''">
+			AND AH.REQEST_SEQNO = #{reqestSeqno}
+		</if>
+		<choose>
+			<when test="histPblicteStartDt != null and histPblicteStartDt != '' and histPblicteEndDt != null and histPblicteEndDt != ''">
+				AND TO_CHAR(AH.HIST_PBLICTE_DT, 'YYYY-MM-DD') BETWEEN #{histPblicteStartDt} AND #{histPblicteEndDt}
+			</when>
+			<when test="histPblicteStartDt != null and histPblicteStartDt != ''">
+				AND TO_CHAR(AH.HIST_PBLICTE_DT, 'YYYY-MM-DD') <![CDATA[ >= ]]> #{histPblicteStartDt}
+			</when>
+			<when test="histPblicteEndDt != null and histPblicteEndDt != ''">
+				AND TO_CHAR(AH.HIST_PBLICTE_DT, 'YYYY-MM-DD') <![CDATA[ <= ]]> #{histPblicteEndDt}
+			</when>
+		</choose>
+		ORDER BY HIST_SEQNO DESC
+	</select>
+	
+</mapper>

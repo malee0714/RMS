@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.sys.dao.OrgMDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+
+	<select id="getBestComboList" parameterType="lims.sys.vo.OrgMVo" resultType="lims.sys.vo.OrgMVo">
+		SELECT
+			INSPCT_INSTT_NM AS KEY
+			,INSPCT_INSTT_CODE AS VALUE
+		FROM SY_INSPCT_INSTT
+		WHERE DELETE_AT = 'N'
+			AND USE_AT = 'Y'
+			AND UPPER_INSPCT_INSTT_CODE IS NULL
+		<if test='@lims.util.GetUserSession@getAuthorSeCode() != "SY09000001" and @lims.util.GetUserSession@getAuthorSeCode() != "SY09000002" '>
+			/* session 권한코드가 시스템관리자, 사업장 관리자일 경우 모든 사업장 보여지면 된다. */
+			AND INSPCT_INSTT_CODE = <include refid="bplcCode"/>
+		</if>
+		ORDER BY INSPCT_INSTT_NM DESC
+	</select>
+	
+	<select id="getAuthorCodeList" parameterType="lims.sys.vo.OrgMVo" resultType="lims.sys.vo.OrgMVo">
+		SELECT AUTHOR_CODE as VALUE,
+		AUTHOR_NM  as KEY
+		FROM SY_AUTHOR 
+		WHERE USE_AT ='Y'
+		ORDER BY AUTHOR_CODE
+	</select>
+	
+
+	<select id="getUpperComboList" parameterType="lims.sys.vo.OrgMVo" resultType="lims.sys.vo.OrgMVo">
+ 		SELECT  CASE
+	                WHEN LEVEL <![CDATA[<=]]> 1 THEN INSPCT_INSTT_NM 
+	                ELSE LPAD(' ', 2*(LEVEL-1), 'ㅤ') || '└ ' || INSPCT_INSTT_NM 
+	            END AS KEY
+                , INSPCT_INSTT_CODE AS VALUE
+        FROM    SY_INSPCT_INSTT
+        WHERE   DELETE_AT = 'N'
+		  AND   USE_AT = 'Y'
+        START WITH          INSPCT_INSTT_CODE = <include refid="bplcCode"/>
+        CONNECT BY PRIOR    INSPCT_INSTT_CODE = UPPER_INSPCT_INSTT_CODE
+        ORDER SIBLINGS BY   INSPCT_INSTT_NM
+	</select>
+	
+	<select id="getUpperComboListAll" parameterType="lims.sys.vo.OrgMVo" resultType="lims.sys.vo.OrgMVo">
+ 		SELECT  CASE
+	                WHEN LEVEL <![CDATA[<=]]> 1 THEN INSPCT_INSTT_NM 
+ 		            ELSE LPAD(' ', 2*(LEVEL-1), 'ㅤ') || '└ ' || INSPCT_INSTT_NM 
+ 		        END AS KEY
+				, INSPCT_INSTT_CODE AS VALUE
+        FROM    SY_INSPCT_INSTT
+        WHERE   DELETE_AT = 'N'
+        START WITH          UPPER_INSPCT_INSTT_CODE IS NULL
+        CONNECT BY PRIOR    INSPCT_INSTT_CODE = UPPER_INSPCT_INSTT_CODE
+        ORDER SIBLINGS BY   INSPCT_INSTT_NM
+	</select>
+
+	<select id="getOrgMList" parameterType="lims.sys.vo.OrgMVo" resultType="lims.sys.vo.OrgMVo">
+		SELECT
+			A.INSPCT_INSTT_CODE
+			, A.BEST_INSPCT_INSTT_CODE
+			, A.UPPER_INSPCT_INSTT_CODE
+			, A.INSPCT_INSTT_NM
+			, A.DC
+			, A.SAP_PLANT_CODE
+			, A.USE_AT
+			, A.DELETE_AT
+			, A.LAST_CHANGER_ID
+			, A.LAST_CHANGE_DT
+      		, A.AUTHOR_CODE
+      		, (SELECT AUTHOR_NM FROM SY_AUTHOR WHERE AUTHOR_CODE = A.AUTHOR_CODE) AS AUTHOR_NM
+		FROM
+			SY_INSPCT_INSTT A
+		JOIN (
+			SELECT
+	  			N.INSPCT_INSTT_CODE
+	    		, N.UPPER_INSPCT_INSTT_CODE
+	  		FROM (
+	    		SELECT
+	      			TO_NUMBER(IA.INSPCT_INSTT_CODE) AS INSPCT_INSTT_CODE
+	      			, IA.UPPER_INSPCT_INSTT_CODE
+	    		FROM
+	      			SY_INSPCT_INSTT IA
+	    		CONNECT BY NOCYCLE PRIOR
+	      			IA.INSPCT_INSTT_CODE = IA.UPPER_INSPCT_INSTT_CODE
+	    		START WITH IA.INSPCT_INSTT_CODE IN (
+	      			SELECT
+	        			SA.INSPCT_INSTT_CODE
+	      			FROM
+	        			SY_INSPCT_INSTT SA
+	      			WHERE 1=1
+	      			AND
+	        			SA.DELETE_AT = 'N'
+	        		<if test='useAtSch != "all"'>
+		        		AND
+		        			SA.USE_AT = #{useAtSch}
+		        	</if>
+		        	<if test="inspctInsttNmSch != null and inspctInsttNmSch != ''">
+		        		AND
+		        			SA.INSPCT_INSTT_NM LIKE '%' || #{inspctInsttNmSch} || '%'
+		        	</if>
+		        	<if test="upperInspctInsttCodeSch != null and upperInspctInsttCodeSch != ''">
+		        		AND
+		        			SA.UPPER_INSPCT_INSTT_CODE = #{upperInspctInsttCodeSch}
+		        	</if>
+		        	AND
+		        		SA.BEST_INSPCT_INSTT_CODE = <include refid="bplcCode"/>
+	    		)
+
+		    	UNION
+
+		    	SELECT
+		      		TO_NUMBER(IB.INSPCT_INSTT_CODE) AS INSPCT_INSTT_CODE
+		      		, IB.UPPER_INSPCT_INSTT_CODE
+		    	FROM
+		      		SY_INSPCT_INSTT IB
+		    	CONNECT BY NOCYCLE PRIOR
+		      		IB.UPPER_INSPCT_INSTT_CODE = IB.INSPCT_INSTT_CODE
+		    	START WITH IB.INSPCT_INSTT_CODE IN (
+		      		SELECT
+		        		SB.INSPCT_INSTT_CODE
+		      		FROM
+		        		SY_INSPCT_INSTT SB
+		        	WHERE 1=1
+		      		AND
+		        		SB.DELETE_AT = 'N'
+	        		<if test='useAtSch != "all"'>
+		        		AND
+		        			SB.USE_AT = #{useAtSch}
+		        	</if>
+		        	<if test="inspctInsttNmSch != null and inspctInsttNmSch != ''">
+		        		AND
+		        			SB.INSPCT_INSTT_NM LIKE '%' || #{inspctInsttNmSch} || '%'
+		        	</if>
+		        	<if test="upperInspctInsttCodeSch != null and upperInspctInsttCodeSch != ''">
+		        		AND
+		        			SB.UPPER_INSPCT_INSTT_CODE = #{upperInspctInsttCodeSch}
+		        	</if>
+		        	AND
+		        		SB.BEST_INSPCT_INSTT_CODE = <include refid="bplcCode"/>
+		    	)
+
+				<if test='useAtSch != null and useAtSch.equals("Y")'>
+			    	MINUS
+			      		SELECT
+			         		TO_NUMBER(IC.INSPCT_INSTT_CODE) AS INSPCT_INSTT_CODE
+			         		, IC.UPPER_INSPCT_INSTT_CODE
+			      		FROM
+			        		SY_INSPCT_INSTT IC
+			      		CONNECT BY NOCYCLE PRIOR
+			        		IC.INSPCT_INSTT_CODE = IC.UPPER_INSPCT_INSTT_CODE
+			      		START WITH IC.INSPCT_INSTT_CODE IN (
+			        		SELECT
+			          			SC.INSPCT_INSTT_CODE
+			        		FROM
+			          			SY_INSPCT_INSTT SC
+			        		WHERE 1=1
+			        		AND
+			          			SC.DELETE_AT = 'N'
+			        		AND
+			          			SC.USE_AT = 'N'
+			      		)
+				</if>
+			) N
+	  		CONNECT BY NOCYCLE PRIOR
+	  			N.INSPCT_INSTT_CODE = N.UPPER_INSPCT_INSTT_CODE
+			START WITH
+	  			N.UPPER_INSPCT_INSTT_CODE IS NULL
+			ORDER SIBLINGS BY
+	  			INSPCT_INSTT_CODE ASC
+		) M ON
+			A.INSPCT_INSTT_CODE = M.INSPCT_INSTT_CODE
+	</select>
+
+	<insert id="insOrgM" parameterType="lims.sys.vo.OrgMVo">
+		<selectKey keyProperty="inspctInsttCode" resultType="lims.sys.vo.OrgMVo" order="BEFORE">
+			SELECT SQ_SY_INSPCT_INSTT.NEXTVAL AS inspctInsttCode FROM DUAL
+		</selectKey>
+		INSERT INTO
+			SY_INSPCT_INSTT (
+				INSPCT_INSTT_CODE
+				,BEST_INSPCT_INSTT_CODE
+				,UPPER_INSPCT_INSTT_CODE
+				,INSPCT_INSTT_NM
+				,SAP_PLANT_CODE
+				,USE_AT
+				,LAST_CHANGER_ID
+				,LAST_CHANGE_DT
+      			,AUTHOR_CODE
+			) VALUES (
+				#{inspctInsttCode}
+				, <include refid="bplcCode"/>
+				, #{upperInspctInsttCode}
+				, #{inspctInsttNm}
+				, #{sapPlantCode}
+				, 'Y'
+				, <include refid="loginId"/>
+				, SYSDATE
+				, #{authorCode}
+			)
+	</insert>
+
+	<update id="updOrgM" parameterType="lims.sys.vo.OrgMVo">
+		UPDATE
+			SY_INSPCT_INSTT
+		SET
+			UPPER_INSPCT_INSTT_CODE = #{upperInspctInsttCode}
+			, INSPCT_INSTT_NM = #{inspctInsttNm}
+			, SAP_PLANT_CODE = #{sapPlantCode}
+			, USE_AT = #{useAt}
+			, LAST_CHANGER_ID = <include refid="loginId"/>
+			, LAST_CHANGE_DT = SYSDATE
+      		,AUTHOR_CODE = #{authorCode}
+		WHERE
+			INSPCT_INSTT_CODE = #{inspctInsttCode}
+	</update>
+
+</mapper>

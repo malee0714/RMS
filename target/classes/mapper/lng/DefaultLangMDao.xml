@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.lng.dao.DefaultLangMDao">
+	<select id="getDelang" parameterType="lims.lng.vo.DefaultLangMVo" resultType="lims.lng.vo.DefaultLangMVo">
+			SELECT
+				LANG_MASTR_SEQNO
+				,LANG_NM
+				,USE_AT
+				,DELETE_AT
+				,LANG_CODE
+				,LAST_CHANGER_ID
+				,LAST_CHANGE_DT
+			FROM SY_LANG_MASTR
+			WHERE DELETE_AT ='N'
+			<if test=" langCodeSch != null and langCodeSch != '' ">
+				AND UPPER(LANG_CODE) LIKE '%'||UPPER(TRIM(#{langCodeSch}))||'%'
+			</if>
+			<if test=" langNmSch != null and langNmSch != '' ">
+				AND UPPER(LANG_NM) LIKE '%'||UPPER(TRIM(#{langNmSch}))||'%'
+			</if>
+
+			<if test='useAtSch == "Y"'>
+				AND USE_AT = 'Y'
+			</if>
+				 
+			<if test='useAtSch == "N"'>
+				AND USE_AT = 'N'
+			</if>			
+			ORDER BY LANG_CODE DESC
+	</select>
+	
+	<insert id="saveDelang" parameterType="lims.lng.vo.DefaultLangMVo">
+		INSERT INTO SY_LANG_MASTR(
+			LANG_MASTR_SEQNO
+			,LANG_NM
+			,USE_AT
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,LANG_CODE
+			) VALUES (
+			SQ_SY_LANG_MASTR.NEXTVAL
+			, #{langNm}
+			, #{useAt}
+			, 'N'
+			, #{lastChangerId}
+			, SYSDATE
+			,#{langCode}
+<!-- 			,(SELECT 'C'||LPAD(NVL(MAX(SUBSTR (LANG_CODE, 2, 9))+1,1),9,'0') FROM SY_LANG_MASTR) -->
+			)
+	</insert> 	
+	
+	<update id="upDelang" parameterType="lims.lng.vo.DefaultLangMVo">
+		UPDATE SY_LANG_MASTR SET
+			 LANG_CODE = #{langCode}
+			, LANG_NM = #{langNm}
+			, USE_AT = #{useAt}
+			, DELETE_AT = 'N'
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE LANG_MASTR_SEQNO = #{langMastrSeqno}
+	</update>
+	
+	<!-- 중복체크  -->
+	<select id="langNmChk" parameterType="lims.lng.vo.DefaultLangMVo" resultType="int">
+		SELECT COUNT(LANG_NM) AS langNmChk FROM SY_LANG_MASTR WHERE DELETE_AT ='N' AND LANG_NM = #{langNm}
+	</select>
+	
+	<update id="delDelang" parameterType="lims.lng.vo.DefaultLangMVo">
+		UPDATE SY_LANG_MASTR SET		
+			 LANG_NM = #{langNm}
+			, USE_AT = #{useAt}
+			, DELETE_AT = 'Y'
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE LANG_MASTR_SEQNO = #{langMastrSeqno}
+		AND DELETE_AT = 'N'	
+	</update>
+	
+</mapper>

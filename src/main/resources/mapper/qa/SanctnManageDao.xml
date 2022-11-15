@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.qa.dao.SanctnManageDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+
+	<select id="getSanctn" resultType="lims.qa.vo.SanctnManageDto" parameterType="lims.qa.vo.SanctnManageDto">
+		SELECT  A.SANCTN_SEQNO,
+				A.SANCTN_RECOM_DTE,
+				A.SANCTN_KND_CODE,
+				D.CMMN_CODE_NM AS SANCTN_KND_CODE_NM,
+				A.SANCTN_RECOMMAN_ID,
+				U.USER_NM AS SANCTN_RECOMMAN_NM,
+		        B.ORDR,
+		        B.SANCTN_ORDR,
+				C.SJ,
+				C.CN
+		FROM CM_SANCTN A
+		INNER JOIN CM_SANCTN_INFO B ON A.SANCTN_SEQNO = B.SANCTN_SEQNO
+		INNER JOIN SY_USER U ON A.SANCTN_RECOMMAN_ID = U.USER_ID
+		INNER JOIN CM_CN C ON A.CN_SEQNO = C.CN_SEQNO
+		INNER JOIN SY_CMMN_CODE D ON A.SANCTN_KND_CODE = D.CMMN_CODE AND D.USE_AT = 'Y'
+		WHERE A.USE_AT = 'Y'
+		  AND A.SANCTN_PROGRS_SITTN_CODE = 'CM01000002' /* 결재대기 */
+		  AND B.SANCTN_PROGRS_SITTN_CODE = 'CM01000002' /* 결재대기 */
+		  AND B.SANCTNER_ID = <include refid="loginId"/>
+		<if test="sanctnRecomBeginDte != null and sanctnRecomBeginDte != '' ">
+		  AND A.SANCTN_RECOM_DTE <![CDATA[>=]]> #{sanctnRecomBeginDte}
+		</if>
+		<if test="sanctnRecomEndDte != null and sanctnRecomEndDte != '' ">
+		  AND A.SANCTN_RECOM_DTE <![CDATA[<=]]> #{sanctnRecomEndDte}
+		</if>
+		<if test="sanctnKndCode != null and sanctnKndCode != '' ">
+		  AND A.SANCTN_KND_CODE = #{sanctnKndCode}
+		</if>
+		<if test="sj != null and sj != '' ">
+		  AND UPPER(C.SJ) LIKE '%' || UPPER(#{sj}) || '%'
+		</if>
+		<if test="sanctnRecommanNm != null and sanctnRecommanNm != '' ">
+		  AND UPPER(U.USER_NM) LIKE '%' || UPPER(#{sanctnRecommanNm}) || '%'
+		</if>
+		ORDER BY A.SANCTN_KND_CODE, A.SANCTN_RECOM_DTE, A.SANCTN_SEQNO
+	</select>
+	
+	<select id="getRtn" resultType="lims.com.vo.CmRtn" parameterType="lims.com.vo.CmRtn">
+		SELECT  A.RETURNER_ID
+		        ,U.USER_NM AS RETURNER_NM 
+		        ,A.RTN_RESN
+		FROM CM_RTN A
+		INNER JOIN SY_USER U ON A.RETURNER_ID = U.USER_ID
+		WHERE A.USE_AT = 'Y'
+		<if test="sanctnSeqno != null and sanctnSeqno != '' ">
+		  AND A.SANCTN_SEQNO = #{sanctnSeqno}
+		</if>
+		<if test="sanctnSeqnoList != null and sanctnSeqnoList != '' ">
+		  AND A.SANCTN_SEQNO IN (
+			<foreach collection="sanctnSeqnoList" item="item" separator=",">
+				#{item}
+			</foreach>
+	      )
+		</if>
+	</select>
+
+	<update id="confirmSanctnInfo" parameterType="lims.qa.vo.SanctnManageDto">
+		BEGIN
+			/* 현재 결재자 결재처리 */
+		    UPDATE CM_SANCTN_INFO A SET
+		        a.SANCTN_PROGRS_SITTN_CODE = 'CM01000005',
+		        a.SANCTN_DTE = TO_CHAR(SYSDATE, 'YYYY-MM-DD'),
+		        a.LAST_CHANGER_ID = <include refid="loginId"/>,
+		        a.LAST_CHANGE_DT = SYSDATE
+		    WHERE a.SANCTN_SEQNO = #{sanctnSeqno}
+		      AND a.ORDR = #{ordr};
+		
+			/* 다음 결재자 결재대기 처리 */
+		    UPDATE CM_SANCTN_INFO A SET
+		        a.SANCTN_PROGRS_SITTN_CODE = 'CM01000002',
+		        a.LAST_CHANGER_ID =<include refid="loginId"/>, 
+		        a.LAST_CHANGE_DT = SYSDATE
+		    WHERE a.SANCTN_SEQNO = #{sanctnSeqno}
+		      AND a.SANCTN_ORDR = (#{sanctnOrdr} + 1);
+		
+			/* 결재 테이블 진행상황 계산 */
+		    UPDATE CM_SANCTN SET
+		        SANCTN_PROGRS_SITTN_CODE = (
+		            SELECT  MIN(IA.SANCTN_PROGRS_SITTN_CODE)
+		            FROM CM_SANCTN_INFO IA
+		            WHERE IA.SANCTN_SEQNO = #{sanctnSeqno}
+		              AND IA.USE_AT = 'Y'
+		        ),
+		        LAST_CHANGER_ID = <include refid="loginId"/>, 
+		        LAST_CHANGE_DT = SYSDATE
+		    WHERE SANCTN_SEQNO = #{sanctnSeqno};
+		END;
+	</update>
+	
+	<update id="returnProcess" parameterType="lims.qa.vo.SanctnManageDto">
+		BEGIN
+			/* 현재 결재자 반려처리 */
+			UPDATE CM_SANCTN_INFO A SET
+			    A.SANCTN_PROGRS_SITTN_CODE = ( 
+			        CASE 
+			            WHEN A.SANCTN_ORDR = 1 THEN 'CM01000002' 
+			            WHEN A.SANCTN_ORDR > 1  THEN 'CM01000003'
+			            ELSE 'CM01000003'
+			        END
+			    ),
+			    A.SANCTN_DTE = NULL,
+				A.SANCTN_OPINION = NULL,
+				A.LAST_CHANGER_ID = <include refid="loginId"/>,
+				A.LAST_CHANGE_DT = SYSDATE
+			WHERE A.SANCTN_SEQNO = #{sanctnSeqno};
+
+			/* 결재 테이블 반려 처리 */
+		    UPDATE CM_SANCTN SET
+		        SANCTN_PROGRS_SITTN_CODE = 'CM01000004',
+		        LAST_CHANGER_ID = <include refid="loginId"/>, 
+		        LAST_CHANGE_DT = SYSDATE
+		    WHERE SANCTN_SEQNO = #{sanctnSeqno};
+		END;
+	</update>
+
+	<insert id="insertReturn" parameterType="lims.qa.vo.SanctnManageDto">
+		INSERT INTO CM_RTN (
+			ORDR,
+            SANCTN_SEQNO,
+            RETURNER_ID,
+            RTN_RESN,
+            USE_AT,
+            LAST_CHANGER_ID,
+            LAST_CHANGE_DT
+		) VALUES (
+			(SELECT COUNT(ORDR) + 1 as ordr 
+			FROM CM_RTN
+			WHERE SANCTN_SEQNO = #{sanctnSeqno}
+			  AND ORDR IS NOT NULL
+			  AND USE_AT = 'Y'
+		    ),
+			#{sanctnSeqno},
+			<include refid="loginId"/>,
+			#{rtnResn},
+            'Y',
+			<include refid="loginId"/>,
+			SYSDATE
+        )
+	</insert>
+</mapper>

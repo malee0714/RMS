@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.rsc.dao.CustlabEdayChckDao">
+	
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+	
+	<select id="getCustlabCombo" resultType="lims.com.vo.ComboVo">
+		/* 분석실 목록 selectbox조회 */
+		SELECT  A.CUSTLAB_NM AS KEY,
+				A.CUSTLAB_SEQNO AS VALUE
+		FROM RS_CUSTLAB A
+		WHERE   A.BPLC_CODE = <include refid="bplcCode"/>
+			AND A.USE_AT = 'Y'
+			AND A.DELETE_AT = 'N'
+		order by A.CUSTLAB_NM
+	</select>
+	
+	<select id="getCustlabEday" resultType="lims.rsc.vo.CustlabEdayChckRegistDto">
+		SELECT  A.CUSTLAB_EDAY_CHCK_REGIST_SEQNO
+		        ,A.BPLC_CODE
+		        ,A.CUSTLAB_SEQNO
+		        ,A.INSCTR_ID
+		        ,B.USER_NM AS INSCTR_NM 
+		        ,A.CHCK_DTE
+		        ,A.JDGMNT_WORD_CODE
+		        ,E.CMMN_CODE_NM AS JDGMNT_WORD_CODE_NM
+		        ,A.RM
+		        ,A.LAST_CHANGER_ID
+		        ,A.LAST_CHANGE_DT
+				,UJ.USER_NM AS MANAGE_RSPNBER_JUNG_NM
+				,UB.USER_NM AS MANAGE_RSPNBER_BU_NM
+				,C.CUSTLAB_NM
+				,D.MTRIL_NM
+				,CNT.EXPR_COUNT
+		FROM RS_CUSTLAB_EDAY_CHCK_REGIST A
+		INNER JOIN SY_USER B ON A.INSCTR_ID = B.USER_ID
+		INNER JOIN RS_CUSTLAB C ON A.CUSTLAB_SEQNO = C.CUSTLAB_SEQNO
+		LEFT JOIN (
+			/* 제품들 */
+			SELECT  IA.CUSTLAB_SEQNO
+					,CASE 
+						WHEN count(IA.CUSTLAB_PRDUCT_SEQNO) - 1 = 0 THEN MAX(IB.MTRIL_NM)
+						WHEN count(IA.CUSTLAB_PRDUCT_SEQNO) - 1 != 0 THEN MAX(IB.MTRIL_NM) || ' 외 ' || (count(IA.CUSTLAB_PRDUCT_SEQNO) - 1) || ' 건'
+					END AS MTRIL_NM
+			FROM RS_CUSTLAB_PRDUCT IA
+			INNER JOIN SY_MTRIL IB ON IA.MTRIL_SEQNO = IB.MTRIL_SEQNO
+			WHERE   IA.DELETE_AT = 'N'
+			    AND IA.USE_AT = 'Y'
+			GROUP BY IA.CUSTLAB_SEQNO
+		) D ON A.CUSTLAB_SEQNO = D.CUSTLAB_SEQNO
+		LEFT JOIN (
+		    SELECT  IA.CUSTLAB_EDAY_CHCK_REGIST_SEQNO
+		            , COUNT(IA.CUSTLAB_EDAY_CHCK_REGIST_SEQNO) AS EXPR_COUNT 
+		    FROM RS_CUSTLAB_EDAY_CHCK_RESULT IA
+			GROUP BY IA.CUSTLAB_EDAY_CHCK_REGIST_SEQNO
+		) CNT ON A.CUSTLAB_EDAY_CHCK_REGIST_SEQNO = CNT.CUSTLAB_EDAY_CHCK_REGIST_SEQNO
+		INNER JOIN SY_USER UJ ON C.MANAGE_RSPNBER_J_ID = UJ.USER_ID
+		INNER JOIN SY_USER UB ON C.MANAGE_RSPNBER_B_ID = UB.USER_ID
+		INNER JOIN SY_CMMN_CODE E ON A.JDGMNT_WORD_CODE = E.CMMN_CODE AND E.USE_AT = 'Y'
+		WHERE A.BPLC_CODE = <include refid="bplcCode"/>
+		  AND A.DELETE_AT = 'N'
+		<if test="custlabSeqno != null and custlabSeqno != '' ">
+		  AND A.CUSTLAB_SEQNO = #{custlabSeqno}
+		</if>
+		<if test="insctrId != null and insctrId != '' ">
+		  AND A.INSCTR_ID = #{insctrId}
+		</if>
+		<if test="startChckDte != null and startChckDte != '' ">
+		  AND A.CHCK_DTE <![CDATA[>=]]> #{startChckDte}
+		</if>
+		<if test="endChckDte != null and endChckDte != '' ">
+		  AND A.CHCK_DTE <![CDATA[<=]]> #{endChckDte}
+		</if>
+	</select>
+	
+	<select id="getCustlabEdayCheckResultList" resultType="lims.rsc.vo.CustlabEdayChckResultDto">
+		SELECT  A.EXPRIEM_SEQNO
+		        ,A.CUSTLAB_EDAY_CHCK_REGIST_SEQNO
+		        ,A.BPLC_CODE
+		        ,A.UNIT_SEQNO
+		        ,B.UNIT_NM
+		        ,A.JDGMNT_FOM_CODE
+		        ,D.CMMN_CODE_NM AS JDGMNT_FOM_CODE_NM
+		        ,A.MUMM_VALUE
+		        ,A.MUMM_VALUE_SE_CODE
+		        ,A.MXMM_VALUE
+		        ,A.MXMM_VALUE_SE_CODE
+		        ,A.RESULT_VALUE
+		        ,A.JDGMNT_WORD_CODE
+		        ,C.CMMN_CODE_NM AS JDGMNT_WORD_CODE_NM
+		        ,A.TEXT_STDR
+		        ,A.PARTCLR_MATTER
+		        ,A.SORT_ORDR
+		        ,A.LAST_CHANGER_ID
+		        ,A.LAST_CHANGE_DT
+				,E.EXPRIEM_NM
+				,CASE A.JDGMNT_FOM_CODE 
+					WHEN 'IM06000001'
+					THEN (
+					    CASE 
+							WHEN A.MUMM_VALUE IS NULL 
+							THEN A.MXMM_VALUE || ' ' || (SELECT CMMN_CODE_NM FROM SY_CMMN_CODE IA WHERE IA.CMMN_CODE = A.MXMM_VALUE_SE_CODE)
+							WHEN A.MXMM_VALUE IS NULL 
+							THEN A.MUMM_VALUE || ' ' || (SELECT CMMN_CODE_NM FROM SY_CMMN_CODE IA WHERE IA.CMMN_CODE = A.MUMM_VALUE_SE_CODE)
+							ELSE A.MUMM_VALUE || ' ~ ' || A.MXMM_VALUE 
+						END
+				    )
+					WHEN 'IM06000003' THEN A.TEXT_STDR
+					WHEN 'IM06000004' THEN '-' 
+				END AS EXPRIEM_SDSPC
+		FROM RS_CUSTLAB_EDAY_CHCK_RESULT A
+		INNER JOIN SY_EXPRIEM E ON A.EXPRIEM_SEQNO = E.EXPRIEM_SEQNO
+		LEFT JOIN SY_UNIT B ON A.UNIT_SEQNO = B.UNIT_SEQNO
+		LEFT JOIN SY_CMMN_CODE C ON A.JDGMNT_WORD_CODE = C.CMMN_CODE
+		LEFT JOIN SY_CMMN_CODE D ON A.JDGMNT_FOM_CODE = D.CMMN_CODE
+		WHERE A.BPLC_CODE = <include refid="bplcCode"/>
+		  AND A.CUSTLAB_EDAY_CHCK_REGIST_SEQNO = #{custlabEdayChckRegistSeqno}
+		ORDER BY A.SORT_ORDR
+	</select>
+	
+	<select id="getCustlabEdayCheckResultSearchList" resultType="lims.rsc.vo.CustlabEdayChckResultDto">
+		/* 분석실 일상점검 결과조회 */
+		SELECT  B.CHCK_DTE,
+		        C.EXPRIEM_NM,
+		        A.RESULT_VALUE,
+		        D.CMMN_CODE_NM AS JDGMNT_WORD_CODE_NM,
+		        B.RM
+		FROM RS_CUSTLAB_EDAY_CHCK_RESULT A
+		INNER JOIN RS_CUSTLAB_EDAY_CHCK_REGIST B ON A.CUSTLAB_EDAY_CHCK_REGIST_SEQNO = B.CUSTLAB_EDAY_CHCK_REGIST_SEQNO
+		INNER JOIN SY_EXPRIEM C ON A.EXPRIEM_SEQNO = C.EXPRIEM_SEQNO
+		INNER JOIN SY_CMMN_CODE D ON A.JDGMNT_WORD_CODE = D.CMMN_CODE AND D.USE_AT = 'Y' 
+		WHERE A.BPLC_CODE = <include refid="bplcCode"/>
+		<if test="startChckDte != null and startChckDte != '' ">
+		  AND B.CHCK_DTE <![CDATA[>=]]> #{startChckDte}
+		</if>
+		<if test="endChckDte != null and endChckDte != '' ">
+		  AND B.CHCK_DTE <![CDATA[<=]]> #{endChckDte}
+		</if>
+		<if test="jdgmntWordCode != null and jdgmntWordCode != '' ">
+		  AND A.JDGMNT_WORD_CODE = #{jdgmntWordCode} 
+		</if>
+		<if test="custlabSeqno != null and custlabSeqno != '' ">
+		  AND B.CUSTLAB_SEQNO = #{custlabSeqno} 
+		</if>
+	</select>
+	
+	<insert id="insertEveryDayCheckRegist" parameterType="lims.rsc.vo.CustlabEdayChckRegistDto">
+		<selectKey keyProperty="custlabEdayChckRegistSeqno" resultType="lims.rsc.vo.CustlabEdayChckRegistDto" order="AFTER">
+			SELECT SQ_RS_CUSTLAB_EDAY_CHCK_REGIST.CURRVAL as custlabEdayChckRegistSeqno FROM DUAL
+		</selectKey>
+		INSERT INTO RS_CUSTLAB_EDAY_CHCK_REGIST (
+		    CUSTLAB_EDAY_CHCK_REGIST_SEQNO
+		    ,BPLC_CODE
+		    ,CUSTLAB_SEQNO
+		    ,INSCTR_ID
+		    ,CHCK_DTE
+		    ,JDGMNT_WORD_CODE
+		    ,RM
+		    ,DELETE_AT
+		    ,LAST_CHANGER_ID
+		    ,LAST_CHANGE_DT
+		) VALUES (
+		    SQ_RS_CUSTLAB_EDAY_CHCK_REGIST.NEXTVAL
+		    , <include refid="bplcCode"/>
+		    , #{custlabSeqno}
+		    , #{insctrId}
+		    , #{chckDte}
+		    , #{jdgmntWordCode}
+		    , #{rm}
+		    , 'N'
+		    , <include refid="loginId"/>
+		    , SYSDATE
+		)
+	</insert>
+	
+	<update id="updateEveryDayCheckRegist" parameterType="lims.rsc.vo.CustlabEdayChckRegistDto">
+		UPDATE RS_CUSTLAB_EDAY_CHCK_REGIST SET 
+			INSCTR_ID         = #{insctrId}
+			, CHCK_DTE          = #{chckDte}
+			, JDGMNT_WORD_CODE  = #{jdgmntWordCode}
+			, RM                = #{rm}
+			, LAST_CHANGER_ID   = <include refid="loginId"/>
+			, LAST_CHANGE_DT    = SYSDATE
+		WHERE CUSTLAB_EDAY_CHCK_REGIST_SEQNO = #{custlabEdayChckRegistSeqno}
+	</update>
+	
+	<insert id="saveEveryDayCheckExprResult" parameterType="lims.rsc.vo.CustlabEdayChckResultDto">
+		MERGE INTO RS_CUSTLAB_EDAY_CHCK_RESULT OA
+		USING DUAL ON (OA.CUSTLAB_EDAY_CHCK_REGIST_SEQNO = #{custlabEdayChckRegistSeqno} AND OA.EXPRIEM_SEQNO = #{expriemSeqno})
+		WHEN MATCHED THEN 
+		    UPDATE SET
+		         RESULT_VALUE        = #{resultValue},
+		         JDGMNT_WORD_CODE    = #{jdgmntWordCode},
+		         PARTCLR_MATTER      = #{partclrMatter},
+		         LAST_CHANGER_ID     = <include refid="loginId"/>,
+		         LAST_CHANGE_DT      = SYSDATE
+		WHEN NOT MATCHED THEN
+		    INSERT (
+		        CUSTLAB_EDAY_CHCK_REGIST_SEQNO
+		        ,EXPRIEM_SEQNO
+		        ,BPLC_CODE
+		        ,UNIT_SEQNO
+		        ,JDGMNT_FOM_CODE
+		        ,MUMM_VALUE
+		        ,MUMM_VALUE_SE_CODE
+		        ,MXMM_VALUE
+		        ,MXMM_VALUE_SE_CODE
+		        ,RESULT_VALUE
+		        ,JDGMNT_WORD_CODE
+		        ,TEXT_STDR
+		        ,PARTCLR_MATTER
+		        ,SORT_ORDR
+		        ,LAST_CHANGER_ID
+		        ,LAST_CHANGE_DT
+		    ) VALUES (
+		    	#{custlabEdayChckRegistSeqno}
+		        , #{expriemSeqno}
+		        , <include refid="bplcCode"/>
+		        , #{unitSeqno}
+		        , #{jdgmntFomCode}
+		        , #{mummValue}
+		        , #{mummValueSeCode}
+		        , #{mxmmValue}
+		        , #{mxmmValueSeCode}
+		        , #{resultValue}
+		        , #{jdgmntWordCode}
+		        , #{textStdr}
+		        , #{partclrMatter}
+		        , #{sortOrdr}
+		        , <include refid="loginId"/>
+		        , SYSDATE
+		    )
+	</insert>
+	
+	<update id="deleteEveryDayExprResult" parameterType="lims.rsc.vo.CustlabEdayChckRegistDto">
+		BEGIN
+			UPDATE RS_CUSTLAB_EDAY_CHCK_REGIST SET
+				DELETE_AT       = 'Y',
+				LAST_CHANGER_ID = <include refid="loginId"/>,
+				LAST_CHANGE_DT  = SYSDATE
+			WHERE CUSTLAB_EDAY_CHCK_REGIST_SEQNO = #{custlabEdayChckRegistSeqno};
+			
+			DELETE FROM RS_CUSTLAB_EDAY_CHCK_RESULT WHERE CUSTLAB_EDAY_CHCK_REGIST_SEQNO = #{custlabEdayChckRegistSeqno};
+		END;
+	</update>
+	
+</mapper>

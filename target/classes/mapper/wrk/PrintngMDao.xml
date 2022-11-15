@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.PrintngMDao">
+
+	<!-- 출력물 관리 조회 -->
+	<select id="getPrintngMList" parameterType="lims.wrk.vo.PrintngMVO" resultType="lims.wrk.vo.PrintngMVO">
+		SELECT
+			A.PRINTNG_SEQNO
+	        , (SELECT XA.CMMN_CODE_NM FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = A.PRINTNG_SE_CODE) AS PRINTNGSECODENM
+	        , A.PRINTNG_SE_CODE
+	        , A.PRINTNG_NM
+	        , A.PRINTNG_UPLOAD_FILE_NM
+	        , A.PRINTNG_ORGINL_FILE_NM
+	        , A.PRINTNG_COURS
+	        , A.HIST_VER
+	        , A.RM
+	        , A.USE_AT
+	        , A.LAST_CHANGER_ID
+	        , A.LAST_CHANGE_DT
+		FROM
+			SY_PRINTNG A
+        WHERE
+        	A.DELETE_AT = 'N'
+		AND
+			A.PRINTNG_SE_CODE = 'SY15000001'
+		<if test="printngNmSch != null and printngNmSch != ''">
+			AND
+				UPPER(A.PRINTNG_NM) LIKE '%'||UPPER(TRIM(#{printngNmSch}))||'%'
+		</if>
+		<if test="useAtSch != 'all'">
+			AND
+				A.USE_AT = #{useAtSch}
+		</if>
+		<if test="printngUploadFileNmSch != null and printngUploadFileNmSch != ''">
+			AND
+				UPPER(A.PRINTNG_UPLOAD_FILE_NM) LIKE '%'||UPPER(TRIM(#{printngUploadFileNmSch}))||'%'
+		</if>
+		ORDER BY
+			A.PRINTNG_UPLOAD_FILE_NM ASC
+	</select>
+	
+	<!-- 출력물 파일명 중복체크 -->
+	<select id="chkPrintngFileNm" parameterType="hashmap" resultType="int">
+		SELECT
+			COUNT(*)
+		FROM SY_PRINTNG
+		WHERE PRINTNG_UPLOAD_FILE_NM = #{printngUploadFileNm}
+		<if test="printngSeqno != null and printngSeqno != ''"> /* 신규 등록이 아닌 업데이트인 경우 */
+			AND PRINTNG_SEQNO NOT IN (#{printngSeqno})
+		</if>
+		AND USE_AT = 'Y' AND DELETE_AT = 'N'
+	</select>
+	
+	<!-- 출력물 관리 저장  -->
+	<insert id="insPrintngM" parameterType="lims.wrk.vo.PrintngMVO">
+		<selectKey resultType="string" keyProperty="printngSeqno" order="BEFORE">
+			SELECT SQ_SY_PRINTNG.NEXTVAL AS printngSeqno FROM DUAL
+		</selectKey>
+		INSERT INTO SY_PRINTNG(
+			PRINTNG_SEQNO
+			, PRINTNG_SE_CODE
+			, PRINTNG_NM
+			, PRINTNG_UPLOAD_FILE_NM
+			, PRINTNG_ORGINL_FILE_NM
+			, PRINTNG_COURS
+			, HIST_VER
+			, RM
+			, USE_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{printngSeqno}
+			, 'SY15000001'
+			, #{printngNm}
+			, #{printngUploadFileNm}
+			, #{printngOrginlFileNm}
+			, #{printngCours}
+			, #{histVer}
+			, #{rm}
+			, #{useAt}
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- 출력물 관리 수정  -->
+	<update id="updPrintngM" parameterType="lims.wrk.vo.PrintngMVO">
+		UPDATE SY_PRINTNG
+			SET
+				PRINTNG_NM = #{printngNm}
+				<if test='histVer != null and histVer != ""'>
+					, PRINTNG_UPLOAD_FILE_NM = #{printngUploadFileNm}
+					, PRINTNG_ORGINL_FILE_NM = #{printngOrginlFileNm}
+					, PRINTNG_COURS = #{printngCours}
+					, HIST_VER = #{histVer}
+				</if>
+				, RM = #{rm}
+				, USE_AT = #{useAt}
+				, LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+				, LAST_CHANGE_DT = SYSDATE
+		WHERE
+			PRINTNG_SEQNO = #{printngSeqno}
+	</update>
+
+	<insert id="insPrintngHistM" parameterType="lims.wrk.vo.PrintngMVO">
+		INSERT INTO SY_PRINTNG_HIST (
+			HIST_VER
+			, PRINTNG_SEQNO
+			, PRINTNG_COURS
+			, PRINTNG_UPLOAD_FILE_NM
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{histVer}
+			, #{printngSeqno}
+			, #{printngCours}
+			, #{printngUploadFileNm}
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- 출력물 관리 삭제 -->
+	<update id="deletePrintngM" parameterType="lims.wrk.vo.PrintngMVO">
+		UPDATE SY_PRINTNG
+			SET
+				DELETE_AT = 'Y'
+		WHERE
+			PRINTNG_SEQNO = #{printngSeqno}
+	</update>
+
+	<!-- 최신 이력버전 조회 -->
+	<select id="getMaxHistVer" parameterType="lims.wrk.vo.PrintngMVO" resultType="int">
+		SELECT NVL(MAX(XA.HIST_VER), 0) + 1 FROM SY_PRINTNG_HIST XA WHERE XA.PRINTNG_SEQNO = #{printngSeqno}
+	</select>
+
+	<select id="getPrintngSeqnoInfo" parameterType="string" resultType="lims.wrk.vo.PrintngMVO">
+		SELECT
+			A.PRINTNG_SEQNO
+		    , A.PRINTNG_SE_CODE
+		    , A.PRINTNG_NM
+		    , A.PRINTNG_UPLOAD_FILE_NM
+		    , A.PRINTNG_ORGINL_FILE_NM
+		    , A.PRINTNG_COURS
+		    , A.HIST_VER
+		    , A.ENTRPS_SEQNO
+		    , A.MTRIL_SEQNO
+		    , A.RM
+		    , A.USE_AT
+		    , A.DELETE_AT
+		    , A.LAST_CHANGER_ID
+		    , A.LAST_CHANGE_DT
+	    FROM SY_PRINTNG A
+		WHERE A.PRINTNG_SEQNO = #{printngSeqno}
+	</select>
+
+</mapper>

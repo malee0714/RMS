@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.src.dao.DataChartMDao">
+
+<select id="getDataChartList" parameterType="lims.src.vo.DataChartMVo" resultType="lims.src.vo.DataChartMVo">
+	
+	SELECT
+
+		LOT_NO
+		,REQEST_EXPRIEM_SEQNO
+		,EXPRIEM_SEQNO
+		,EXPRIEM_NM
+		,LCL_VALUE
+		,UCL_VALUE
+		,LSL_VALUE
+		,USL_VALUE
+		,RESULT_VALUE
+		,MNFCTUR_DTE
+		,INSPCT_TY_CODE_NM
+		,CHART_FLAG
+
+		FROM 
+			(SELECT aB.LOT_NO
+				     ,B.REQEST_EXPRIEM_SEQNO
+				     ,D.EXPRIEM_SEQNO
+				     ,D.EXPRIEM_NM
+				     ,LCL_VALUE
+				     ,UCL_VALUE
+				     ,LSL_VALUE
+				     ,USL_VALUE
+				     ,c.RESULT_VALUE
+				     ,AB.MNFCTUR_DTE    
+				     , (SELECT CMMN_CODE_NM 
+				         FROM SY_CMMN_CODE 
+				        WHERE CMMN_CODE = AB.INSPCT_TY_CODE
+				       ) AS INSPCT_TY_CODE_NM
+				       ,'1' AS CHART_FLAG 
+			  FROM SY_MTRIL A
+				   JOIN IM_REQEST AB ON A.MTRIL_SEQNO = AB.MTRIL_SEQNO
+				   JOIN IM_REQEST_EXPRIEM B  ON AB.REQEST_SEQNO = B.REQEST_SEQNO 
+				   JOIN IM_REQEST_EXPRIEM_RESULT_AVRG C  ON B.REQEST_EXPRIEM_SEQNO= C.REQEST_EXPRIEM_SEQNO 
+				   LEFT JOIN SY_EXPRIEM D ON B.EXPRIEM_SEQNO = D.EXPRIEM_SEQNO 
+				   
+			 WHERE 1=1 
+			 <if test="bplcCodeSch != null and bplcCodeSch != ''">
+			 	AND A.bplc_code = #{bplcCodeSch}
+			 </if>
+			 <if test="inspctTyCodeSch != null and inspctTyCodeSch != ''">
+			 	AND AB.INSPCT_TY_CODE = #{inspctTyCodeSch}
+		 	</if>	
+		 	<choose>
+			<when test="mnfcturBeginDte != null and mnfcturEndDte != '' and mnfcturBeginDte != null and mnfcturEndDte != ''">
+				AND AB.MNFCTUR_DTE BETWEEN #{mnfcturBeginDte} AND #{mnfcturEndDte}
+			</when>
+			<when test="mnfcturBeginDte != null and mnfcturBeginDte != ''">
+				AND AB.MNFCTUR_DTE <![CDATA[ >= ]]> #{mnfcturBeginDte}
+			</when>
+			<when test="mnfcturEndDte != null and mnfcturEndDte != ''">
+				AND AB.MNFCTUR_DTE <![CDATA[ <= ]]> #{mnfcturEndDte}
+			</when>
+		</choose>
+		 	<if test="mtrilSeqnoSch != null and mtrilSeqnoSch != ''">
+			 	AND A.MTRIL_SEQNO = #{mtrilSeqnoSch} 
+		 	</if>
+			 	 
+       		
+       		 UNION ALL
+        
+		     SELECT 	
+		      NULL AS LOT_NO
+		     ,NULL AS REQEST_EXPRIEM_SEQNO
+		     ,NULL AS EXPRIEM_SEQNO
+		     ,NULL AS EXPRIEM_NM
+		     ,NULL AS LCL_VALUE
+		     ,NULL AS UCL_VALUE
+		     ,NULL AS LSL_VALUE
+		     ,NULL AS USL_VALUE
+		     ,NULL AS RESULT_VALUE
+		     ,NULL AS MNFCTUR_DTE
+		     ,NULL AS INSPCT_TY_CODE_NM
+		     ,'2' AS CHART_FLAG
+		  FROM SY_MTRIL A
+		   JOIN IM_REQEST AB ON A.MTRIL_SEQNO = AB.MTRIL_SEQNO
+		   JOIN IM_REQEST_EXPRIEM B  ON AB.REQEST_SEQNO = B.REQEST_SEQNO 
+		   JOIN IM_REQEST_EXPRIEM_RESULT_AVRG C  ON B.REQEST_EXPRIEM_SEQNO= C.REQEST_EXPRIEM_SEQNO 
+		   LEFT JOIN SY_EXPRIEM D ON B.EXPRIEM_SEQNO = D.EXPRIEM_SEQNO 
+		   
+		 WHERE 1=1 
+		<if test="bplcCodeSch != null and bplcCodeSch != ''">
+			 	AND A.bplc_code = #{bplcCodeSch}
+			 </if>
+			 <if test="inspctTyCodeSch != null and inspctTyCodeSch != ''">
+			 	AND AB.INSPCT_TY_CODE = #{inspctTyCodeSch}
+		 	</if>	
+		 	<choose>
+			<when test="mnfcturBeginDte != null and mnfcturEndDte != '' and mnfcturBeginDte != null and mnfcturEndDte != ''">
+				AND AB.MNFCTUR_DTE BETWEEN #{mnfcturBeginDte} AND #{mnfcturEndDte}
+			</when>
+			<when test="mnfcturBeginDte != null and mnfcturBeginDte != ''">
+				AND AB.MNFCTUR_DTE <![CDATA[ >= ]]> #{mnfcturBeginDte}
+			</when>
+			<when test="mnfcturEndDte != null and mnfcturEndDte != ''">
+				AND AB.MNFCTUR_DTE <![CDATA[ <= ]]> #{mnfcturEndDte}
+			</when>
+		</choose>
+		 	<if test="mtrilSeqnoSch != null and mtrilSeqnoSch != ''">
+			 	AND A.MTRIL_SEQNO = #{mtrilSeqnoSch} 
+		 	</if>
+		 UNION ALL
+		 
+		 SELECT 
+		 	NULL AS LOT_NO
+		     ,NULL AS REQEST_EXPRIEM_SEQNO
+		     ,NULL AS EXPRIEM_SEQNO
+		     ,NULL AS EXPRIEM_NM
+		     ,NULL AS LCL_VALUE
+		     ,NULL AS UCL_VALUE
+		     ,NULL AS LSL_VALUE
+		     ,NULL AS USL_VALUE
+		     ,NULL AS RESULT_VALUE
+		     ,NULL AS MNFCTUR_DTE
+		     ,NULL AS INSPCT_TY_CODE_NM
+		     ,'3' AS CHART_FLAG 
+		        
+		  FROM SY_MTRIL A
+		   JOIN IM_REQEST AB ON A.MTRIL_SEQNO = AB.MTRIL_SEQNO
+		   JOIN IM_REQEST_EXPRIEM B  ON AB.REQEST_SEQNO = B.REQEST_SEQNO 
+		   JOIN IM_REQEST_EXPRIEM_RESULT_AVRG C  ON B.REQEST_EXPRIEM_SEQNO= C.REQEST_EXPRIEM_SEQNO 
+		   LEFT JOIN SY_EXPRIEM D ON B.EXPRIEM_SEQNO = D.EXPRIEM_SEQNO 
+		   
+		 WHERE 1=1 
+		<if test="bplcCodeSch != null and bplcCodeSch != ''">
+			 	AND A.bplc_code = #{bplcCodeSch}
+			 </if>
+			 <if test="inspctTyCodeSch != null and inspctTyCodeSch != ''">
+			 	AND AB.INSPCT_TY_CODE = #{inspctTyCodeSch}
+		 	</if>	
+		 	<choose>
+			<when test="mnfcturBeginDte != null and mnfcturEndDte != '' and mnfcturBeginDte != null and mnfcturEndDte != ''">
+				AND AB.MNFCTUR_DTE BETWEEN #{mnfcturBeginDte} AND #{mnfcturEndDte}
+			</when>
+			<when test="mnfcturBeginDte != null and mnfcturBeginDte != ''">
+				AND AB.MNFCTUR_DTE <![CDATA[ >= ]]> #{mnfcturBeginDte}
+			</when>
+			<when test="mnfcturEndDte != null and mnfcturEndDte != ''">
+				AND AB.MNFCTUR_DTE <![CDATA[ <= ]]> #{mnfcturEndDte}
+			</when>
+		</choose>
+		 	<if test="mtrilSeqnoSch != null and mtrilSeqnoSch != ''">
+			 	AND A.MTRIL_SEQNO = #{mtrilSeqnoSch} 
+		 	</if>
+        )
+        
+	ORDER BY 
+	EXPRIEM_SEQNO
+     ,LOT_NO
+     ,MNFCTUR_DTE
+     ,CHART_FLAG
+	</select>
+
+
+	<select id="getDialogClickList" parameterType="lims.test.vo.ResultInputMVo" resultType="lims.test.vo.ResultInputMVo">
+		SELECT  IR.REQEST_NO 
+		     , IR.SPLORE_NM
+		     , IR.MTRIL_SEQNO
+		     , SU.UNIT_NM
+		     , SE.EXPRIEM_NM
+		     , IR.ENTRPS_SEQNO
+		     , IR.INSPCT_TY_CODE 
+		     , IRER.RESULT_REGIST_DTE
+		     , U.USER_NM AS RESULT_REGISTER_ID
+		     , IRER.EXPR_ODR
+		     , IRE.LCL_VALUE || ' ~ ' || IRE.UCL_VALUE AS LCL_UCL
+		     , IRER.RESULT_VALUE
+		FROM IM_REQEST IR 
+		LEFT JOIN IM_REQEST_EXPRIEM IRE ON IRE.REQEST_SEQNO = IR.REQEST_SEQNO
+		LEFT JOIN IM_REQEST_EXPRIEM_RESULT IRER ON IRE.LAST_EXPR_ODR = IRER.EXPR_ODR AND IRE.REQEST_EXPRIEM_SEQNO = IRER.REQEST_EXPRIEM_SEQNO
+		JOIN SY_EXPRIEM SE ON IRE.EXPRIEM_SEQNO = SE.EXPRIEM_SEQNO 
+		LEFT JOIN SY_UNIT SU ON IRE.UNIT_SEQNO = SU.UNIT_SEQNO
+		LEFT JOIN SY_USER U ON IRER.RESULT_REGISTER_ID = U.USER_ID 
+		WHERE IR.REQEST_SEQNO = #{reqestSeqno} 
+		    AND IRE.DELETE_AT = 'N' 
+		    AND SE.EXPRIEM_CL_CODE = 'SY05000001' 
+		    AND IR.VENDOR_REQEST_AT = 'N' 
+	</select>
+
+</mapper>

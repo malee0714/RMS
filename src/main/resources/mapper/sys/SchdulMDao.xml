@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.sys.dao.SchdulMDao">
+	<select id="getSchdulMList" parameterType="lims.sys.vo.SchdulMVo" resultType="lims.sys.vo.SchdulMVo">
+		SELECT
+				SS.SCHDUL_SEQNO
+				,SS.SCHDUL_SE_CODE
+				,SCC1.CMMN_CODE_NM SCHDUL_SE_CODE_NM
+				,SS.CHRCTR_NTCN_AT
+				,SS.TIMHDER_NTCN_AT
+				,SS.INDVDL_NTCN_AT
+				,SS.USE_AT
+				,SS.SCHDUL_CN
+				,SS.CHRCTR_CN
+		FROM
+		SY_SCHDUL SS
+		LEFT OUTER JOIN SY_CMMN_CODE SCC1 ON SS.SCHDUL_SE_CODE = SCC1.CMMN_CODE
+		WHERE 1=1 
+<!-- 		AND SS.DELETE_AT = 'N' -->
+		<if test="schdulSeCodeSch != null and schdulSeCodeSch != ''">
+			AND SS.SCHDUL_SE_CODE = #{schdulSeCodeSch}
+		</if>
+		<if test= "useAtSch != null and useAtSch != ''">
+			AND SS.USE_AT= #{useAtSch}
+		</if>
+		ORDER BY SS.SCHDUL_SE_CODE
+	</select>
+	
+	<select id="getSchdulUserList" parameterType="lims.sys.vo.SchdulMVo" resultType="lims.sys.vo.SchdulMVo">
+	   SELECT SS.SCHDUL_SEQNO, SYU.USER_NM, SYU.USER_ID, SYU.INSPCT_INSTT_NM
+	   FROM    SY_SCHDUL_NTCN_TRGTER SS
+       LEFT OUTER JOIN
+          (SELECT SU.USER_ID, SU.USER_NM, SII.INSPCT_INSTT_NM
+             FROM    SY_USER SU
+                  LEFT OUTER JOIN 
+                     SY_INSPCT_INSTT SII
+                  ON SU.DEPT_CODE = SII.INSPCT_INSTT_CODE) SYU 
+       ON SS.USER_ID = SYU.USER_ID 
+       WHERE SS.SCHDUL_SEQNO = #{schdulSeqno}
+	</select>
+	
+	<insert id="insSchdulInfo" parameterType="lims.sys.vo.SchdulMVo">
+		<selectKey keyProperty="schdulSeqno" resultType="lims.sys.vo.SchdulMVo" order="BEFORE">
+			 SELECT SQ_SY_SCHDUL.NEXTVAL schdulSeqno FROM DUAL
+		</selectKey>
+		INSERT INTO SY_SCHDUL(
+			SCHDUL_SEQNO
+			,SCHDUL_SE_CODE 
+			,CHRCTR_NTCN_AT
+			,TIMHDER_NTCN_AT
+			,INDVDL_NTCN_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,SCHDUL_CN
+			,CHRCTR_CN
+		)VALUES(
+			#{schdulSeqno}
+			, #{schdulSeCode}
+			, DECODE(#{chrctrNtcnAt},'on','Y','N')
+			, DECODE(#{timhderNtcnAt},'on','Y','N')
+			, DECODE(#{indvdlNtcnAt},'on','Y','N')
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+			, #{schdulCn}
+			, #{chrctrCn}
+		)
+	</insert>
+	
+	<update id="updSchdulInfo" parameterType="lims.sys.vo.SchdulMVo">
+		UPDATE SY_SCHDUL SET
+			SCHDUL_SE_CODE = #{schdulSeCode}
+			, CHRCTR_NTCN_AT = DECODE(#{chrctrNtcnAt},'on','Y','N')
+			, TIMHDER_NTCN_AT = DECODE(#{timhderNtcnAt},'on','Y','N')
+			, INDVDL_NTCN_AT = DECODE(#{indvdlNtcnAt},'on','Y','N')
+			, USE_AT = #{useAt}
+			, LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			, LAST_CHANGE_DT = SYSDATE
+			, SCHDUL_CN = #{schdulCn}
+			, CHRCTR_CN = #{chrctrCn}
+		WHERE SCHDUL_SEQNO = #{schdulSeqno}
+	</update>
+	
+	<insert id="insSchdulUser" parameterType="lims.sys.vo.SchdulMVo">
+		INSERT INTO SY_SCHDUL_NTCN_TRGTER
+		(
+			SCHDUL_SEQNO,
+			USER_ID,
+			LAST_CHANGER_ID,
+			LAST_CHANGE_DT
+		)VALUES(
+			#{schdulSeqno},
+			#{userId},
+			'${@lims.util.GetUserSession@getUserId()}',
+			SYSDATE
+		)
+	</insert>
+	
+	<update id="delSchdulUser" parameterType="lims.sys.vo.SchdulMVo">
+		DELETE FROM SY_SCHDUL_NTCN_TRGTER WHERE SCHDUL_SEQNO = #{schdulSeqno}
+	</update> 
+	
+	<update id="delSchdul" parameterType="lims.sys.vo.SchdulMVo">
+		UPDATE SY_SCHDUL SET
+			DELETE_AT = 'Y'
+			, LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE SCHDUL_SEQNO = #{schdulSeqno} 
+	</update>
+	
+</mapper>

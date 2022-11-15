@@ -1,0 +1,388 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.rsc.dao.CndtnCheckMDao">
+
+	<select id="getcndtn" parameterType="lims.rsc.vo.CndtnCheckMVo" resultType="lims.rsc.vo.CndtnCheckMVo">
+		 SELECT
+		  A.CNDTN_CHCK_SEQNO
+		  ,A.MHRLS_SEQNO
+		  ,A.INSCTR_ID
+		  ,A.CHCK_DTE
+		  ,A.CHCK_WEEK
+		  ,A.DELETE_AT
+		  ,B.MANAGE_DEPT_CODE
+		  ,B.MHRLS_NM
+		  ,B.MHRLS_MANAGE_NO
+		  ,B.MNFCTUR_CMPNY_NM 
+		  ,FN_GET_CDDTLNM(MHRLS_CL_CODE) AS MHRLS_CL_NM
+		  ,(SELECT INSPCT_INSTT_NM FROM SY_INSPCT_INSTT X WHERE B.MANAGE_DEPT_CODE = X.INSPCT_INSTT_CODE) AS MANAGE_DEPT_NM
+		  ,C.USER_NM
+		FROM RS_CNDTN_CHCK A
+		LEFT OUTER JOIN RS_MHRLS B ON A.MHRLS_SEQNO = B.MHRLS_SEQNO
+		LEFT OUTER JOIN SY_USER C ON A.INSCTR_ID = C.USER_ID
+		WHERE A.DELETE_AT = 'N' 
+		<if test="mhrlsClCode != null and mhrlsClCode != ''">
+			AND B.MHRLS_CL_CODE = #{mhrlsClCode}
+		</if>
+		<if test="cndtnInspctIemCodeSch != null and cndtnInspctIemCodeSch != ''">
+			AND B.MHRLS_SEQNO = #{cndtnInspctIemCodeSch}
+		</if>
+		<if test="writngDeStart != null and writngDeStart != ''">
+			AND A.CHCK_DTE <![CDATA[ >= ]]> #{writngDeStart}
+		</if>
+		<if test="writngDeFinish != null and writngDeFinish != ''">
+			AND A.CHCK_DTE <![CDATA[ <= ]]> #{writngDeFinish}
+		</if>
+		<if test="(repairDeStart != null and repairDeStart != '') or (repairDeFinish != null and repairDeFinish != '')">
+			AND EXISTS (
+				SELECT
+			  	'O'
+			  FROM RS_CNDTN_CHCK_DETAIL IA
+			  JOIN SY_CMMN_CODE IB ON IA.CNDTN_INSPCT_IEM_CODE = IB.CMMN_CODE
+			  WHERE IA.CNDTN_CHCK_SEQNO = A.CNDTN_CHCK_SEQNO
+			  AND IB.TMPR_FIELD3_VALUE = '날짜'
+			  	<if test="repairDeStart != null and repairDeStart != ''">
+					AND IA.CHCK_RESULT_VALUE <![CDATA[ >= ]]> #{repairDeStart}
+				</if>
+				<if test="repairDeFinish != null and repairDeFinish != ''">
+					AND IA.CHCK_RESULT_VALUE <![CDATA[ <= ]]> #{repairDeFinish}
+				</if>
+			)
+		</if>
+		ORDER BY A.CHCK_DTE ASC
+	</select>	
+
+	<select id="getCnd" parameterType="lims.rsc.vo.CndtnCheckMVo" resultType="lims.rsc.vo.CndtnCheckMVo">
+		SELECT 
+		    TMPR_FIELD1_VALUE
+		    ,TMPR_FIELD2_VALUE
+		    ,CMMN_CODE_NM
+		    ,TMPR_FIELD3_VALUE
+		    ,TMPR_FIELD4_VALUE
+		    ,TMPR_FIELD5_VALUE
+		    ,CMMN_CODE   
+		FROM SY_CMMN_CODE     
+		WHERE USE_AT = 'Y'
+		AND UPPER_CMMN_CODE = 'RS13'  
+	</select>
+	<!-- 상단 그리드 클릭시 하단 그리드 조회(디테일) -->
+	<select id="getCndVal" parameterType="lims.rsc.vo.CndtnCheckMVo" resultType="lims.rsc.vo.CndtnCheckMVo">
+	
+	 WITH T AS (
+	            SELECT CNDTN_CHCK_SEQNO
+	                    ,CNDTN_INSPCT_IEM_CODE
+	                    ,TMPR_FIELD1_VALUE
+	                    ,TMPR_FIELD2_VALUE
+	                    ,TMPR_FIELD3_VALUE
+	                    ,TMPR_FIELD4_VALUE
+	                    ,TMPR_FIELD5_VALUE
+	                    ,CHCK_RESULT_VALUE
+	                    ,LAST_CHANGER_ID
+	                    ,LAST_CHANGE_DT 
+	            FROM RS_CNDTN_CHCK_DETAIL WHERE CNDTN_CHCK_SEQNO = #{cndtnChckSeqno}
+	        )
+	        SELECT 
+	            A.TMPR_FIELD1_VALUE
+	            ,A.TMPR_FIELD2_VALUE
+	            ,A.CMMN_CODE_NM
+	            ,A.TMPR_FIELD3_VALUE
+	            ,A.TMPR_FIELD4_VALUE
+	            ,A.TMPR_FIELD5_VALUE
+	            ,A.CMMN_CODE
+	            ,B.CNDTN_CHCK_SEQNO
+	            ,B.CNDTN_INSPCT_IEM_CODE
+	            ,B.TMPR_FIELD5_VALUE
+	            ,B.CHCK_RESULT_VALUE
+	            ,B.LAST_CHANGER_ID
+	            ,B.LAST_CHANGE_DT
+	        FROM SY_CMMN_CODE A  
+	        LEFT OUTER JOIN T B ON A.CMMN_CODE = B.CNDTN_INSPCT_IEM_CODE
+	        WHERE USE_AT = 'Y'
+	        AND UPPER_CMMN_CODE = 'RS13' 
+	        ORDER BY A.SORT_ORDR ASC
+	</select>
+	
+	<select id="selectmhr" parameterType="lims.rsc.vo.CndtnCheckMVo" resultType="lims.rsc.vo.CndtnCheckMVo">
+	<!-- 	WITH T AS(
+			    SELECT
+			        A.CNDTN_CHCK_SEQNO 
+			        ,A.MHRLS_SEQNO
+			        ,A.INSCTR_ID
+			        ,A.CHCK_DTE
+			        ,A.CHCK_WEEK
+			        ,A.DELETE_AT
+			        ,A.LAST_CHANGER_ID
+			        ,A.LAST_CHANGE_DT
+			        ,B.CNDTN_CHCK_SEQNO AS DETAIL_CHCK_SEQNO
+			        ,B.CNDTN_INSPCT_IEM_CODE
+			        ,B.TMPR_FIELD1_VALUE
+			        ,B.TMPR_FIELD2_VALUE
+			        ,B.TMPR_FIELD3_VALUE
+			        ,B.TMPR_FIELD4_VALUE
+			        ,B.TMPR_FIELD5_VALUE
+			        ,B.CHCK_RESULT_VALUE
+			    FROM RS_CNDTN_CHCK A
+			    LEFT OUTER JOIN RS_CNDTN_CHCK_DETAIL B ON A.CNDTN_CHCK_SEQNO = B.CNDTN_CHCK_SEQNO
+			    WHERE A.MHRLS_SEQNO =#{mhrlsSeqno} AND A.CHCK_DTE = #{chckDte}
+			),
+			T2 AS (
+                SELECT
+                    COUNT(A.CNDTN_CHCK_SEQNO) AS COUNTSEQ
+                FROM RS_CNDTN_CHCK A
+                LEFT OUTER JOIN RS_CNDTN_CHCK_DETAIL B ON A.CNDTN_CHCK_SEQNO = B.CNDTN_CHCK_SEQNO
+                WHERE A.MHRLS_SEQNO = #{mhrlsSeqno} AND A.CHCK_DTE = #{chckDte}
+            )
+			SELECT  CM.TMPR_FIELD1_VALUE
+			, (SELECT * FROM T2) AS COUNTVAL
+			                ,CM.TMPR_FIELD2_VALUE
+			                ,CM.CMMN_CODE_NM
+			                ,CM.TMPR_FIELD3_VALUE
+			                ,CM.TMPR_FIELD4_VALUE
+			                ,CM.TMPR_FIELD5_VALUE
+			                ,CM.CMMN_CODE
+			                ,DE.CNDTN_CHCK_SEQNO
+			                ,DE.CNDTN_INSPCT_IEM_CODE
+			                ,DE.TMPR_FIELD5_VALUE
+			                ,DE.CHCK_RESULT_VALUE
+			                ,DE.LAST_CHANGER_ID
+			                ,DE.LAST_CHANGE_DT
+			                , CASE CM.TMPR_FIELD3_VALUE WHEN '수치' THEN '수치만 입력 해주세요'  WHEN '선택' THEN 'O,X로 입력 해주세요' WHEN '날짜' THEN '날짜형식으로 입력해주세요(XXXX-XX-XX)' END AS messages
+			            FROM SY_CMMN_CODE CM  
+			            LEFT OUTER JOIN T DE ON CM.CMMN_CODE = DE.CNDTN_INSPCT_IEM_CODE
+			            WHERE CM.USE_AT = 'Y'
+			            AND CM.UPPER_CMMN_CODE = 'RS13' 
+			            ORDER BY CM.SORT_ORDR ASC -->
+			            	WITH T AS(
+			    SELECT
+		        A.CNDTN_CHCK_SEQNO  
+			        ,A.MHRLS_SEQNO
+			        ,A.INSCTR_ID
+			        ,A.CHCK_DTE
+			        ,A.CHCK_WEEK
+			        ,A.DELETE_AT
+			        ,A.LAST_CHANGER_ID
+			        ,A.LAST_CHANGE_DT
+			        ,B.CNDTN_INSPCT_IEM_CODE
+			        ,B.TMPR_FIELD1_VALUE
+			        ,B.TMPR_FIELD2_VALUE
+			        ,B.TMPR_FIELD3_VALUE
+			        ,B.TMPR_FIELD4_VALUE
+			        ,B.TMPR_FIELD5_VALUE
+			        ,B.CHCK_RESULT_VALUE
+			    FROM RS_CNDTN_CHCK A
+			    LEFT OUTER JOIN RS_CNDTN_CHCK_DETAIL B ON A.CNDTN_CHCK_SEQNO = B.CNDTN_CHCK_SEQNO
+			    WHERE A.MHRLS_SEQNO =#{mhrlsSeqno} AND A.CHCK_DTE = #{chckDte}
+			),
+			T2 AS(
+			 SELECT   
+                     CNDTN_CHCK_SEQNO
+                    ,MHRLS_SEQNO
+                    ,INSCTR_ID
+                    ,CHCK_DTE
+                    ,CHCK_WEEK
+                    ,DELETE_AT
+                    ,LAST_CHANGER_ID
+                    ,LAST_CHANGE_DT
+                    FROM RS_CNDTN_CHCK
+			)
+			SELECT  CM.TMPR_FIELD1_VALUE
+			                ,CM.TMPR_FIELD2_VALUE
+			                ,CM.CMMN_CODE_NM
+			                ,CM.TMPR_FIELD3_VALUE
+			                ,CM.TMPR_FIELD4_VALUE
+			                ,CM.TMPR_FIELD5_VALUE
+			                ,CM.CMMN_CODE
+			                ,DE.CNDTN_CHCK_SEQNO  AS DETAILSEQ
+			                ,DE.CNDTN_INSPCT_IEM_CODE
+			                ,DE.TMPR_FIELD5_VALUE
+			                ,DE.CHCK_RESULT_VALUE
+			                ,DE.LAST_CHANGER_ID
+			                ,DE.LAST_CHANGE_DT
+			                ,MA.CNDTN_CHCK_SEQNO
+			                <!-- , CASE CM.TMPR_FIELD3_VALUE WHEN '수치' THEN '수치만 입력 해주세요'  WHEN '선택' THEN 'O,X로 입력 해주세요' WHEN '날짜' THEN '날짜형식으로 입력해주세요(XXXX-XX-XX)' END AS messages -->
+			            FROM SY_CMMN_CODE CM  
+			            LEFT OUTER JOIN T DE ON CM.CMMN_CODE = DE.CNDTN_INSPCT_IEM_CODE
+			            LEFT OUTER JOIN T2 MA ON DE.CNDTN_CHCK_SEQNO = MA.CNDTN_CHCK_SEQNO
+			            WHERE CM.USE_AT = 'Y'
+			            AND CM.UPPER_CMMN_CODE = 'RS13' 
+			            ORDER BY CM.SORT_ORDR ASC
+	</select>
+
+	<select id="getchValueList" parameterType="lims.rsc.vo.CndtnCheckMVo" resultType="lims.rsc.vo.CndtnCheckMVo">
+
+       SELECT 
+             A.CNDTN_CHCK_SEQNO
+            ,A.MHRLS_SEQNO
+            ,A.INSCTR_ID
+            ,A.CHCK_DTE
+            ,A.CHCK_WEEK
+            ,A.DELETE_AT
+            ,B.MANAGE_DEPT_CODE
+            ,B.MHRLS_NM
+            ,FN_GET_CDDTLNM(MHRLS_CL_CODE) AS MHRLS_CL_NM
+            ,B.MHRLS_MANAGE_NO
+            ,(SELECT INSPCT_INSTT_NM FROM SY_INSPCT_INSTT X WHERE B.MANAGE_DEPT_CODE = X.INSPCT_INSTT_CODE) AS MANAGE_DEPT_NM
+            ,B.MNFCTUR_CMPNY_NM
+            ,C.USER_NM
+            ,D.CHCK_RESULT_VALUE
+            ,D.TMPR_FIELD3_VALUE
+            ,E.CMMN_CODE_NM
+        FROM RS_CNDTN_CHCK A  
+        LEFT OUTER JOIN RS_MHRLS B ON A.MHRLS_SEQNO = B.MHRLS_SEQNO
+        LEFT OUTER JOIN SY_USER C ON A.LAST_CHANGER_ID = C.USER_ID
+        LEFT OUTER JOIN RS_CNDTN_CHCK_DETAIL D ON A.CNDTN_CHCK_SEQNO = D.CNDTN_CHCK_SEQNO
+        LEFT OUTER JOIN SY_CMMN_CODE E ON D.CNDTN_INSPCT_IEM_CODE = E.CMMN_CODE
+        WHERE A.DELETE_AT = 'N' 
+        AND D.TMPR_FIELD3_VALUE = '수치'
+       <if test=" mhrlsSeqnoSch != null and mhrlsSeqnoSch != '' ">
+			AND A.MHRLS_SEQNO = #{mhrlsSeqnoSch}
+		</if>
+        
+        <if test="writngDeStart != null and writngDeStart != ''">
+			AND A.CHCK_DTE <![CDATA[ >= ]]> #{writngDeStart}
+		</if>
+		<if test="writngDeFinish != null and writngDeFinish != ''">
+			AND A.CHCK_DTE <![CDATA[ <= ]]> #{writngDeFinish}
+		</if>
+       ORDER BY A.CHCK_DTE ASC
+	</select>
+	
+	<select id="getchkValueList" parameterType="lims.rsc.vo.CndtnCheckMVo" resultType="lims.rsc.vo.CndtnCheckMVo">
+	SELECT 
+         A.CNDTN_CHCK_SEQNO
+        ,A.MHRLS_SEQNO
+        ,A.INSCTR_ID
+        ,A.CHCK_DTE
+        ,A.CHCK_WEEK
+        ,A.DELETE_AT
+        ,B.MANAGE_DEPT_CODE
+        ,B.MHRLS_NM
+        ,FN_GET_CDDTLNM(MHRLS_CL_CODE) AS MHRLS_CL_NM
+        ,B.MHRLS_MANAGE_NO
+        ,(SELECT INSPCT_INSTT_NM FROM SY_INSPCT_INSTT X WHERE B.MANAGE_DEPT_CODE = X.INSPCT_INSTT_CODE) AS MANAGE_DEPT_NM
+        ,B.MNFCTUR_CMPNY_NM
+        ,C.USER_NM
+        ,D.CHCK_RESULT_VALUE
+        ,D.TMPR_FIELD3_VALUE
+        ,E.CMMN_CODE_NM
+    FROM RS_CNDTN_CHCK A  
+    LEFT OUTER JOIN RS_MHRLS B ON A.MHRLS_SEQNO = B.MHRLS_SEQNO
+    LEFT OUTER JOIN SY_USER C ON A.LAST_CHANGER_ID = C.USER_ID
+    LEFT OUTER JOIN RS_CNDTN_CHCK_DETAIL D ON A.CNDTN_CHCK_SEQNO = D.CNDTN_CHCK_SEQNO
+    LEFT OUTER JOIN SY_CMMN_CODE E ON D.CNDTN_INSPCT_IEM_CODE = E.CMMN_CODE
+    WHERE A.DELETE_AT = 'N' 
+    AND E.CMMN_CODE = #{chckItem}
+    AND B.MHRLS_CL_CODE = 'RS02000156'
+	AND A.MHRLS_SEQNO = NVL(#{mhrlsSeqnoSch},#{mhrlsSeqno})	
+
+    <if test="writngDeStart != null and writngDeStart != ''">
+		AND A.CHCK_DTE <![CDATA[ >= ]]> #{writngDeStart}
+	</if>
+	<if test="writngDeFinish != null and writngDeFinish != ''">
+		AND A.CHCK_DTE <![CDATA[ <= ]]> #{writngDeFinish}
+	</if>
+
+
+   ORDER BY A.MHRLS_SEQNO, A.CHCK_DTE
+	</select>
+	
+	<select id="getchkValueDateList" parameterType="lims.rsc.vo.CndtnCheckMVo" resultType="lims.rsc.vo.CndtnCheckMVo">
+		SELECT DISTINCT A.CHCK_DTE FROM RS_CNDTN_CHCK  A
+	     JOIN RS_CNDTN_CHCK_DETAIL B ON A.CNDTN_CHCK_SEQNO = B.CNDTN_CHCK_SEQNO
+	     WHERE B.CNDTN_INSPCT_IEM_CODE = #{chckItem} AND DELETE_AT = 'N'
+	     <if test="writngDeStart != null and writngDeStart != ''">
+			AND A.CHCK_DTE <![CDATA[ >= ]]> #{writngDeStart}
+		</if>
+		<if test="writngDeFinish != null and writngDeFinish != ''">
+			AND A.CHCK_DTE <![CDATA[ <= ]]> #{writngDeFinish}
+		</if>
+		ORDER BY CHCK_DTE 
+	</select>
+	
+	<insert id="saveCndtn" parameterType="lims.rsc.vo.CndtnCheckMVo">
+		<selectKey keyProperty="cndtnChckSeqno" resultType="lims.rsc.vo.CndtnCheckMVo" order="BEFORE">
+				SELECT SQ_RS_CNDTN_CHCK.NEXTVAL AS cndtnChckSeqno FROM DUAL 
+		</selectKey>
+		INSERT INTO RS_CNDTN_CHCK(
+			CNDTN_CHCK_SEQNO
+			,MHRLS_SEQNO
+			,INSCTR_ID
+			,CHCK_DTE
+			,CHCK_WEEK
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			) VALUES (
+			#{cndtnChckSeqno}
+			, #{mhrlsSeqno}
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, #{chckDte}
+			,(select to_char(to_date(replace(#{chckDte}, '-', ''),'yyyymmddhh24mi'),'yyyyiw') from dual)
+			, 'N'
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+			)
+	</insert> 	
+	
+	<insert id="saveCndtnDetail" parameterType="lims.rsc.vo.CndtnCheckMVo">
+	
+		INSERT INTO RS_CNDTN_CHCK_DETAIL(
+			CNDTN_CHCK_SEQNO
+			,CNDTN_INSPCT_IEM_CODE
+			,TMPR_FIELD1_VALUE
+			,TMPR_FIELD2_VALUE
+			,TMPR_FIELD3_VALUE
+			,TMPR_FIELD4_VALUE
+			,TMPR_FIELD5_VALUE
+			,CHCK_RESULT_VALUE
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			) VALUES (
+			#{cndtnChckSeqno}
+			, #{cndtnInspctIemCode}
+			, #{tmprField1Value}
+			, #{tmprField2Value}
+			, #{tmprField3Value}
+			, #{tmprField4Value}
+			, #{tmprField5Value}
+			, #{chckResultValue}
+			, #{lastChangerId}
+			, SYSDATE
+			)
+	</insert> 		
+
+	<update id="upCndtn" parameterType="lims.rsc.vo.CndtnCheckMVo">
+		UPDATE RS_CNDTN_CHCK SET
+		 MHRLS_SEQNO = #{mhrlsSeqno}
+		, INSCTR_ID = '${@lims.util.GetUserSession@getUserId()}'
+		, CHCK_DTE = #{chckDte}
+		, CHCK_WEEK = (select to_char(to_date(replace(#{chckDte}, '-', ''),'yyyymmddhh24mi'),'yyyyiw') from dual)
+		, DELETE_AT = 'N'
+		, LAST_CHANGER_ID = #{lastChangerId}
+		, LAST_CHANGE_DT = SYSDATE
+		WHERE CNDTN_CHCK_SEQNO = #{cndtnChckSeqno}
+	</update>
+	
+	<update id="upCndtnDetail" parameterType="lims.rsc.vo.CndtnCheckMVo">
+		UPDATE RS_CNDTN_CHCK_DETAIL SET
+		 CNDTN_INSPCT_IEM_CODE = #{cndtnInspctIemCode}
+		, TMPR_FIELD1_VALUE = #{tmprField1Value}
+		, TMPR_FIELD2_VALUE = #{tmprField2Value}
+		, TMPR_FIELD3_VALUE = #{tmprField3Value}
+		, TMPR_FIELD4_VALUE = #{tmprField4Value}
+		, TMPR_FIELD5_VALUE = #{tmprField5Value}
+		, CHCK_RESULT_VALUE = #{chckResultValue}
+		, LAST_CHANGER_ID = #{lastChangerId}
+		, LAST_CHANGE_DT = SYSDATE
+		WHERE CNDTN_CHCK_SEQNO = #{cndtnChckSeqno}
+		AND CNDTN_INSPCT_IEM_CODE = #{cndtnInspctIemCode}
+	</update>
+
+	
+	
+	
+	
+	
+	
+	
+</mapper>

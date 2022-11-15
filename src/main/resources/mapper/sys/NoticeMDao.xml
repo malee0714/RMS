@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.sys.dao.NoticeMDao">
+	
+	<!-- 게시판 관리 조회  -->
+	<select id="getNoticeMList" resultType="lims.sys.vo.NoticeMVo" parameterType="lims.sys.vo.NoticeMVo">
+		SELECT BBS_CODE
+			        , BBS_NM
+			        , POPUP_AT
+			        , ANSWER_AT
+			        , USER_SNTNCWRITE_AT
+			        , ATCHMNFL_AT
+			        , RM
+			        , USE_AT
+		FROM SY_BBS 
+		WHERE 1=1
+		<if test="bbsNm != null and bbsNm != '' " >
+			AND BBS_NM LIKE '%'|| #{bbsNm} ||'%'
+		</if>
+		<if test="useAt != 'all'">
+			AND USE_AT LIKE '%'|| #{useAt} ||'%'
+		</if>
+		ORDER BY BBS_CODE
+	</select>
+	
+	<!-- 저장 -->
+	<insert id="insNoticeM" parameterType="lims.sys.vo.NoticeMVo" >
+		INSERT INTO SY_BBS(
+		    BBS_CODE
+		    , BBS_NM
+		    , POPUP_AT
+		    , ANSWER_AT
+		    , USER_SNTNCWRITE_AT
+		    , ATCHMNFL_AT
+		    , RM
+		    , USE_AT
+		    , LAST_CHANGER_ID
+		    , LAST_CHANGE_DT
+		) VALUES (
+		   (SELECT LPAD(NVL(MAX(SUBSTR (BBS_CODE, 1, 10))+1,1),10,'0')
+			FROM SY_BBS
+			WHERE 1=1)
+		   , #{bbsNm}
+		   , #{popupAt}
+		   , #{answerAt}
+		   , #{userSntncwriteAt}
+		   , #{atchmnflAt}
+		   , #{rm}
+		   , #{useAt}
+		   , #{lastChangerId}
+		   , SYSDATE
+		)
+		
+	</insert>
+	
+	<!-- 수정 -->
+	<update id="updNoticeM" parameterType="lims.sys.vo.NoticeMVo" >
+		UPDATE SY_BBS SET
+			BBS_NM = #{bbsNm}
+			, POPUP_AT = #{popupAt}
+			, ANSWER_AT = #{answerAt}
+			, USER_SNTNCWRITE_AT = #{userSntncwriteAt}
+			, ATCHMNFL_AT = #{atchmnflAt}
+			, RM = #{rm}
+			, USE_AT = #{useAt}
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE BBS_CODE = #{bbsCode}
+	</update>
+
+</mapper>

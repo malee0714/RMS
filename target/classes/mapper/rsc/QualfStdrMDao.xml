@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.rsc.dao.QualfStdrMDao">
+
+	<select id="getQualfStdr" parameterType="lims.rsc.vo.QualfStdrMVo" resultType="lims.rsc.vo.QualfStdrMVo">
+			SELECT 
+				 A.QUALF_STDR_SEQNO
+			     ,A.BPLC_CODE
+			     , (SELECT XA.INSPCT_INSTT_NM FROM SY_INSPCT_INSTT XA WHERE XA.INSPCT_INSTT_CODE = A.BPLC_CODE) AS BPLC_CODE_NM
+			     ,A.QUALF_ELGBL_SE_CODE
+			     ,(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE A.QUALF_ELGBL_SE_CODE = CMMN_CODE) AS QUALF_ELGBL_SE_CODE_NM
+			     ,A.STDR_NM
+			     ,A.ATCHMNFL_SEQNO
+			     ,A.RM
+			     ,A.LAST_CHANGER_ID
+			     ,A.LAST_CHANGE_DT
+			     ,A.USE_AT
+			     ,A.DELETE_AT
+	  		FROM RS_QUALF_STDR A
+	 		WHERE A.DELETE_AT = 'N'
+			
+			<if test=" bplcCodeSch != null and bplcCodeSch != '' ">
+				AND A.BPLC_CODE = #{bplcCodeSch}
+			</if>
+			<if test=" qualfElgblSeCodeSch != null and qualfElgblSeCodeSch != '' ">
+				AND A.QUALF_ELGBL_SE_CODE = #{qualfElgblSeCodeSch}
+			</if>
+			<if test=" stdrNmSch!= null and stdrNmSch != '' ">
+				AND UPPER(A.STDR_NM) LIKE '%'||UPPER(#{stdrNmSch})||'%'
+			</if>
+			<if test="useAtSch != 'all'">
+				AND A.USE_AT = #{useAtSch}
+			</if>
+	</select>
+	
+	<select id="getScoreList" parameterType="lims.rsc.vo.QualfStdrMVo" resultType="lims.rsc.vo.QualfStdrMVo">
+			SELECT 
+				QUALF_STDR_SE_SEQNO
+			     ,BPLC_CODE
+			     ,QUALF_STDR_SEQNO
+			     ,STDR_SE_CODE
+			     ,STDR_SE_NM
+			     ,SORT_ORDR
+			     ,USE_AT
+			     ,DELETE_AT
+			     ,LAST_CHANGER_ID
+			     ,LAST_CHANGE_DT 
+			 FROM  RS_QUALF_STDR_SE
+			WHERE BPLC_CODE = #{bplcCode}
+	   		 AND STDR_SE_CODE = 'RS14000001'
+	  		 AND QUALF_STDR_SEQNO = #{qualfStdrSeqno}
+	   		 AND USE_AT = 'Y'
+	   		 AND DELETE_AT = 'N'
+	   		 ORDER BY SORT_ORDR
+	    
+	</select>
+	
+	<select id="getBaseLineList" parameterType="lims.rsc.vo.QualfStdrMVo" resultType="lims.rsc.vo.QualfStdrMVo">
+			SELECT 
+				QUALF_STDR_SE_SEQNO
+			     ,BPLC_CODE
+			     ,QUALF_STDR_SEQNO
+			     ,STDR_SE_CODE
+			     ,STDR_SE_NM
+			     ,SORT_ORDR
+			     ,USE_AT
+			     ,DELETE_AT
+			     ,LAST_CHANGER_ID
+			     ,LAST_CHANGE_DT 
+		 	 FROM  RS_QUALF_STDR_SE
+				WHERE BPLC_CODE = #{bplcCode}
+	   		 AND STDR_SE_CODE = 'RS14000002'
+	   		 AND QUALF_STDR_SEQNO = #{qualfStdrSeqno}
+	   		 AND USE_AT = 'Y'
+	   		 AND DELETE_AT = 'N'
+	   		 ORDER BY SORT_ORDR
+	   		 
+		
+	</select>
+	
+	
+	<insert id="saveQualfStdr" parameterType="lims.rsc.vo.QualfStdrMVo">
+		<selectKey keyProperty="qualfStdrSeqno" resultType="String" order="BEFORE">
+			SELECT SQ_RS_QUALF_STDR.NEXTVAL FROM DUAL
+		</selectKey>
+			INSERT INTO RS_QUALF_STDR(
+				QUALF_STDR_SEQNO
+		    	,BPLC_CODE
+		     	,QUALF_ELGBL_SE_CODE
+				,STDR_NM
+			    ,ATCHMNFL_SEQNO
+			    ,RM
+			    ,LAST_CHANGER_ID
+			    ,LAST_CHANGE_DT
+			    ,USE_AT
+			) VALUES (
+				#{qualfStdrSeqno}
+				, #{bplcCode}
+				, #{qualfElgblSeCode}
+				, #{stdrNm}
+				, #{atchmnflSeqno}
+				, #{rm}
+				, #{lastChangerId}
+				, SYSDATE
+				, #{useAt}
+			)
+		</insert> 	
+	
+	<update id="upQualfStdr" parameterType="lims.rsc.vo.QualfStdrMVo">
+			UPDATE RS_QUALF_STDR SET
+				BPLC_CODE = #{bplcCode}
+		     	,QUALF_ELGBL_SE_CODE = #{qualfElgblSeCode}
+				,STDR_NM = #{stdrNm}
+			    ,ATCHMNFL_SEQNO = #{atchmnflSeqno}
+			    ,RM = #{rm}
+			    ,LAST_CHANGER_ID = #{lastChangerId}
+			    ,LAST_CHANGE_DT = SYSDATE
+			    ,USE_AT = #{useAt}
+			WHERE QUALF_STDR_SEQNO = #{qualfStdrSeqno}
+	</update>
+	
+	<update id="delQualfStdr" parameterType="lims.rsc.vo.QualfStdrMVo">
+			UPDATE RS_QUALF_STDR SET
+				DELETE_AT = 'Y' 
+			WHERE QUALF_STDR_SEQNO = #{qualfStdrSeqno}
+	</update>
+	
+	
+	
+	<insert id="insQualfStdrSe" parameterType="lims.rsc.vo.QualfStdrMVo">
+			INSERT INTO RS_QUALF_STDR_SE(
+				QUALF_STDR_SE_SEQNO
+				,QUALF_STDR_SEQNO
+		    	,BPLC_CODE
+		     	,STDR_SE_CODE
+				,STDR_SE_NM
+			    ,SORT_ORDR
+			    ,USE_AT
+			    ,DELETE_AT
+			    ,LAST_CHANGER_ID
+			    ,LAST_CHANGE_DT
+			) VALUES (
+				SQ_RS_QUALF_STDR_SE.NEXTVAL
+				, #{qualfStdrSeqno}
+				, #{bplcCode}
+				, #{stdrSeCode}
+				, #{stdrSeNm}
+				, #{sortOrdr}
+				, 'Y'
+				, 'N'
+				, #{lastChangerId}
+				, SYSDATE
+			)
+	</insert> 
+	<update id="updQualfStdrSe" parameterType="lims.rsc.vo.QualfStdrMVo">
+			UPDATE RS_QUALF_STDR_SE SET
+				BPLC_CODE = #{bplcCode}
+		     	,STDR_SE_CODE = #{stdrSeCode}
+				,STDR_SE_NM = #{stdrSeNm}
+			    ,SORT_ORDR = #{sortOrdr}
+			    ,LAST_CHANGER_ID = #{lastChangerId}
+			    ,LAST_CHANGE_DT = SYSDATE
+			WHERE QUALF_STDR_SE_SEQNO = #{qualfStdrSeSeqno}
+	</update>
+	
+	<update id="delQualfStdrSe" parameterType="lims.rsc.vo.QualfStdrMVo">
+			UPDATE RS_QUALF_STDR_SE SET
+				DELETE_AT = 'Y'
+			WHERE QUALF_STDR_SE_SEQNO = #{qualfStdrSeSeqno}
+	</update>
+		
+</mapper>

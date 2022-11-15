@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.rsc.dao.StdMttrMDao">
+	<!-- 표준 물질 조회 -->
+	<select id="getStdMttrList" parameterType="lims.rsc.vo.StdMttrMVo" resultType="lims.rsc.vo.StdMttrMVo">
+		SELECT 
+			RMC.STD_MTTR_SEQNO,
+			(SELECT X.DEPT_CODE FROM SY_CHRG_TEAM X WHERE CHRG_TEAM_SEQNO = RMC.CHRG_TEAM_SEQNO) AS CHRG_TEAM_SEQNO,
+			<!-- (SELECT X.CHRG_TEAM_NM FROM SY_CHRG_TEAM X WHERE X.CHRG_TEAM_SEQNO = RMC.CHRG_TEAM_SEQNO) AS CHRG_TEAM_NM, -->
+			(SELECT X.INSPCT_INSTT_NM FROM SY_INSPCT_INSTT X WHERE X.INSPCT_INSTT_CODE =  RMC.INSPCT_INSTT_CODE) AS INSPCT_INSTTNM,
+			RMC.CHRG_TEAM_SE_CODE,
+			SCC3.CMMN_CODE_NM CHRG_TEAM_SE_CODE_NM,
+			SCC3.CMMN_CODE CHRG_TEAM_SE_CODE,
+			RMC.BRCD,
+			RMC.WRHOUSNG_DTE,
+			CASE WHEN RMC.DSUSE_DTE IS NOT NULL THEN 'Y' ELSE 'N' END DSUSE_AT,
+			RMC.DSUSE_DTE,
+			RMC.CYCLE,
+			RMC.INSPCT_CRRCT_CYCLE_CODE,
+			RMC.VALID_DTE,
+			RMC.RGNT_NM,
+			RMC.RGNT_KND_CODE,
+			RMC.RGNT_SE_CODE,
+			SCC1.CMMN_CODE_NM RGNT_KND_CODE_NM,
+			SCC2.CMMN_CODE_NM RGNT_SE_CODE_NM,
+			RMC.MANAGE_RSPNBER_J_ID,
+			(SELECT USER_NM FROM SY_USER U WHERE U.USER_ID = RMC.MANAGE_RSPNBER_J_ID) AS MANAGE_RSPNBER_J_NM,
+			RMC.MANAGE_RSPNBER_B_ID,
+			(SELECT USER_NM FROM SY_USER U WHERE U.USER_ID = RMC.MANAGE_RSPNBER_B_ID) AS MANAGE_RSPNBER_B_NM,
+			RMC.INSPCT_INSTT_CODE,
+			RMC.PRDUCT_STNDRD_SEQNO,
+			(SELECT PRDUCT_STNDRD_NM FROM RS_PRDUCT_STNDRD X WHERE X.PRDUCT_STNDRD_SEQNO = RMC.PRDUCT_STNDRD_SEQNO ) AS PRDUCT_STNDRD_NM,
+			NVL(RPS.PRDUCT_STNDRD_CNT,0) PRDUCT_STNDRD_CNT,
+			RMC.UPPER_STD_MTTR_SEQNO,
+			RMC1.RGNT_NM UPPER_STD_MTTR_NM			
+		FROM RS_STD_MTTR RMC
+			LEFT JOIN SY_CMMN_CODE SCC1 ON RMC.RGNT_KND_CODE = SCC1.CMMN_CODE
+			LEFT JOIN SY_CMMN_CODE SCC2 ON RMC.RGNT_SE_CODE = SCC2.CMMN_CODE
+			LEFT JOIN SY_CMMN_CODE SCC3 ON RMC.CHRG_TEAM_SE_CODE = SCC3.CMMN_CODE
+			LEFT JOIN RS_STD_MTTR RMC1 ON RMC1.STD_MTTR_SEQNO = RMC.UPPER_STD_MTTR_SEQNO
+			LEFT JOIN (
+						   SELECT 
+								COUNT(1) PRDUCT_STNDRD_CNT, 
+								A.PRDUCT_STNDRD_SEQNO,								
+								A.CHRG_TEAM_SE_CODE
+						   FROM RS_STD_MTTR A
+		                   JOIN RS_PRDUCT_STNDRD B ON A.PRDUCT_STNDRD_SEQNO = B.PRDUCT_STNDRD_SEQNO
+		                   WHERE SYSDATE BETWEEN A.WRHOUSNG_DTE AND A.VALID_DTE AND A.DSUSE_DTE IS NULL
+		                    AND B.DELETE_AT = 'N' AND A.DELETE_AT = 'N'
+		                   GROUP BY A.CHRG_TEAM_SE_CODE, A.PRDUCT_STNDRD_SEQNO
+	                   ) 
+	                  RPS ON RMC.PRDUCT_STNDRD_SEQNO = RPS.PRDUCT_STNDRD_SEQNO AND RMC.CHRG_TEAM_SE_CODE = RPS.CHRG_TEAM_SE_CODE
+			WHERE 1=1 AND RMC.DELETE_AT = 'N'
+			<if test="chrgTeamSeCodeSch != null and chrgTeamSeCodeSch != ''">
+				AND RMC.CHRG_TEAM_SE_CODE = #{chrgTeamSeCodeSch}
+			</if>
+			<if test="rgntKndCodeSch != null and rgntKndCodeSch != ''">
+				AND RMC.RGNT_KND_CODE = #{rgntKndCodeSch}
+			</if>
+			<if test="rgntSeCodeSch != null and rgntSeCodeSch != ''">
+				AND RMC.RGNT_SE_CODE = #{rgntSeCodeSch}
+			</if>
+			<if test="rgntNmSch != null and rgntNmSch != ''">
+				AND RMC.RGNT_NM LIKE '%' ||  #{rgntNmSch} || '%'
+			</if>
+			<if test="validDteSch != null and validDteSch != ''">
+				<if test='validDteSch == "Y"'>
+					AND (RMC.DSUSE_DTE IS NULL)
+				</if>
+				<if test='validDteSch == "N"'>
+					AND (RMC.DSUSE_DTE IS NOT NULL)
+				</if>
+			</if>
+			<if test="stdMttrSeqno != null and stdMttrSeqno != ''">
+				AND RMC.STD_MTTR_SEQNO = #{stdMttrSeqno}
+			</if>
+			<if test="upperStdMttrSch != null and upperStdMttrSch != ''">
+			    AND RMC.STD_MTTR_SEQNO IN(
+					    (
+							SELECT A.STD_MTTR_SEQNO
+						  	  FROM RS_UPPER_STD_MTTR A
+						       	  ,RS_STD_MTTR B
+							 WHERE A.UPPER_STD_MTTR_SEQNO = B.STD_MTTR_SEQNO
+						       AND B.RGNT_NM LIKE '%'||#{upperStdMttrSch}||'%'
+						       GROUP BY A.STD_MTTR_SEQNO
+						 )
+				   )
+			</if>
+			
+			ORDER BY RMC.BRCD DESC
+	</select>
+
+	<!-- 표준 물질 저장 -->
+	<insert id="saveStdMttrM" parameterType="lims.rsc.vo.StdMttrMVo">
+		<selectKey keyProperty="brcd,stdMttrSeqno" resultType="lims.rsc.vo.StdMttrMVo" order="BEFORE">
+			SELECT Z.BRCD || LPAD((SELECT NVL(MAX(SUBSTR(X.BRCD, 11)), 0) + 1 FROM RS_STD_MTTR X WHERE SUBSTR(X.BRCD,1,10) = Z.BRCD AND X.DELETE_AT = 'N'), 2, 0) AS BRCD
+			      ,SQ_RS_STD_MTTR.NEXTVAL AS STD_MTTR_SEQNO
+			  FROM 
+			      (
+			        SELECT A.CHRG_TEAM_SEQNO || B.TMPR_FIELD1_VALUE || C.TMPR_FIELD1_VALUE || D.TMPR_FIELD1_VALUE || YY || MM || DD AS BRCD
+			          FROM 
+			          	  (
+			          	  	  SELECT CASE #{chrgTeamSeqno}
+						                   WHEN '3974' THEN '1' <!-- 1팀 -->
+						                   WHEN '3975' THEN '2' <!-- 2팀 -->
+						                   WHEN '3976' THEN '3' <!-- 3팀 -->
+						                   WHEN '3977' THEN '4' <!-- 4팀 -->
+						                   WHEN '3981' THEN '5' <!-- 5팀 -->
+						                   WHEN '3982' THEN '6' <!-- 6팀 -->
+						                   WHEN '3983' THEN '7' <!-- 7팀 -->
+						                   WHEN '3984' THEN '8' <!-- 8팀 -->
+						                   WHEN '3985' THEN 'S' <!-- SR팀 -->
+						                   WHEN '3993' THEN 'A' <!-- 분석 -->
+						                   WHEN '3980' THEN 'F' <!-- Fect -->
+						               END CHRG_TEAM_SEQNO
+						         FROM DUAL
+				                    
+				          )A,
+				          (
+				              SELECT TMPR_FIELD1_VALUE
+				                FROM SY_CMMN_CODE
+				               WHERE CMMN_CODE = #{chrgTeamSeCode}
+				          )B,
+				          (
+				              SELECT TMPR_FIELD1_VALUE
+				                FROM SY_CMMN_CODE
+				               WHERE CMMN_CODE = #{rgntKndCode}
+				          )C,
+				          (
+				             SELECT TMPR_FIELD1_VALUE
+				                FROM SY_CMMN_CODE
+				               WHERE CMMN_CODE = #{rgntSeCode}
+				          )D,
+				          (
+				             SELECT TO_CHAR(SYSDATE, 'YY') YY
+				                FROM DUAL
+				          )E,
+                  		  (
+				             SELECT CASE WHEN TO_CHAR(SYSDATE, 'MM') = '10' THEN 'X'
+                                         WHEN TO_CHAR(SYSDATE, 'MM') = '11' THEN 'Y'
+                                 		 WHEN TO_CHAR(SYSDATE, 'MM') = '12' THEN 'Z'
+                                         ELSE SUBSTR(TO_CHAR(SYSDATE, 'MM'), 2)
+                                    END MM
+				                FROM DUAL
+				          )F,
+                  		  (
+				             SELECT TO_CHAR(SYSDATE, 'DD') AS DD                                
+				               FROM DUAL
+				          )G
+				 ) Z
+		</selectKey>
+		INSERT INTO RS_STD_MTTR(
+			STD_MTTR_SEQNO
+			,CHRG_TEAM_SE_CODE
+			,BRCD
+			,WRHOUSNG_DTE
+			,DSUSE_DTE
+			,CYCLE
+			,INSPCT_CRRCT_CYCLE_CODE
+			,VALID_DTE
+			,DELETE_AT
+			,RGNT_KND_CODE
+			,RGNT_SE_CODE
+			,RGNT_NM
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,CHRG_TEAM_SEQNO
+			,INSPCT_INSTT_CODE
+			,MANAGE_RSPNBER_J_ID
+			,MANAGE_RSPNBER_B_ID
+			,PRDUCT_STNDRD_SEQNO
+			,UPPER_STD_MTTR_SEQNO
+		)VALUES(
+			  #{stdMttrSeqno}
+			, #{chrgTeamSeCode}
+			, #{brcd}			
+			, #{wrhousngDte}
+			, #{dsuseDte}
+			, #{cycle}
+			, #{inspctCrrctCycleCode}
+			, #{validDte}
+			, 'N'
+			,#{rgntKndCode}
+			,#{rgntSeCode}
+			,#{rgntNm}
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+			, (SELECT MAX(CHRG_TEAM_SEQNO) FROM SY_CHRG_TEAM WHERE DEPT_CODE = #{chrgTeamSeqno})
+			, #{inspctInsttCode}
+			, #{manageRspnberJId}
+			, #{manageRspnberBId}
+			, #{prductStndrdSeqno}
+			, #{upperStdMttrSeqno}
+		)
+		
+	</insert>
+	
+	<!-- 상위 표준 물질 조회 -->	
+	<select id="getUpperStdMttr" parameterType="lims.rsc.vo.StdMttrMVo" resultType="lims.rsc.vo.StdMttrMVo">
+		SELECT A.STD_MTTR_SEQNO
+		      ,A.CHRG_TEAM_SEQNO
+		      ,A.INSPCT_INSTT_CODE
+		      ,FN_GET_INSPCT_INSTT(A.INSPCT_INSTT_CODE) AS INSPCT_INSTTNM
+		      ,A.CHRG_TEAM_SE_CODE
+		      ,A.CHRG_TEAM_SE_CODE
+		      ,FN_GET_CDDTLNM(A.CHRG_TEAM_SE_CODE)  AS CHRG_TEAM_SE_CODE_NM
+		      ,A.BRCD
+		      ,A.WRHOUSNG_DTE
+		      ,CASE WHEN A.DSUSE_DTE IS NOT NULL THEN 'Y' ELSE 'N' END DSUSE_AT
+		      ,A.DSUSE_DTE
+		      ,A.CYCLE
+		      ,A.INSPCT_CRRCT_CYCLE_CODE
+		      ,A.VALID_DTE
+		      ,A.RGNT_NM
+			  ,A.RGNT_KND_CODE
+			  ,A.RGNT_SE_CODE
+			  ,FN_GET_CDDTLNM(A.RGNT_KND_CODE) AS  RGNT_KND_CODE_NM
+			  ,FN_GET_CDDTLNM(A.RGNT_SE_CODE) AS RGNT_SE_CODE_NM
+			  ,A.MANAGE_RSPNBER_J_ID
+			  ,FN_GET_USERNM(A.MANAGE_RSPNBER_J_ID) AS MANAGE_RSPNBER_J_NM
+			  ,A.MANAGE_RSPNBER_B_ID
+			  ,FN_GET_USERNM(A.MANAGE_RSPNBER_B_ID) AS MANAGE_RSPNBER_B_NM
+			  ,A.INSPCT_INSTT_CODE
+			  ,A.PRDUCT_STNDRD_SEQNO
+			  ,A.UPPER_STD_MTTR_SEQNO
+			  ,C.PRDUCT_STNDRD_CNT
+			  ,(SELECT PRDUCT_STNDRD_NM FROM RS_PRDUCT_STNDRD X WHERE X.PRDUCT_STNDRD_SEQNO = A.PRDUCT_STNDRD_SEQNO ) AS PRDUCT_STNDRD_NM
+		  FROM RS_STD_MTTR A,
+		       (
+			  		SELECT A.UPPER_STD_MTTR_SEQNO
+						  ,B.STD_MTTR_SEQNO
+						  ,B.CHRG_TEAM_SEQNO
+					  FROM RS_UPPER_STD_MTTR A
+					      ,RS_STD_MTTR B
+					 WHERE A.STD_MTTR_SEQNO = B.STD_MTTR_SEQNO
+					   AND B.DELETE_AT = 'N'
+					   AND B.STD_MTTR_SEQNO =  #{stdMttrSeqno}
+		       ) B,
+		       (
+				   SELECT 
+						COUNT(1) PRDUCT_STNDRD_CNT, 
+						A.PRDUCT_STNDRD_SEQNO,
+						A.CHRG_TEAM_SE_CODE
+				   FROM RS_STD_MTTR A
+                JOIN RS_PRDUCT_STNDRD B ON A.PRDUCT_STNDRD_SEQNO = B.PRDUCT_STNDRD_SEQNO
+                WHERE SYSDATE BETWEEN A.WRHOUSNG_DTE AND A.VALID_DTE AND A.DSUSE_DTE IS NULL
+                 AND B.DELETE_AT = 'N' AND A.DELETE_AT = 'N'
+                GROUP BY A.CHRG_TEAM_SE_CODE, A.PRDUCT_STNDRD_SEQNO
+	          ) C
+	                   
+		  WHERE A.STD_MTTR_SEQNO = B.UPPER_STD_MTTR_SEQNO
+		    AND A.PRDUCT_STNDRD_SEQNO = C.PRDUCT_STNDRD_SEQNO
+		    AND A.CHRG_TEAM_SE_CODE = C.CHRG_TEAM_SE_CODE
+	</select>
+	
+	
+	<!-- 표준물질 수정 -->
+	<update id="updStdMttrM" parameterType="lims.rsc.vo.StdMttrMVo">
+		UPDATE RS_STD_MTTR SET
+			  WRHOUSNG_DTE = #{wrhousngDte}
+			, DSUSE_DTE = #{dsuseDte}
+			, CYCLE = #{cycle}
+			, INSPCT_CRRCT_CYCLE_CODE = #{inspctCrrctCycleCode}
+			, VALID_DTE = #{validDte}
+			<if test="deleteAt != null and deleteAt != ''">
+				, DELETE_AT = #{deleteAt}			
+			</if>
+			, RGNT_NM = #{rgntNm}
+			, LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			, LAST_CHANGE_DT = SYSDATE
+			, PRDUCT_STNDRD_SEQNO = #{prductStndrdSeqno}
+			, MANAGE_RSPNBER_J_ID = #{manageRspnberJId}
+			, MANAGE_RSPNBER_B_ID = #{manageRspnberBId}
+			, UPPER_STD_MTTR_SEQNO = #{upperStdMttrSeqno}
+		WHERE STD_MTTR_SEQNO = #{stdMttrSeqno}
+	</update>
+	
+	<!-- 상위 표준물질 저장 -->
+	<update id="insUpperStdMttr" parameterType="lims.rsc.vo.StdMttrMVo">
+		INSERT INTO RS_UPPER_STD_MTTR(
+			 STD_MTTR_SEQNO
+			,ORDR
+			,UPPER_STD_MTTR_SEQNO
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		)VALUES(
+			 #{stdMttrSeqno}
+			,#{ordr}
+			,#{upperStdMttrSeqno}
+			,'N'
+			,'${@lims.util.GetUserSession@getUserId()}'
+			,SYSDATE
+		)
+	</update>
+	
+	<!-- 상위표준물질 삭제 -->
+	<delete  id="delUpperStdMttr" parameterType="lims.rsc.vo.StdMttrMVo">
+		DELETE 
+		  FROM RS_UPPER_STD_MTTR
+		 WHERE STD_MTTR_SEQNO = #{stdMttrSeqno}
+	</delete>
+	
+	
+</mapper>

@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.UnitTestMDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	
+	<!-- 조건에 따른 단위 테스트 조회 -->
+	<select id="getUnitTestList" parameterType="lims.wrk.vo.UnitTestMVo" resultType="lims.wrk.vo.UnitTestMVo">
+		SELECT 
+			A.UNIT_TEST_SEQNO,
+			A.MENU_SEQNO,
+			A.TESTER_NM,
+			A.TEST_DTE,
+			A.TEST_CN,
+			A.TEST_DTE,
+			A.PROCESS_AT,
+			A.PROCESS_CN,
+			A.PROCESS_DTE,
+			CASE
+				WHEN PROCESS_AT = 'Y' THEN '완료'
+			  	WHEN PROCESS_AT = 'W' THEN '보류'
+			  	ELSE '미완료'
+			END processAtNm,
+			A.DELETE_AT,
+			A.LAST_CHANGER_ID,
+			A.LAST_CHANGE_DT,
+			A.RM,
+			CASE WHEN A.MENU_SEQNO IS NULL THEN '공통' ELSE D.MENU_NM || '-' || B.MENU_NM END AS MENU_NM,
+			C.CHARGER_NM
+		FROM SY_UNIT_TEST A
+		LEFT JOIN SY_MENU B ON A.MENU_SEQNO = B.MENU_SEQNO
+		LEFT JOIN SY_MENU D ON B.UPPER_MENU_SEQNO = D.MENU_SEQNO
+		LEFT JOIN SY_MENU_ACCTO_CHARGER C ON A.MENU_SEQNO = C.MENU_SEQNO
+		WHERE (A.DELETE_AT = 'N' OR A.MENU_SEQNO IS NULL)
+		<if test="srcMenuSeqno != null and srcMenuSeqno != '' ">
+			AND (A.MENU_SEQNO = #{srcMenuSeqno} OR A.MENU_SEQNO IS NULL)
+		</if>
+		<if test="srcMenuNm != null and srcMenuNm != '' ">
+			AND (B.MENU_NM like '%' || #{srcMenuNm} || '%' OR A.MENU_SEQNO IS NULL)
+		</if>
+		<if test="srcChargetNm != null and srcChargetNm != '' ">
+			AND (C.CHARGER_NM like '%' || #{srcChargetNm} || '%' OR A.MENU_SEQNO IS NULL)
+		</if>
+		<if test="srcProcessAt != null and srcProcessAt != '' ">
+			AND (A.PROCESS_AT = #{srcProcessAt} OR A.MENU_SEQNO IS NULL)
+		</if>
+		ORDER BY CASE WHEN A.MENU_SEQNO IS NULL THEN 0 ELSE 1 END, A.UNIT_TEST_SEQNO
+	</select>
+
+	<!-- 단위 테스트 등록 -->
+	<insert id="saveUnitTest" parameterType="lims.wrk.vo.UnitTestMVo">
+		<selectKey keyProperty="unitTestSeqno" resultType="Integer" order="BEFORE">
+			SELECT SQ_SY_UNIT_TEST.NEXTVAL FROM DUAL
+		</selectKey>
+	INSERT INTO SY_UNIT_TEST
+	VALUES(
+		#{unitTestSeqno},
+		#{menuSeqno},
+		#{testerNm},
+		#{testCn},
+		#{testDte},
+		#{processAt},
+		#{processCn},
+		#{processDte},
+		'N',
+		<include refid="loginId"/>,
+		SYSDATE,
+		#{rm}
+	)
+	</insert>
+	
+	<!-- 단위 테스트 수정 -->
+	<update id="updateUnitTest" parameterType="lims.wrk.vo.UnitTestMVo">	
+		UPDATE SY_UNIT_TEST SET
+		TESTER_NM = #{testerNm},
+		TEST_CN = #{testCn},
+		TEST_DTE = #{testDte},
+		PROCESS_AT = #{processAt},
+		PROCESS_CN = #{processCn},
+		PROCESS_DTE = #{processDte},
+		LAST_CHANGER_ID = <include refid="loginId"/>,
+		LAST_CHANGE_DT = SYSDATE,
+		RM = #{rm}
+		WHERE UNIT_TEST_SEQNO = #{unitTestSeqno}
+	</update>
+	
+	<!-- 메뉴별 담당자 모든 리스트  -->
+	<select id="getAllMenuCharger" resultType="lims.wrk.vo.UnitTestMVo">
+		SELECT 
+			A.MENU_SEQNO
+			, A.MENU_NM
+			, CASE WHEN A.MENU_SEQNO IS NULL THEN '공통' ELSE B.CHARGER_NM END AS CHARGER_NM
+			, A.MENU_SEQNO AS VALUE
+			, CASE WHEN A.MENU_SEQNO IS NULL THEN A.MENU_NM ELSE D.MENU_NM || '-' || A.MENU_NM END AS KEY 
+		FROM (
+			SELECT
+				IA.MENU_SEQNO, IA.MENU_NM, IA.UPPER_MENU_SEQNO, IA.MENU_URL, IA.USE_AT
+			FROM SY_MENU IA
+			UNION ALL
+			SELECT
+				NULL AS MENU_SEQNO, '공통' AS MENU_NM, NULL AS UPPER_MENU_SEQNO, 'COM' AS MENU_URL, 'Y'
+			FROM DUAL
+		) A
+		LEFT JOIN SY_MENU_ACCTO_CHARGER B ON A.MENU_SEQNO = B.MENU_SEQNO
+		LEFT JOIN SY_MENU D ON A.UPPER_MENU_SEQNO = D.MENU_SEQNO
+		WHERE A.MENU_URL IS NOT NULL
+		AND A.USE_AT = 'Y'
+		ORDER BY A.MENU_NM
+	</select>
+	
+	<!-- 담당자 수정 및 저장  -->
+	<update id="saveMenuCharger" parameterType="lims.wrk.vo.UnitTestMVo">
+		MERGE INTO SY_MENU_ACCTO_CHARGER
+		USING DUAL
+		ON (MENU_SEQNO = #{menuSeqno})
+		WHEN MATCHED THEN
+			UPDATE SET CHARGER_NM = NVL(#{chargerNm}, '-')
+		WHEN NOT MATCHED THEN
+			INSERT (MENU_SEQNO, CHARGER_NM)
+		VALUES (#{menuSeqno}, NVL(#{chargerNm}, '-'))
+	</update>
+	
+	<!-- 단위 테스트  삭제 -->
+	<update id="deleteUnitTest" parameterType="lims.wrk.vo.UnitTestMVo">
+		UPDATE SY_UNIT_TEST SET
+		DELETE_AT = 'Y',
+		LAST_CHANGER_ID = <include refid="loginId"/>,
+		LAST_CHANGE_DT = SYSDATE
+		WHERE UNIT_TEST_SEQNO = #{unitTestSeqno}
+	</update>
+	
+	
+	<!-- 담당자 조회 -->
+	<select id="changeInputChargerNm" parameterType="Integer" resultType="String">
+		SELECT CHARGER_NM FROM SY_MENU_ACCTO_CHARGER
+		WHERE MENU_SEQNO = #{menuSeqno}
+	</select>
+	
+</mapper>

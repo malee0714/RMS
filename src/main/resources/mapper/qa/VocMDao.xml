@@ -1,0 +1,502 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.qa.dao.VocMDao">
+
+<select id="searchVocList" resultType="lims.qa.vo.VocMVo" parameterType="lims.qa.vo.VocMVo">
+	SELECT
+		A.VOC_SEQNO  -- VOC 일련번호
+		,A.VOC_RCEPT_NO --VOC 접수 번호
+		,A.VOC_PROGRS_SITTN_CODE --ZRS06 VOC 진행 상황 코드
+		,B.VOC_REGIST_SEQNO -- VOC 등록 일련번호
+		,B.CTMMNY_SEQNO -- 고객사 일련번호
+		,(SELECT AX.ENTRPS_NM FROM SY_ENTRPS AX WHERE AX.ENTRPS_SEQNO = B.CTMMNY_SEQNO) AS CTMMNY_NM -- 고객사명
+		,B.SJ --제목
+		,B.MTRIL_SEQNO --자재 일련번호
+		,(SELECT BX.MTRIL_NM FROM SY_MTRIL BX WHERE BX.MTRIL_SEQNO = B.MTRIL_SEQNO) AS MTRIL_NM --자재 명
+		,B.VOC_BADN_SE_CODE --ZRS07 VOC 불량 구분 코드
+		,(SELECT CX.CMMN_CODE_NM FROM SY_CMMN_CODE CX WHERE CX.CMMN_CODE = B.VOC_BADN_SE_CODE ) AS VOC_BADN_SE_NM --VOC 불량 구분 명
+		,B.BPLC_CODE --사업장 코드 
+		,(SELECT DX.INSPCT_INSTT_NM FROM SY_INSPCT_INSTT DX WHERE DX.INSPCT_INSTT_CODE = B.BPLC_CODE) AS BPLC_NM --사업장 명
+		,B.WRITNG_DEPT_CODE --작성 부서 코드
+		,(SELECT EX.INSPCT_INSTT_NM FROM SY_INSPCT_INSTT EX WHERE EX.INSPCT_INSTT_CODE = B.WRITNG_DEPT_CODE ) AS WRITNG_DEPT_NM --작성 부서 명
+		,B.WRTER_ID --작성자ID
+		,(SELECT FX.USER_NM FROM SY_USER FX WHERE FX.USER_ID = B.WRTER_ID) AS WRTER_NM --작성자
+		,B.WRITNG_DTE --작성 일자
+		,B.ATCHMNFL_SEQNO
+		,B.WDTB_SEQNO -- VOC등록 배포시퀀스
+		,C.CNTRPLN_APPLC_DTE --대책 적용 일자
+		,C.VOC_CNTRPLN_FOUNDNG_SEQNO --VOC 대책 수립 일련번호
+		,C.WDTB_SEQNO AS CNTRPLN_FOUNDNG_WDTB_SEQNO  -- VOC 대책수립 배포시퀀스
+		,D.VALID_VRIFY_DTE --유효 검증 일자
+		,(SELECT GX.CMMN_CODE_NM FROM SY_CMMN_CODE GX WHERE GX.CMMN_CODE = A.VOC_PROGRS_SITTN_CODE ) AS VOC_PROGRS_SITTN_NM --VOC 진행 상황 명
+		,D.VOC_VALID_VRIFY_SEQNO  --VOC 유효 검증 일련번호
+		,D.WDTB_SEQNO AS VALID_VRIFY_WDTB_SEQNO -- VOC 유효검증 배포시퀀스
+	FROM RS_VOC A 
+
+	INNER JOIN RS_VOC_REGIST B ON A.VOC_SEQNO = B.VOC_SEQNO
+	LEFT OUTER JOIN 
+		(
+			SELECT 
+				AX.CNTRPLN_APPLC_DTE
+				,AX.VOC_CNTRPLN_FOUNDNG_SEQNO 
+				,AX.VOC_SEQNO
+				,AX.WDTB_SEQNO
+			FROM RS_VOC_CNTRPLN_FOUNDNG AX 
+			WHERE AX.DELETE_AT = 'N' 
+		) C 	ON A.VOC_SEQNO = C.VOC_SEQNO
+
+	LEFT OUTER JOIN 
+		(
+			SELECT 
+				BX.VALID_VRIFY_DTE
+				,BX.VOC_SEQNO
+				,BX.VOC_VALID_VRIFY_SEQNO
+				,BX.WDTB_SEQNO
+			FROM RS_VOC_VALID_VRIFY BX 
+			WHERE BX.DELETE_AT = 'N' 
+		) D 	ON A.VOC_SEQNO = D.VOC_SEQNO
+	WHERE B.DELETE_AT = 'N'
+	 <if test="ctmmnyNmSch != null and ctmmnyNmSch != '' ">
+		AND UPPER((SELECT AX.ENTRPS_NM FROM SY_ENTRPS AX WHERE AX.ENTRPS_SEQNO = B.CTMMNY_SEQNO)) LIKE '%'||UPPER(#{ctmmnyNmSch})||'%'
+	 </if>
+	 <if test="mtrilNmSch != null and mtrilNmSch != '' ">
+		AND UPPER((SELECT BX.MTRIL_NM FROM SY_MTRIL BX WHERE BX.MTRIL_SEQNO = B.MTRIL_SEQNO)) LIKE '%'||UPPER(TRIM(#{mtrilNmSch}))||'%' 
+	 </if>
+	 <if test="sjSch != null and sjSch != '' ">
+		AND  UPPER(B.SJ)  LIKE '%'||UPPER(#{sjSch})||'%'
+	 </if>
+	 <if test="bplcCodeSch != null and bplcCodeSch != '' ">
+		AND B.BPLC_CODE = #{bplcCodeSch}
+	 </if>
+	 <if test="vocProgrsSittnCode != null and vocProgrsSittnCode != '' ">
+		AND  A.VOC_PROGRS_SITTN_CODE = #{vocProgrsSittnCode}
+	 </if>
+	<if test="vocBeginDteSch != null and vocBeginDteSch != '' and vocEndDteSch != null and vocEndDteSch != ''">
+        AND TO_DATE(B.WRITNG_DTE,'YYYY-MM-DD') BETWEEN TO_DATE(#{vocBeginDteSch},'YYYY-MM-DD') AND TO_DATE(#{vocEndDteSch},'YYYY-MM-DD')
+	 </if>
+</select>
+
+<!-- VOC 등록 상세 데이터 조회 -->
+<select id="getVocRegist" resultType="lims.qa.vo.VocMVo" parameterType="lims.qa.vo.VocMVo">
+	SELECT
+		A.VOC_SEQNO  -- VOC 일련번호
+		,B.VOC_REGIST_SEQNO -- VOC 등록 일련번호
+		,B.SJ --제목
+		,A.VOC_RCEPT_NO --VOC 접수 번호
+		,B.WRITNG_DEPT_CODE --작성 부서 코드
+		,(SELECT EX.INSPCT_INSTT_NM FROM SY_INSPCT_INSTT EX WHERE EX.INSPCT_INSTT_CODE = B.WRITNG_DEPT_CODE ) AS WRITNG_DEPT_NM --작성 부서 명
+		,B.WRTER_ID --작성자ID
+		,(SELECT FX.USER_NM FROM SY_USER FX WHERE FX.USER_ID = B.WRTER_ID) AS WRTER_NM --작성자
+		,B.WRITNG_DTE --작성 일자
+		,B.VOC_SE_CODE -- 구분
+		,B.RCEPT_DEPT_NM --접수 부서 명
+		,B.RCEPTER_NM -- 접수자 명
+		,B.RCEPT_DTE -- 접수 일자
+		,B.CTMMNY_SEQNO -- 고객사 일련번호
+		,(SELECT AX.ENTRPS_NM FROM SY_ENTRPS AX WHERE AX.ENTRPS_SEQNO = B.CTMMNY_SEQNO) AS CTMMNY_NM -- 고객사명
+		,B.CTMMNY_LINE_NM --고객사 라인 명
+		,B.MTRIL_SEQNO --자재 일련번호
+		,(SELECT BX.MTRIL_NM FROM SY_MTRIL BX WHERE BX.MTRIL_SEQNO = B.MTRIL_SEQNO) AS MTRIL_NM --자재 명
+		,B.OCCRRNC_LOT_ID --
+		,B.VOC_BADN_SE_CODE --ZRS07 VOC 불량 구분 코드
+		,(SELECT CX.CMMN_CODE_NM FROM SY_CMMN_CODE CX WHERE CX.CMMN_CODE = B.VOC_BADN_SE_CODE ) AS VOC_BADN_SE_NM --VOC 불량 구분 명
+		,B.OCCRRNC_FAIR_NM -- 발생 공정 명
+		,B.BPLC_CODE --사업장 코드 
+		,(SELECT DX.INSPCT_INSTT_NM FROM SY_INSPCT_INSTT DX WHERE DX.INSPCT_INSTT_CODE = B.BPLC_CODE) AS BPLC_NM --사업장 명
+		,B.CNTNR_SE_CODE --ZSY10 용기 구분 코드
+		,B.BADN_CO --불량 수
+		,B.BADN_OCCRRNC_DTE --불량 발생 일자
+		,B.RECR_AT -- 재발 여부
+		,B.CNTRPLN_FOUNDNG_AT --대책 수립 여부
+		,B.CNTRPLN_FOUNDNG_DEPT_NM --대책 수립 부서 명
+		,B.BADN_PHNOMEN_DC --불량 현상 설명
+		,B.ATCHMNFL_SEQNO --첨부파일 일련번호
+		,B.CNTRPLN_FOUNDNG_OPRTN_AT --대책 수립 실시 여부
+		,B.IMPRTY_RESN --불가 사유
+		,B.DEDT_DTE --납기 일자
+		,B.DEDT_APPN_RESN --납기 지정 사유
+		,B.WDTB_SEQNO --배포 일련번호
+	FROM 
+		RS_VOC A
+	INNER JOIN 
+		RS_VOC_REGIST B
+	ON A.VOC_SEQNO = B.VOC_SEQNO
+	WHERE B.DELETE_AT = 'N'
+	AND B.VOC_REGIST_SEQNO = #{vocRegistSeqno}
+	AND A.VOC_SEQNO = #{vocSeqno}
+</select>
+
+<!-- VOC 저장 및 수정  -->
+<insert id="putVoc" parameterType="lims.qa.vo.VocMVo" >
+	MERGE INTO RS_VOC A
+			 USING DUAL B
+			 ON(A.VOC_SEQNO = #{vocSeqno})
+			 WHEN MATCHED THEN
+			 UPDATE SET 
+			     A.LAST_CHANGER_ID ='${@lims.util.GetUserSession@getUserId()}'
+			     ,A.LAST_CHANGE_DT = SYSDATE
+			     <if test='temporaryYn == "Y"'>
+			     ,A.VOC_PROGRS_SITTN_CODE = 'RS06000002'
+			     </if>
+			 WHEN NOT MATCHED THEN
+			 INSERT 
+			 (
+				 A.VOC_SEQNO              --VOC 일련번호
+				 ,A.VOC_RCEPT_NO          --VOC 접수 번호
+				 ,A.VOC_PROGRS_SITTN_CODE --ZRS06 VOC 진행 상황 코드
+				 ,A.LAST_CHANGER_ID
+				 ,A.LAST_CHANGE_DT
+			 )
+			 VALUES
+			 (
+				 #{vocSeqno}
+				 ,#{vocRceptNo}
+				 <choose>
+					<when test='temporaryYn == "Y"'>
+					,'RS06000002'
+					</when>
+					<otherwise>
+					,'RS06000001'
+					</otherwise>				 
+				 </choose>
+				 ,'${@lims.util.GetUserSession@getUserId()}'
+				 ,SYSDATE
+			 )
+</insert>
+
+<!-- VOC 등록 저장 및 수정  -->
+<insert id="putVocRegist" parameterType="lims.qa.vo.VocMVo" >
+	MERGE INTO RS_VOC_REGIST A
+			 USING DUAL B
+			 ON(A.VOC_REGIST_SEQNO = #{vocRegistSeqno})
+			 WHEN MATCHED THEN
+			 UPDATE SET 
+			     A.SJ = #{sj}  --제목
+			     ,A.WRITNG_DEPT_CODE = #{writngDeptCode} --작성 부서 코드
+			     ,A.WRTER_ID = #{wrterId} --작성자 ID
+			     ,A.WRITNG_DTE = #{writngDte} -- 작성 일자
+			     ,A.VOC_SE_CODE = #{vocSeCode} --ZRS05 VOC 구분 코드
+			     ,A.RCEPT_DEPT_NM = #{rceptDeptNm} --접수 부서 명
+			     ,A.RCEPTER_NM = #{rcepterNm} --접수자 명
+			     ,A.RCEPT_DTE = #{rceptDte}  --접수 일자
+			     ,A.CTMMNY_SEQNO =#{ctmmnySeqno}     --고객사 일련번호
+			     ,A.CTMMNY_LINE_NM = #{ctmmnyLineNm} --고객사 라인 명
+			     ,A.MTRIL_SEQNO = #{mtrilSeqno}  --자재 일련번호
+			     ,A.OCCRRNC_LOT_ID = #{occrrncLotId} --발생 LOT ID
+			     ,A.VOC_BADN_SE_CODE = #{vocBadnSeCode} --ZRS07 VOC 불량 구분 코드
+			     ,A.VOC_BADN_CN = #{vocBadnCn}  --VOC 불량 내용
+			     ,A.OCCRRNC_FAIR_NM = #{occrrncFairNm} --발생 공정 명
+			     ,A.BPLC_CODE = #{bplcCode} --사업장 코드
+			     ,A.CNTNR_SE_CODE = #{cntnrSeCode} --ZSY10 용기 구분 코드
+			     ,A.BADN_CO = #{badnCo} --불량 수
+			     ,A.BADN_OCCRRNC_DTE = #{badnOccrrncDte} --불량 발생 일자
+			     ,A.RECR_AT = #{recrAt} --재발 여부
+			     ,A.CNTRPLN_FOUNDNG_AT = #{cntrplnFoundngAt} --대책 수립 여부
+			     ,A.CNTRPLN_FOUNDNG_DEPT_NM = #{cntrplnFoundngDeptNm} --대책 수립 부서 명
+			     ,A.BADN_PHNOMEN_DC = #{badnPhnomenDc} --불량 현상 설명
+			     <if test="atchmnflSeqno != 0">
+			     ,A.ATCHMNFL_SEQNO = #{atchmnflSeqno} -- 첨부파일 일련번호
+			     </if>
+			     ,A.CNTRPLN_FOUNDNG_OPRTN_AT = #{cntrplnFoundngOprtnAt} -- 대책 수립 실시 여부
+			     ,A.IMPRTY_RESN = #{imprtyResn} --불가 사유
+			     ,A.DEDT_DTE = #{dedtDte}  --납기 일자
+			     ,A.DEDT_APPN_RESN = #{dedtAppnResn}  --납기 지정 사유
+			     ,A.WDTB_SEQNO = #{wdtbSeqno} --배포 일련번호
+			     ,A.LAST_CHANGER_ID ='${@lims.util.GetUserSession@getUserId()}'
+			     ,A.LAST_CHANGE_DT = SYSDATE
+			 WHEN NOT MATCHED THEN
+			 INSERT 
+			 (	
+			 	  A.VOC_REGIST_SEQNO
+			 	 ,A.VOC_SEQNO
+				 ,A.SJ   --제목
+			     ,A.WRITNG_DEPT_CODE  --작성 부서 코드
+			     ,A.WRTER_ID  --작성자 ID
+			     ,A.WRITNG_DTE  -- 작성 일자
+			     ,A.VOC_SE_CODE  --ZRS05 VOC 구분 코드
+			     ,A.RCEPT_DEPT_NM  --접수 부서 명
+			     ,A.RCEPTER_NM  --접수자 명
+			     ,A.RCEPT_DTE   --접수 일자
+			     ,A.CTMMNY_SEQNO      --고객사 일련번호
+			     ,A.CTMMNY_LINE_NM  --고객사 라인 명
+			     ,A.MTRIL_SEQNO   --자재 일련번호
+			     ,A.OCCRRNC_LOT_ID  --발생 LOT ID
+			     ,A.VOC_BADN_SE_CODE  --ZRS07 VOC 불량 구분 코드
+			     ,A.VOC_BADN_CN   --VOC 불량 내용
+			     ,A.OCCRRNC_FAIR_NM  --발생 공정 명
+			     ,A.BPLC_CODE  --사업장 코드
+			     ,A.CNTNR_SE_CODE  --ZSY10 용기 구분 코드
+			     ,A.BADN_CO  --불량 수
+			     ,A.BADN_OCCRRNC_DTE  --불량 발생 일자
+			     ,A.RECR_AT  --재발 여부
+			     ,A.CNTRPLN_FOUNDNG_AT  --대책 수립 여부
+			     ,A.CNTRPLN_FOUNDNG_DEPT_NM  --대책 수립 부서 명
+			     ,A.BADN_PHNOMEN_DC --불량 현상 설명
+			      <if test="atchmnflSeqno != 0">
+			     ,A.ATCHMNFL_SEQNO  -- 첨부파일 일련번호
+			     </if>
+			     ,A.CNTRPLN_FOUNDNG_OPRTN_AT  -- 대책 수립 실시 여부
+			     ,A.IMPRTY_RESN  --불가 사유
+			     ,A.DEDT_DTE   --납기 일자
+			     ,A.DEDT_APPN_RESN   --납기 지정 사유
+			     ,A.WDTB_SEQNO  --배포 일련번호
+			     ,A.DELETE_AT --삭제 여부
+			     ,A.LAST_CHANGER_ID
+			     ,A.LAST_CHANGE_DT
+			 )
+			 VALUES
+			 (
+				 #{vocRegistSeqno}
+				 ,#{vocSeqno}
+				 ,#{sj}
+			     ,#{writngDeptCode}
+			     ,#{wrterId}
+			     ,#{writngDte}
+			     ,#{vocSeCode}
+			     ,#{rceptDeptNm}
+			     ,#{rcepterNm}
+			     ,#{rceptDte}
+			     ,#{ctmmnySeqno}
+			     ,#{ctmmnyLineNm}
+			     ,#{mtrilSeqno}
+			     ,#{occrrncLotId}
+			     ,#{vocBadnSeCode}
+			     ,#{vocBadnCn}
+			     ,#{occrrncFairNm}
+			     ,#{bplcCode}
+			     ,#{cntnrSeCode}
+			     ,#{badnCo}
+			     ,#{badnOccrrncDte}
+			     ,#{recrAt}
+			     ,#{cntrplnFoundngAt}
+			     ,#{cntrplnFoundngDeptNm}
+			     ,#{badnPhnomenDc}
+			      <if test="atchmnflSeqno != 0">
+			     ,#{atchmnflSeqno}
+			     </if>
+			     ,#{cntrplnFoundngOprtnAt}
+			     ,#{imprtyResn}
+			     ,#{dedtDte}
+			     ,#{dedtAppnResn}
+			     ,#{wdtbSeqno}
+			     ,'N'
+				 ,'${@lims.util.GetUserSession@getUserId()}'
+				 ,SYSDATE
+			 )
+</insert>
+
+
+<!-- VOC 대책수립 저장  -->
+<insert id="putVocCntrplnFoundng" parameterType="lims.qa.vo.VocMVo" >
+	MERGE INTO RS_VOC_CNTRPLN_FOUNDNG A
+			 USING DUAL B
+			 ON(A.VOC_CNTRPLN_FOUNDNG_SEQNO = #{vocCntrplnFoundngSeqno})
+			 WHEN MATCHED THEN
+			 UPDATE SET 
+			     A.LAST_CHANGER_ID ='${@lims.util.GetUserSession@getUserId()}'
+			     ,A.LAST_CHANGE_DT = SYSDATE
+			     ,A.OCCRRNC_CAUSE = #{occrrncCause}
+			     ,A.CNTRPLN_APPLC_DTE = #{cntrplnApplcDte}
+			     ,A.BASIS = #{basis}
+			     <if test="diagnoseAtchmnflSeqno != 0">
+			     ,A.ATCHMNFL_SEQNO = #{diagnoseAtchmnflSeqno}
+			     </if>
+			 WHEN NOT MATCHED THEN
+			 INSERT 
+			 (
+				 A.VOC_CNTRPLN_FOUNDNG_SEQNO --VOC 대책 수립 일련번호
+				 ,A.VOC_SEQNO              --VOC 일련번호
+				 ,A.OCCRRNC_CAUSE          --발생 원인
+				 ,A.CNTRPLN_APPLC_DTE --대책 적용 일자
+				 ,A.BASIS   --근거
+				 <if test="diagnoseAtchmnflSeqno != 0">
+				 ,A.ATCHMNFL_SEQNO --첨부파일 일련번호
+				 </if>
+				 ,A.DELETE_AT --삭제 여부
+				 ,A.LAST_CHANGER_ID
+				 ,A.LAST_CHANGE_DT
+			 )
+			 VALUES
+			 (
+				 #{vocCntrplnFoundngSeqno}
+				 ,#{vocSeqno}
+				 ,#{occrrncCause}
+				 ,#{cntrplnApplcDte}
+				 ,#{basis}
+				 <if test="diagnoseAtchmnflSeqno != 0">
+				 ,#{diagnoseAtchmnflSeqno}
+				 </if>
+				 ,'N'
+				 ,'${@lims.util.GetUserSession@getUserId()}'
+				 ,SYSDATE
+			 )
+</insert>
+
+<!-- VOC 유효성검증 저장  -->
+<insert id="putVocValidVrify" parameterType="lims.qa.vo.VocMVo" >
+	MERGE INTO RS_VOC_VALID_VRIFY A
+			 USING DUAL B
+			 ON(A.VOC_VALID_VRIFY_SEQNO = #{vocValidVrifySeqno})
+			 WHEN MATCHED THEN
+			 UPDATE SET 
+			     A.LAST_CHANGER_ID ='${@lims.util.GetUserSession@getUserId()}'
+			     ,A.LAST_CHANGE_DT = SYSDATE
+			     ,A.VALID_VRIFY_MTH = #{validVrifyMth}
+			     ,A.VALID_VRIFY_RESULT_AT = #{validVrifyResultAt}
+			     ,A.VALID_VRIFY_RESN = #{validVrifyResn}
+			     <if test='validVrifyAtchmnflSeqno != 0'>
+			     ,A.ATCHMNFL_SEQNO = #{validVrifyAtchmnflSeqno}
+			     </if>
+			     <if test='validVrifyTemporaryYn == "Y"'>
+			     ,A.VALID_VRIFY_DTE = TO_CHAR(SYSDATE,'YYYY-MM-DD')
+			     </if>
+			 WHEN NOT MATCHED THEN
+			 INSERT 
+			 (
+				 A.VOC_VALID_VRIFY_SEQNO --VOC 유효 검증 일련번호
+				 ,A.VOC_SEQNO              --VOC 일련번호
+				 ,A.VALID_VRIFY_MTH          --유효 검증 방법
+				 ,A.VALID_VRIFY_RESULT_AT --유효 검증 결과 여부
+				 ,A.VALID_VRIFY_RESN   --유효 검증 사유
+				 <if test='validVrifyAtchmnflSeqno != 0'>
+				 ,A.ATCHMNFL_SEQNO --첨부파일 일련번호
+				 </if>
+				 ,A.DELETE_AT --삭제 여부
+				  <if test='validVrifyTemporaryYn == "Y"'>
+				  ,A.VALID_VRIFY_DTE
+				  </if>
+				 ,A.LAST_CHANGER_ID
+				 ,A.LAST_CHANGE_DT
+			 )
+			 VALUES
+			 (
+				 #{vocValidVrifySeqno}
+				 ,#{vocSeqno}
+				 ,#{validVrifyMth}
+				 ,#{validVrifyResultAt}
+				 ,#{validVrifyResn}
+				 <if test='validVrifyAtchmnflSeqno != 0'>
+				 ,#{validVrifyAtchmnflSeqno}
+				 </if>
+				 ,'N'
+				  <if test='validVrifyTemporaryYn == "Y"'>
+				  ,TO_CHAR(SYSDATE,'YYYY-MM-DD')
+				  </if>
+				 ,'${@lims.util.GetUserSession@getUserId()}'
+				 ,SYSDATE
+			 )
+</insert>
+
+
+<!-- VOC SEQ값 호출 -->
+<select id="getVocSeqno"  resultType="int" >
+SELECT SQ_RS_VOC.NEXTVAL FROM DUAL
+</select>
+<!-- VOC등록 SEQ 값 호출 -->
+<select id="getVocRegistSeqno"  resultType="int" >
+SELECT SQ_RS_VOC_REGIST.NEXTVAL FROM DUAL
+</select>
+
+<!-- VOC 대책 수립 일련번호 호출 -->
+<select id="getVocCntrplnFoundngSeqno"  resultType="int" >
+SELECT SQ_RS_VOC_CNTRPLN_FOUNDNG.NEXTVAL FROM DUAL
+</select>
+
+<!-- VOC 유효검증 일련번호 호출 -->
+<select id="getVocValidVrifySeqno"  resultType="int" >
+SELECT SQ_RS_VOC_VALID_VRIFY.NEXTVAL FROM DUAL
+</select>
+
+<!-- VOC 접수번호 호출 -->
+<select id="getVocRceptNo"  resultType="String" >
+	SELECT 
+		TO_CHAR(SYSDATE,'YYMMDD')||'-'||(NVL(MAX(TO_NUMBER(SUBSTR(VOC_RCEPT_NO,8))),0)+1)
+	FROM 
+		RS_VOC
+	WHERE VOC_RCEPT_NO LIKE '%'||TO_CHAR(SYSDATE,'YYMMDD')||'%'
+</select>
+
+<!-- VOC 등록 삭제 -->
+<update id="updateVocDel"  parameterType="lims.qa.vo.VocMVo" >
+	UPDATE
+		RS_VOC_REGIST B
+	SET 
+		B.DELETE_AT = #{deleteAt}
+		,B.LAST_CHANGER_ID ='${@lims.util.GetUserSession@getUserId()}'
+		,B.LAST_CHANGE_DT = SYSDATE
+	WHERE B.VOC_SEQNO = #{vocSeqno}
+</update>
+
+
+<!-- VOC 진행상황 수정 -->
+<update id="updateVoc"  parameterType="lims.qa.vo.VocMVo" >
+	UPDATE
+		RS_VOC B
+	SET 
+		B.VOC_PROGRS_SITTN_CODE = #{vocProgrsSittnCode} 
+		,B.LAST_CHANGER_ID ='${@lims.util.GetUserSession@getUserId()}'
+		,B.LAST_CHANGE_DT = SYSDATE
+	WHERE B.VOC_SEQNO = #{vocSeqno}
+</update>
+
+
+
+<select id="getVocCntrplnFoundng" resultType="lims.qa.vo.VocMVo" parameterType="lims.qa.vo.VocMVo">
+	SELECT
+		A.VOC_SEQNO  -- VOC 일련번호
+		,B.VOC_CNTRPLN_FOUNDNG_SEQNO -- VOC 대책 수립 일련번호
+		,B.OCCRRNC_CAUSE --발생 원인
+		,B.CNTRPLN_APPLC_DTE --대책 적용 일자
+		,B.BASIS --근거
+		,B.ATCHMNFL_SEQNO --첨부파일 일련번호
+	FROM 
+		RS_VOC A
+	INNER JOIN 
+		RS_VOC_CNTRPLN_FOUNDNG B
+	ON A.VOC_SEQNO = B.VOC_SEQNO
+	WHERE B.DELETE_AT = 'N'
+	AND B.VOC_CNTRPLN_FOUNDNG_SEQNO = #{vocCntrplnFoundngSeqno}
+	AND A.VOC_SEQNO = #{vocSeqno}
+</select>
+
+<select id="getVocValidVrify" resultType="lims.qa.vo.VocMVo" parameterType="lims.qa.vo.VocMVo">
+	SELECT
+		A.VOC_SEQNO  -- VOC 일련번호
+		,B.VOC_VALID_VRIFY_SEQNO -- VOC 유효 검증 일련번호
+		,B.VALID_VRIFY_MTH --유효 검증 방법
+		,B.VALID_VRIFY_RESULT_AT --유효 검증 결과 여부
+		,B.VALID_VRIFY_RESN --유효 검증 사유
+		,B.ATCHMNFL_SEQNO --첨부파일 일련번호
+	FROM 
+		RS_VOC A
+	INNER JOIN 
+		RS_VOC_VALID_VRIFY B
+	ON A.VOC_SEQNO = B.VOC_SEQNO
+	WHERE B.DELETE_AT = 'N'
+	AND B.VOC_VALID_VRIFY_SEQNO = #{vocValidVrifySeqno}
+	AND A.VOC_SEQNO = #{vocSeqno}
+</select>
+
+<!-- VOC 대책 등록 삭제 -->
+<update id="updateVocCntrplnFoundngDel"  parameterType="lims.qa.vo.VocMVo" >
+	UPDATE
+		RS_VOC_CNTRPLN_FOUNDNG B
+	SET 
+		B.DELETE_AT = #{deleteAt}
+		,B.LAST_CHANGER_ID ='${@lims.util.GetUserSession@getUserId()}'
+		,B.LAST_CHANGE_DT = SYSDATE
+	WHERE B.VOC_CNTRPLN_FOUNDNG_SEQNO = #{vocCntrplnFoundngSeqno}
+</update>
+
+<!-- VOC 유효검증 삭제 -->
+<update id="updateVocValidVrifyDel"  parameterType="lims.qa.vo.VocMVo" >
+	UPDATE
+		RS_VOC_VALID_VRIFY B
+	SET 
+		B.DELETE_AT = #{deleteAt}
+		,B.LAST_CHANGER_ID ='${@lims.util.GetUserSession@getUserId()}'
+		,B.LAST_CHANGE_DT = SYSDATE
+	WHERE B.VOC_VALID_VRIFY_SEQNO = #{vocValidVrifySeqno}
+</update>
+
+</mapper>

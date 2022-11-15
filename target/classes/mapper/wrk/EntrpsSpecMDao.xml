@@ -1,0 +1,909 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.EntrpsSpecMDao">
+	<!-- 제품목록 규격 관리 조회 -->
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+	<select id="getPrductListManage" resultType="lims.wrk.vo.EntrpsSpecMVo" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+	SELECT
+		A.PRDUCT_CTMMNY_SEQNO
+		,A.UPDT_RESN
+		,A.BPLC_CODE
+    	,A.ATCHMNFL_SEQNO
+	    ,C.ENTRPS_NM
+	    ,C.ENTRPS_SEQNO
+	    ,A.STDR_NM
+	    ,A.VER
+	    ,A.LAST_VER_AT
+	    ,A.BEGIN_DTE
+	    ,A.USE_AT
+	    ,A.END_DTE
+	    ,TO_CHAR(TO_DATE(A.CHANGE_DTE), 'YYYY-MM-DD') AS CHANGE_DTE
+	    ,B.SANCTN_PROGRS_SITTN_CODE  
+	    ,(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE = B.SANCTN_PROGRS_SITTN_CODE) AS SANCTN_PROGRS_SITTN_CODE_NM
+	    ,A.CHANGER_ID
+	    ,(SELECT USER_NM FROM SY_USER WHERE USER_ID = A.CHANGER_ID) AS CHANGER_NM
+        ,B.SANCTN_SEQNO
+        ,(SELECT SANCTNER_ID FROM CM_SANCTN_INFO WHERE ORDR = (SELECT MAX(ORDR) FROM CM_SANCTN_INFO WHERE SANCTN_SEQNO = B.SANCTN_SEQNO) AND SANCTN_SEQNO = B.SANCTN_SEQNO) SANCTNER_ID
+        ,(SELECT USER_NM FROM SY_USER WHERE USER_ID =
+            ((SELECT SANCTNER_ID FROM CM_SANCTN_INFO WHERE ORDR = (SELECT MAX(ORDR) FROM CM_SANCTN_INFO WHERE SANCTN_SEQNO = B.SANCTN_SEQNO) AND SANCTN_SEQNO = B.SANCTN_SEQNO))
+         ) confmer_Sumry
+        ,(SELECT TO_CHAR(TO_DATE(SANCTN_DTE), 'YYYY-MM-DD')FROM CM_SANCTN_INFO WHERE ORDR = (SELECT MAX(ORDR)FROM CM_SANCTN_INFO WHERE SANCTN_SEQNO=B.SANCTN_SEQNO) AND SANCTN_SEQNO=B.SANCTN_SEQNO) sanctn_Dte
+        ,(SELECT RTN_RESN FROM CM_RTN WHERE SANCTN_SEQNO = B.SANCTN_SEQNO AND USE_AT = 'Y' AND ORDR=(SELECT MAX(ORDR) FROM CM_RTN WHERE SANCTN_SEQNO = B.SANCTN_SEQNO AND USE_AT ='Y')) AS RTN_RESN
+	    ,D.SANCTNER_NM
+	FROM SY_PRDUCT_CTMMNY A 
+	LEFT JOIN CM_SANCTN B ON A.SANCTN_SEQNO = B.SANCTN_SEQNO  
+	LEFT JOIN SY_ENTRPS C ON A.ENTRPS_SEQNO = C.ENTRPS_SEQNO
+	LEFT JOIN (
+		SELECT  IA.SANCTN_SEQNO
+		, LISTAGG(IB.USER_NM, ' > ') WITHIN GROUP(ORDER BY IA.SANCTN_ORDR) AS SANCTNER_NM
+		FROM CM_SANCTN_INFO IA
+		INNER JOIN SY_USER IB ON IA.SANCTNER_ID = IB.USER_ID
+		WHERE IA.USE_AT = 'Y'
+		GROUP BY IA.SANCTN_SEQNO
+		) D ON B.SANCTN_SEQNO = D.SANCTN_SEQNO
+	WHERE A.DELETE_AT='N'
+	<if test="prductSeCodeSch != null and prductSeCodeSch !=''">
+		AND (SELECT PRDUCT_SE_CODE FROM SY_PRDUCT_CTMMNY_MTRIL D
+		JOIN SY_MTRIL E ON D.MTRIL_SEQNO=E.MTRIL_SEQNO
+		WHERE D.DELETE_AT='N' AND D.PRDUCT_CTMMNY_SEQNO = A.PRDUCT_CTMMNY_SEQNO /**P*/
+		) = #{prductSeCodeSch}
+	</if>
+    <if test="shrMmnySeCode != null and shrMmnySeCode != ''">
+	    AND EXISTS (
+                 SELECT
+                    'O'
+                FROM SY_MTRIL MT
+                     ,SY_PRDUCT_CTMMNY_MTRIL CMT
+                WHERE MT.MTRIL_SEQNO = CMT.MTRIL_SEQNO
+                AND CMT.PRDUCT_CTMMNY_SEQNO = A.PRDUCT_CTMMNY_SEQNO
+			    AND MT.MMNY_SE_CODE = #{shrMmnySeCode}
+        )
+	</if>
+		AND A.BPLC_CODE =<include refid="bplcCode" />
+	<if test="mtrilTyCodeSch != null and mtrilTyCodeSch != ''">
+		AND EXISTS (
+			      SELECT DISTINCT MT.MTRIL_SEQNO
+			          FROM SY_MTRIL MT
+			          ,SY_PRDUCT_CTMMNY_MTRIL CMT
+			          WHERE MT.MTRIL_SEQNO = CMT.MTRIL_SEQNO
+			          AND CMT.PRDUCT_CTMMNY_SEQNO = A.PRDUCT_CTMMNY_SEQNO
+			          AND MT.MTRIL_TY_CODE = #{mtrilTyCodeSch}
+      		       )
+	</if>
+	<if test="shrEntrpsNm != null and shrEntrpsNm != ''">
+		AND UPPER(C.ENTRPS_NM) LIKE '%' || UPPER(TRIM(#{shrEntrpsNm})) || '%'
+	</if>
+	<if test="shrMtrilNm != null and shrMtrilNm != ''">
+		AND EXISTS (
+			 	SELECT
+	            	'O'
+	            FROM SY_MTRIL MT
+	                 ,SY_PRDUCT_CTMMNY_MTRIL CMT
+	            WHERE MT.MTRIL_SEQNO = CMT.MTRIL_SEQNO
+                AND CMT.PRDUCT_CTMMNY_SEQNO = A.PRDUCT_CTMMNY_SEQNO
+                AND MT.MTRIL_NM LIKE '%' || UPPER(TRIM(#{shrMtrilNm})) || '%'
+		)
+	</if>
+	<if test="shrUseAt != null and shrUseAt !=''">
+		AND A.USE_AT = #{shrUseAt}
+	</if>
+	<choose>
+		<when test="lastVerAt != null and lastVerAt != ''">
+			AND A.LAST_VER_AT =  #{lastVerAt} -- 이력 조회  LAST_VER_AT = 'N'
+		</when>
+		<otherwise>
+			AND A.LAST_VER_AT = 'Y' -- 조회버튼 클릭시
+		</otherwise>
+	</choose>
+	<if test = "prductCtmmnySeqno != null and prductCtmmnySeqno !=''">
+		AND PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+	</if>
+ 	ORDER BY ENTRPS_SEQNO,STDR_NM,VER
+	</select>
+	
+	
+	<!-- 제품목록 규격 결재 조회 -->
+	<select id="getPrductList" resultType="lims.wrk.vo.EntrpsSpecMVo" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+			SELECT
+		A.PRDUCT_CTMMNY_SEQNO
+		,A.UPDT_RESN
+		,A.BPLC_CODE
+    	,A.ATCHMNFL_SEQNO
+	    ,C.ENTRPS_NM
+	    ,C.ENTRPS_SEQNO
+	    ,A.STDR_NM
+	    ,A.VER
+	    ,A.LAST_VER_AT
+	    ,A.BEGIN_DTE
+	    ,A.USE_AT
+	    ,A.END_DTE
+	    ,TO_CHAR(TO_DATE(A.CHANGE_DTE), 'YYYY-MM-DD') AS CHANGE_DTE
+	    ,B.SANCTN_PROGRS_SITTN_CODE
+	    ,(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE = B.SANCTN_PROGRS_SITTN_CODE) AS SANCTN_PROGRS_SITTN_CODE_NM
+	    ,A.CHANGER_ID
+	    ,(SELECT USER_NM FROM SY_USER WHERE USER_ID = A.CHANGER_ID) AS CHANGER_NM
+        ,B.SANCTN_SEQNO
+        ,(SELECT SANCTNER_ID FROM CM_SANCTN_INFO WHERE ORDR = (SELECT MAX(ORDR)FROM CM_SANCTN_INFO WHERE SANCTN_SEQNO=B.SANCTN_SEQNO) AND SANCTN_SEQNO=B.SANCTN_SEQNO) SANCTNER_ID
+        ,(SELECT USER_NM FROM SY_USER WHERE USER_ID =
+            ((SELECT SANCTNER_ID FROM CM_SANCTN_INFO WHERE ORDR = (SELECT MAX(ORDR) FROM CM_SANCTN_INFO WHERE SANCTN_SEQNO = B.SANCTN_SEQNO) AND SANCTN_SEQNO=B.SANCTN_SEQNO))
+         ) confmer_Sumry  <!-- 최종 결재자 -->
+         
+         <!-- 최종 결재일 -->
+        ,(SELECT TO_CHAR(TO_DATE(SANCTN_DTE), 'YYYY-MM-DD')FROM CM_SANCTN_INFO WHERE ORDR = (SELECT MAX(ORDR)FROM CM_SANCTN_INFO WHERE SANCTN_SEQNO=B.SANCTN_SEQNO) AND SANCTN_SEQNO=B.SANCTN_SEQNO) sanctn_Dte
+        ,(SELECT TOT_SANCTNER_CO FROM CM_SANCTN_INFO WHERE ORDR = (SELECT MAX(ORDR)FROM CM_SANCTN_INFO WHERE SANCTN_SEQNO=B.SANCTN_SEQNO) AND SANCTN_SEQNO=B.SANCTN_SEQNO) TOT_SANCTNER_CO
+        ,D.SANCTN_ORDR
+        ,(SELECT ORDR FROM CM_RTN WHERE ORDR = (SELECT MAX(ORDR)FROM CM_RTN WHERE SANCTN_SEQNO=B.SANCTN_SEQNO) AND SANCTN_SEQNO=B.SANCTN_SEQNO)ORDR
+	FROM SY_PRDUCT_CTMMNY A  <!-- 제품 고객사 -->
+	LEFT JOIN CM_SANCTN B ON A.SANCTN_SEQNO = B.SANCTN_SEQNO  <!-- 결재 -->
+	LEFT JOIN SY_ENTRPS C ON A.ENTRPS_SEQNO = C.ENTRPS_SEQNO
+	JOIN CM_SANCTN_INFO D ON B.SANCTN_SEQNO = D.SANCTN_SEQNO AND D.USE_AT = 'Y'  <!-- 결재 정보 -->
+	WHERE A.DELETE_AT='N'
+	AND B.SANCTN_PROGRS_SITTN_CODE = 'CM01000002'
+	AND D.SANCTN_PROGRS_SITTN_CODE = 'CM01000002'  <!-- 결재대기 -->
+    AND D.SANCTNER_ID = #{sanctnerId}
+    <if test="shrMmnySeCode != null and shrMmnySeCode != ''">
+	    AND EXISTS (
+                 SELECT
+                    'O'
+                FROM SY_MTRIL MT
+                     ,SY_PRDUCT_CTMMNY_MTRIL CMT
+                WHERE MT.MTRIL_SEQNO = CMT.MTRIL_SEQNO
+                AND CMT.PRDUCT_CTMMNY_SEQNO = A.PRDUCT_CTMMNY_SEQNO
+			    AND MT.MMNY_SE_CODE = #{shrMmnySeCode}
+        )
+	</if>
+		AND A.BPLC_CODE = <include refid="bplcCode" />
+	<if test="mtrilTyCodeSch != null and mtrilTyCodeSch != ''">
+		AND EXISTS (
+			      SELECT DISTINCT MT.MTRIL_SEQNO
+			          FROM SY_MTRIL MT
+			          ,SY_PRDUCT_CTMMNY_MTRIL CMT
+			          WHERE MT.MTRIL_SEQNO = CMT.MTRIL_SEQNO
+			          AND CMT.PRDUCT_CTMMNY_SEQNO = A.PRDUCT_CTMMNY_SEQNO
+			          AND MT.MTRIL_TY_CODE = #{mtrilTyCodeSch}
+      		       )
+	</if>
+	<if test="shrEntrpsNm != null and shrEntrpsNm != ''">
+		AND UPPER(C.ENTRPS_NM) LIKE '%' || UPPER(TRIM(#{shrEntrpsNm})) || '%'
+	</if>
+
+	<if test="shrMtrilCode != null and shrMtrilCode != ''">
+		AND EXISTS (
+			 	SELECT
+	            	'O'
+	            FROM SY_MTRIL MT
+	                 ,SY_PRDUCT_CTMMNY_MTRIL CMT
+	            WHERE MT.MTRIL_SEQNO = CMT.MTRIL_SEQNO
+                AND CMT.PRDUCT_CTMMNY_SEQNO = A.PRDUCT_CTMMNY_SEQNO
+                AND MT.MTRIL_CODE LIKE '%' || UPPER(TRIM(#{shrMtrilCode})) || '%'
+		)
+	</if>
+	<if test="shrMtrilNm != null and shrMtrilNm != ''">
+		AND EXISTS (
+			 	SELECT
+	            	'O'
+	            FROM SY_MTRIL MT
+	                 ,SY_PRDUCT_CTMMNY_MTRIL CMT
+	            WHERE MT.MTRIL_SEQNO = CMT.MTRIL_SEQNO
+                AND CMT.PRDUCT_CTMMNY_SEQNO = A.PRDUCT_CTMMNY_SEQNO
+                AND MT.MTRIL_NM LIKE '%' || UPPER(TRIM(#{shrMtrilNm})) || '%'
+		)
+	</if>
+	<if test="shrLastVerAt != null and shrLastVerAt != ''">
+		AND A.LAST_VER_AT = #{shrLastVerAt}
+	</if>
+	<if test="shrUseAt != null and shrUseAt !=''">
+		AND A.USE_AT = #{shrUseAt}
+	</if>
+	ORDER BY ENTRPS_SEQNO,STDR_NM,VER
+	</select>
+
+	<!-- 제품목록 히스토리 조회 -->
+	<select id="getPrductHist" resultType="lims.wrk.vo.EntrpsSpecMVo" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+	<![CDATA[
+		SELECT PRS.ENTRPS_NM
+		      ,CTM.VER
+		      ,TO_CHAR(TO_DATE(SAN.SANCTN_RECOM_DTE), 'YYYY-MM-DD') AS SANCTN_RECOM_DTE
+		      ,FN_GET_CDDTLNM(SAN.SANCTN_PROGRS_SITTN_CODE) AS SANCTN_PROGRS_SITTN_NM
+		      ,FN_GET_USERNM(CTM.CHANGER_ID) AS CHANGER_NM
+		      ,CTM.ATCHMNFL_SEQNO
+		      ,CTM.BEGIN_DTE
+      		  ,CTM.END_DTE
+		  FROM SY_PRDUCT_CTMMNY CTM
+		      ,CM_SANCTN SAN
+         	  ,SY_ENTRPS PRS
+		 WHERE CTM.SANCTN_SEQNO = SAN.SANCTN_SEQNO(+)
+     	   AND CTM.ENTRPS_SEQNO = PRS.ENTRPS_SEQNO(+)
+      	   AND CTM.PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+      	   AND CTM.VER <=  #{ver}
+		 ORDER BY CTM.VER DESC
+	]]>
+	</select>
+
+	<!-- 시험 항목 정보 그리드 조회 -->
+	<select id="getPrductCtmmnySdspcList" parameterType="lims.wrk.vo.EntrpsSpecMVo" resultType="lims.wrk.vo.EntrpsSpecMVo">
+		SELECT SPS.MTRIL_SDSPC_SEQNO
+              ,SE.EXPRIEM_SEQNO
+              ,PD.MTRIL_NM
+              ,PD.MTRIL_CODE
+              ,FN_GET_CDDTLNM(SE.EXPRIEM_CL_CODE) AS EXPRIEM_CL
+              ,SE.EXPRIEM_NM
+              ,(SELECT X.UNIT_NM FROM SY_UNIT X WHERE X.UNIT_SEQNO = SPS.UNIT_SEQNO) AS UNIT_NM
+              ,FN_GET_CDDTLNM(SPS.JDGMNT_FOM_CODE) AS JDGMNT_FOM_NM
+              ,SPS.LCL_VALUE
+              ,FN_GET_CDDTLNM(SPS.LCL_VALUE_SE_CODE) AS FIRST_MUMM_VALUE_SE_NM
+              ,SPS.UCL_VALUE
+              ,FN_GET_CDDTLNM(SPS.UCL_VALUE_SE_CODE) AS SCD_MUMM_VALUE_SE_NM
+              ,FN_GET_CDDTLNM(SPC.LSL_VALUE_SE_CODE) AS FIRST_MXMM_VALUE_SE_NM
+              ,FN_GET_CDDTLNM(SPC.USL_VALUE_SE_CODE) AS SCD_MXMM_VALUE_SE_NM
+              ,SPS.MARK_CPHR AS SPS_TEXT_STDR
+              ,SPS.TEXT_STDR AS SPS_MARK_CPHR
+              ,SPC.PRDUCT_CTMMNY_SDSPC_SEQNO
+              ,SPC.PRDUCT_CTMMNY_SEQNO
+              ,PRD.VER
+              ,SPC.LSL_VALUE AS extrl_Mumm_Value
+              ,SPC.LSL_VALUE_SE_CODE AS extrl_Mumm_Value_Se_Code
+              ,SPC.USL_VALUE AS extrl_Mxmm_Value
+              ,SPC.USL_VALUE_SE_CODE AS extrl_Mxmm_Value_Se_Code
+              ,SPC.UNIT_SEQNO AS CTMSPC_UNIT_SEQNO
+              ,SPS.MARK_CPHR AS CTMSPC_MARK_CPHR
+              ,SPC.UPDT_RESN
+             ,FN_GET_RESULT_RANGE(SPS.JDGMNT_FOM_CODE, SPS.LCL_VALUE, SPS.UCL_VALUE, SCC2.CMMN_CODE_NM, SCC3.CMMN_CODE_NM, SPS.TEXT_STDR) RESULT_RANGEF
+             ,FN_GET_RESULT_RANGE(SPS.JDGMNT_FOM_CODE, SPS.LSL_VALUE, SPS.USL_VALUE, SCC2.CMMN_CODE_NM, SCC3.CMMN_CODE_NM, SPS.TEXT_STDR) RESULT_RANGES
+          FROM SY_PRDUCT_CTMMNY PRD
+                JOIN SY_PRDUCT_CTMMNY_SDSPC SPC ON PRD.PRDUCT_CTMMNY_SEQNO = SPC.PRDUCT_CTMMNY_SEQNO AND SPC.VER =  #{ver}
+                JOIN SY_MTRIL_SDSPC SPS ON SPC.MTRIL_SDSPC_SEQNO = SPS.MTRIL_SDSPC_SEQNO
+                JOIN SY_EXPRIEM SE ON SPS.EXPRIEM_SEQNO = SE.EXPRIEM_SEQNO
+                JOIN SY_MTRIL PD ON SPS.MTRIL_SEQNO = PD.MTRIL_SEQNO
+                LEFT OUTER JOIN SY_CMMN_CODE SCC2 ON SPS.LCL_VALUE_SE_CODE = SCC2.CMMN_CODE
+                 LEFT OUTER JOIN SY_CMMN_CODE SCC3 ON SPS.UCL_VALUE_SE_CODE = SCC3.CMMN_CODE
+             WHERE SPC.PRDUCT_CTMMNY_SEQNO =  #{prductCtmmnySeqno}
+             AND PRD.VER =   #{ver}
+             ORDER BY PD.MTRIL_TY_CODE, SPS.SORT_ORDR
+
+
+
+  		<!--  FROM SY_PRDUCT_CTMMNY PRD
+	         ,SY_PRDUCT_CTMMNY_SDSPC SPC
+	         ,SY_PRDUCT_SDSPC SPS
+	         ,SY_EXPRIEM SE
+	         ,SY_PRDUCT PD
+  		 WHERE PRD.PRDUCT_CTMMNY_SEQNO = SPC.PRDUCT_CTMMNY_SEQNO
+  		   AND PRD.VER = SPC.VER
+  		   AND PRD.PRDUCT_UPPER_SEQNO = PD.PRDUCT_SEQNO
+		   AND SPC.PRDUCT_SDSPC_SEQNO = SPS.PRDUCT_SDSPC_SEQNO
+		   AND SPS.EXPRIEM_SEQNO = SE.EXPRIEM_SEQNO
+		   AND PRD.PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+		   AND PRD.VER = #{ver} -->
+
+	</select>
+
+	<!-- 자재 정보 그리드 조회 -->
+	<select id="getPrductCtmmnyMtrilList" parameterType="lims.wrk.vo.EntrpsSpecMVo" resultType="lims.wrk.vo.EntrpsSpecMVo">
+		SELECT MT.MTRIL_SEQNO
+		     , MT.MTRIL_CODE
+		     , MT.MTRIL_NM
+		     , CMT.PRDUCT_CTMMNY_MTRIL_SEQNO
+		     , CASE WHEN CMT.PRDUCT_CTMMNY_MTRIL_SEQNO IS NOT NULL THEN 'Y'
+		            ELSE 'N'
+		        END AS CTMMNY_MTRIL_AT
+		     , CMT.DELETE_AT
+		 FROM  SY_PRDUCT_CTMMNY_MTRIL CMT
+		       ,SY_PRDUCT_CTMMNY CTM
+		       ,SY_MTRIL MT
+		 WHERE CMT.PRDUCT_CTMMNY_SEQNO = CTM.PRDUCT_CTMMNY_SEQNO(+)
+		   AND MT.MTRIL_SEQNO = CMT.MTRIL_SEQNO(+)
+		   AND CTM.PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+		   AND CMT.VER =  CTM.VER
+		   AND CMT.VER(+) = #{ver}
+		   AND CMT.DELETE_AT = 'N'
+	</select>
+
+	<!-- 결재 순서 그리드 조회 -->
+	<select id="getCmSanctnList" parameterType="lims.wrk.vo.EntrpsSpecMVo" resultType="lims.wrk.vo.EntrpsSpecMVo">
+		SELECT
+		      SANCTN_ORDR
+		      ,SANCTN_SE_CODE
+		      ,SANCTNER_ID
+		      ,SANIF.SANCTN_PROGRS_SITTN_CODE
+		      ,(SELECT USER_NM FROM SY_USER  WHERE USER_ID = SANCTNER_ID) AS USER_NM
+		      ,SANIF.SANCTNER_ID
+              ,SANIF.SANCTN_DTE
+		  FROM CM_SANCTN SAN
+		      ,CM_SANCTN_INFO SANIF
+		      ,SY_PRDUCT_CTMMNY CTM
+		WHERE  SAN.SANCTN_SEQNO = SANIF.SANCTN_SEQNO
+		  AND  SAN.SANCTN_SEQNO = CTM.SANCTN_SEQNO
+		  AND  CTM.PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+		  AND  CTM.VER = #{ver}
+	</select>
+
+	<!-- 시험항목 항목추가 조회 -->
+	<select id="getPrductExpriemList" parameterType="lims.wrk.vo.PrductMVo" resultType="lims.wrk.vo.PrductMVo">
+         SELECT
+                SPS.MTRIL_SEQNO,
+                (SELECT MTRIL_CODE FROM SY_MTRIL X WHERE X.MTRIL_SEQNO = SPS.MTRIL_SEQNO) AS MTRIL_CODE,
+                (SELECT MTRIL_NM FROM SY_MTRIL X WHERE X.MTRIL_SEQNO = SPS.MTRIL_SEQNO) AS MTRIL_NM,
+                SPS.MTRIL_SDSPC_SEQNO,
+                SPS.EXPRIEM_SEQNO,
+                SE.EXPRIEM_NM,
+                SPS.JDGMNT_FOM_CODE,
+		(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE = SPS.JDGMNT_FOM_CODE )AS JDGMNT_FOM_NM,
+				SPS.LCL_VALUE,
+				SPS.LCL_VALUE_SE_CODE,
+		(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE = SPS.LCL_VALUE_SE_CODE ) AS SEC_MUMM_VALUE_SE_NM,
+				SPS.UCL_VALUE,
+				SPS.UCL_VALUE_SE_CODE,
+		(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE = SPS.UCL_VALUE_SE_CODE ) AS SEC_MXMM_VALUE_SE_NM,
+                SPS.LSL_VALUE_SE_CODE,
+		(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE = SPS.LSL_VALUE_SE_CODE ) AS FIRST_MUMM_VALUE_SE_NM,
+                SPS.LSL_VALUE,
+                SPS.USL_VALUE_SE_CODE,
+		(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE = SPS.USL_VALUE_SE_CODE ) AS FIRST_MXMM_VALUE_SE_NM,
+                SPS.USL_VALUE,
+				SPS.MARK_CPHR,
+                SPS.MARK_CPHR AS SPS_MARK_CPHR,
+                SPS.TEXT_STDR AS SPS_TEXT_STDR,
+                SPS.UNIT_SEQNO,
+                (SELECT X.UNIT_NM FROM SY_UNIT X WHERE X.UNIT_SEQNO = SPS.UNIT_SEQNO) AS UNIT_NM,
+                SPS.USE_AT,
+                SPS.LAST_CHANGER_ID,
+                SPS.LAST_CHANGE_DT,
+                SPS.COA_UPDT_POSBL_AT,
+                SE.KOREAN_NM,
+                SE.ENG_NM,
+				(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE = SE.EXPRIEM_CL_CODE ) AS EXPRIEM_CL,
+                null AS EXTRL_MUMM_VALUE,
+                null AS EXTRL_MUMM_VALUE_SE_CODE,
+                null AS EXTRL_MXMM_VALUE,
+                null AS EXTRL_MXMM_VALUE_SE_CODE,
+                SPS.FRST_ANALS_AT,
+                SPS.MIDDLE_ANALS_AT,
+                SPS.LAST_ANALS_AT,
+               FN_GET_RESULT_RANGE(SPS.JDGMNT_FOM_CODE, SPS.LCL_VALUE, SPS.UCL_VALUE, FN_GET_CDDTLNM(SPS.LSL_VALUE_SE_CODE),  FN_GET_CDDTLNM(SPS.USL_VALUE_SE_CODE), SPS.TEXT_STDR) RESULT_RANGEF
+          FROM  SY_MTRIL_SDSPC SPS
+               ,SY_EXPRIEM SE
+               ,SY_MTRIL SP
+          WHERE SPS.EXPRIEM_SEQNO = SE.EXPRIEM_SEQNO
+             AND SPS.MTRIL_SEQNO = SP.MTRIL_SEQNO
+             AND SPS.DELETE_AT ='N'
+             AND SE.DELETE_AT = 'N'
+             AND SE.EXPRIEM_CL_CODE = 'SY05000001'
+		<if test="mtrilSeqno != null and mtrilSeqno != '' ">
+		    AND SPS.MTRIL_SEQNO = #{mtrilSeqno}
+		</if>
+		<if test="shrExpriemNm != null and shrExpriemNm != '' ">
+			AND (UPPER(SE.EXPRIEM_NM) LIKE '%'|| UPPER(#{shrExpriemNm})||'%')
+		</if>
+		<if test="shrPrductSdspcArray != null">
+			<if test="shrPrductSdspcArray.length != 0">
+				AND SP.MTRIL_SEQNO IN
+			   <foreach collection="shrPrductSdspcArray" item="shrPrductSdspcArray" open="(" close=")" separator=",">
+	            #{shrPrductSdspcArray}
+	           </foreach>
+			</if>
+		</if>
+		<if test="gridDataExpriemArray != null">
+			<if test="gridDataExpriemArray.length != 0">
+				AND SPS.MTRIL_SDSPC_SEQNO NOT IN
+			   <foreach collection="gridDataExpriemArray" item="gridDataExpriemArray" open="(" close=")" separator=",">
+	            #{gridDataExpriemArray}
+	           </foreach>
+			</if>
+		</if>
+		ORDER BY SPS.MTRIL_SEQNO ASC, SPS.SORT_ORDR
+	</select>
+
+	<!-- 제품 고객사 저장 -->
+	<insert id="insertSyPrductCtmmny" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		<selectKey keyProperty="prductCtmmnySeqno,ver" resultType="lims.wrk.vo.EntrpsSpecMVo" order="BEFORE">
+			<if test='crud.equals("C")'>
+				SELECT TO_CHAR(SQ_SY_PRDUCT_CTMMNY.NEXTVAL) AS prductCtmmnySeqno
+			          ,(SELECT NVL(MAX(VER), 0) + 1 FROM SY_PRDUCT_CTMMNY WHERE PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}) AS ver
+			      FROM DUAL
+			</if>
+			<if test='crud.equals("R")'>
+				SELECT #{prductCtmmnySeqno} AS prductCtmmnySeqno
+			          ,(SELECT NVL(MAX(VER), 0) + 1 FROM SY_PRDUCT_CTMMNY WHERE PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}) AS ver
+			      FROM DUAL
+			</if>
+		</selectKey>
+		INSERT INTO SY_PRDUCT_CTMMNY(
+			PRDUCT_CTMMNY_SEQNO
+			,VER
+			,BPLC_CODE
+			,ENTRPS_SEQNO
+			,STDR_NM
+			,CHANGER_ID
+			,CHANGE_DTE
+			,UPDT_RESN
+			,SANCTN_SEQNO
+			,BEGIN_DTE
+			,ATCHMNFL_SEQNO
+			,LAST_VER_AT
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,USE_AT
+		)VALUES(
+			#{prductCtmmnySeqno}
+			, #{ver}
+			, <include refid="bplcCode" />
+			, #{entrpsSeqno}
+			, #{stdrNm}
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+			, #{updtResn}
+			, #{sanctnSeqno}
+			, #{beginDte}
+			, #{atchmnflSeqno}
+			, 'Y'
+			, 'N'
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+			, #{useAt}
+		)
+
+	</insert>
+
+	<!-- 제품 고객사 결재정보 업데이트 -->
+	<update id="updatePrductCtmmnySanctnLine" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		UPDATE SY_PRDUCT_CTMMNY
+		   SET SANCTN_SEQNO  = #{sanctnSeqno}
+		      ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			  ,LAST_CHANGE_DT = SYSDATE
+		 WHERE PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+		   AND VER = #{ver}
+	</update>
+
+	<!-- 제품 고객사 기본정보 수정 -->
+	<update id="updatePrductCtmmny" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		UPDATE SY_PRDUCT_CTMMNY
+		   SET ENTRPS_SEQNO    = #{entrpsSeqno}
+		      ,UPDT_RESN       = #{updtResn}
+		      ,ATCHMNFL_SEQNO  = #{atchmnflSeqno}
+		      ,BEGIN_DTE       = #{beginDte}
+		      ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+		      ,LAST_CHANGE_DT  = SYSDATE
+		      ,STDR_NM = #{stdrNm}
+		      ,USE_AT = #{useAt}
+		 WHERE PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+		   AND VER = #{ver}
+	</update>
+
+	<!-- 제품 고객사 자재 저장 -->
+	<insert id="insertSyPrductCtmmnyMtril" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		MERGE INTO SY_PRDUCT_CTMMNY_MTRIL
+        USING DUAL ON ( PRDUCT_CTMMNY_MTRIL_SEQNO = #{prductCtmmnyMtrilSeqno}
+                          AND PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+                          AND VER = #{ver}
+                      )
+        WHEN MATCHED THEN
+        UPDATE
+        SET  LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			,LAST_CHANGE_DT = SYSDATE
+			,DELETE_AT = 'N'
+        WHEN NOT MATCHED THEN
+        INSERT(
+			PRDUCT_CTMMNY_MTRIL_SEQNO
+			,BPLC_CODE
+			,PRDUCT_CTMMNY_SEQNO
+			,MTRIL_SEQNO
+			,VER
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) VALUES(
+			 SQ_SY_PRDUCT_CTMMNY_MTRIL.NEXTVAL
+			, <include refid="bplcCode" />
+			, #{prductCtmmnySeqno}
+			, #{mtrilSeqno}
+			, #{ver}
+			,'N'
+			,'${@lims.util.GetUserSession@getUserId()}'
+			,SYSDATE
+		)
+	</insert>
+	<insert id = "insertPrductCtmmnySdspc" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+	
+	INSERT into (
+			PRDUCT_CTMMNY_SDSPC_SEQNO
+			,BPLC_CODE
+			,PRDUCT_CTMMNY_SEQNO
+			,VER
+			,MTRIL_SDSPC_SEQNO
+			,LSL_VALUE
+			,LSL_VALUE_SE_CODE
+			,USL_VALUE
+			,USL_VALUE_SE_CODE
+			,UNIT_SEQNO
+			,UPDT_RESN
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		)VALUES(
+			 SQ_SY_PRDUCT_CTMMNY_SDSPC.NEXTVAL
+			, <include refid="bplcCode" />
+			, #{prductCtmmnySeqno}
+			, #{ver}
+			, #{mtrilSdspcSeqno}
+			, #{extrlMummValue}
+			, #{extrlMummValueSeCode}
+			, #{extrlMxmmValue}
+			, #{extrlMxmmValueSeCode}
+			, #{unitSeqno}
+			,NVL(#{updtResn},'최초등록')
+			,'${@lims.util.GetUserSession@getUserId()}'
+			,SYSDATE
+		)
+	</insert>
+	<!-- 제품 고객사 시험항목 저장 -->
+	<insert id="insertSyPrductCtmmnySdspc" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		MERGE INTO SY_PRDUCT_CTMMNY_SDSPC
+        USING DUAL ON ( PRDUCT_CTMMNY_SDSPC_SEQNO = #{prductCtmmnySdspcSeqno}
+                          AND PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+                          AND VER = #{ver}
+                      )
+        WHEN MATCHED THEN
+        UPDATE
+        SET LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			,LAST_CHANGE_DT = SYSDATE
+			,DELETE_AT = 'N'
+			,LSL_VALUE = #{lslValue}
+			,LSL_VALUE_SE_CODE = #{lslValueSeCode}
+			,USL_VALUE = #{uslValue}
+			,USL_VALUE_SE_CODE = #{uslValueSeCode}
+			,UNIT_SEQNO = #{unitSeqno}
+			,UPDT_RESN = #{updtResn}
+			WHEN NOT MATCHED THEN
+		INSERT (
+			PRDUCT_CTMMNY_SDSPC_SEQNO
+			,BPLC_CODE
+			,PRDUCT_CTMMNY_SEQNO
+			,VER
+			,MTRIL_SDSPC_SEQNO
+			,LSL_VALUE
+			,LSL_VALUE_SE_CODE
+			,USL_VALUE
+			,USL_VALUE_SE_CODE
+			,UNIT_SEQNO
+			,UPDT_RESN
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		)VALUES(
+			 SQ_SY_PRDUCT_CTMMNY_SDSPC.NEXTVAL
+			, <include refid="bplcCode" />
+			, #{prductCtmmnySeqno}
+			, #{ver}
+			, #{mtrilSdspcSeqno}
+			, #{extrlMummValue}
+			, #{extrlMummValueSeCode}
+			, #{extrlMxmmValue}
+			, #{extrlMxmmValueSeCode}
+			, #{unitSeqno}
+			,NVL(#{updtResn},'최초등록')
+			,'${@lims.util.GetUserSession@getUserId()}'
+			,SYSDATE
+		)
+	</insert>
+
+	<!-- 시험항목 수정 -->
+	<update id="updateSyPrductCtmmnySdspc" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		UPDATE  SY_PRDUCT_CTMMNY_SDSPC
+		   SET
+			   LSL_VALUE = #{extrlMummValue}
+			   ,LSL_VALUE_SE_CODE = #{extrlMummValueSeCode}
+			   ,USL_VALUE = #{extrlMxmmValue}
+			   ,USL_VALUE_SE_CODE= #{extrlMxmmValueSeCode}
+			   ,UNIT_SEQNO 				  = #{unitSeqno}
+			   ,UPDT_RESN 			      = #{updtResn}
+			   ,LAST_CHANGER_ID 		  = '${@lims.util.GetUserSession@getUserId()}'
+			   ,LAST_CHANGE_DT 			  = SYSDATE
+			   ,VER                       = #{ver}
+	     WHERE  PRDUCT_CTMMNY_SDSPC_SEQNO = #{prductCtmmnySdspcSeqno}
+	</update>
+
+	<!-- 시험항목 삭제 -->
+	<delete id="deleteSyPrductCtmmnySdspc" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		DELETE
+		  FROM SY_PRDUCT_CTMMNY_SDSPC
+		 WHERE PRDUCT_CTMMNY_SDSPC_SEQNO = #{prductCtmmnySdspcSeqno}
+	</delete>
+
+	<!-- 시험항목 버전 업데이트 -->
+	<update id="updateSyPrductCtmmnySdspcVer" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		UPDATE  SY_PRDUCT_CTMMNY_SDSPC
+		   SET  VER                       = #{ver}
+			   ,LAST_CHANGER_ID 		  = '${@lims.util.GetUserSession@getUserId()}'
+			   ,LAST_CHANGE_DT 			  = SYSDATE
+	     WHERE  PRDUCT_CTMMNY_SDSPC_SEQNO = #{prductCtmmnySdspcSeqno}
+	</update>
+
+	<!-- 제품목록 개정 업데이트 -->
+	<update id="updateSyPrductCtmmnyLastVerAt" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		UPDATE  SY_PRDUCT_CTMMNY
+		   SET  LAST_VER_AT      = 'N'
+			   ,LAST_CHANGER_ID  = '${@lims.util.GetUserSession@getUserId()}'
+			   ,LAST_CHANGE_DT 	 = SYSDATE
+	     WHERE  PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+	</update>
+
+	<!-- 자재 팝업 조회 -->
+	<select id="getProductPopList" resultType="lims.wrk.vo.PrductMVo" parameterType="lims.wrk.vo.PrductMVo">
+		SELECT
+			A.MTRIL_SEQNO
+			, A.MTRIL_NM
+			, A.MTRIL_CODE
+			, A.MTRIL_TY_CODE
+			, A.BPLC_CODE
+			, (SELECT XA.CMMN_CODE_NM FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = A.PRDUCT_SE_CODE) AS PRDUCT_SE_CODE_NM
+			, A.PRDUCT_SE_CODE
+		FROM
+			SY_MTRIL A
+		LEFT JOIN
+			SY_INSPCT_INSTT B ON B.INSPCT_INSTT_CODE = A.BPLC_CODE
+		<!-- 사용여부, 삭제여부 -->
+		WHERE A.USE_AT = 'Y' AND A.DELETE_AT = 'N' AND B.USE_AT = 'Y' AND B.DELETE_AT = 'N'
+		AND
+			A.BPLC_CODE = <include refid="bplcCode" />
+		<if test="prductSeCode != null and prductSeCode != ''">
+			AND
+				A.PRDUCT_SE_CODE LIKE '%' || #{prductSeCode} || '%'
+		</if>
+		<if test="mtrilCode != null and mtrilCode != ''">
+			AND
+				A.MTRIL_CODE LIKE '%' || #{mtrilCode} || '%'
+		</if>
+		<if test="mtrilNm != null and mtrilNm != ''">
+			AND
+				UPPER(A.MTRIL_NM) LIKE'%'|| UPPER(#{mtrilNm}) || '%'
+		</if>
+		<if test="shrMtrilSdspcArray.length != 0">
+			AND A.MTRIL_SEQNO NOT IN
+		   <foreach collection="shrMtrilSdspcArray" item="shrMtrilSdspcArray" open="(" close=")" separator=",">
+            #{shrMtrilSdspcArray}
+           </foreach>
+		</if>
+
+	</select>
+
+	<!-- 결재라인 저장 -->
+	<insert id="insertCMSanctn" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		<selectKey keyProperty="sanctnSeqno" resultType="lims.wrk.vo.EntrpsSpecMVo" order="BEFORE">
+			SELECT SQ_CM_SANCTN.NEXTVAL AS sanctnSeqno FROM DUAL
+		</selectKey>
+		INSERT INTO CM_SANCTN(
+			SANCTN_SEQNO
+			,SANCTN_RECOMMAN_ID
+			,SANCTN_RECOM_DTE
+			,SANCTN_KND_CODE
+			,SANCTN_PROGRS_SITTN_CODE
+			,USE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		)VALUES(
+			#{sanctnSeqno}
+			,'${@lims.util.GetUserSession@getUserId()}'
+			,TO_CHAR(SYSDATE,'YYYY-MM-DD')
+			, #{sanctnKndCode}
+			, #{sanctnProgrsSittnCode}
+			, 'Y'
+			,'${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- 결재 정보 저장 -->
+	<insert id="insertCMSanctnInfo" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		INSERT INTO CM_SANCTN_INFO(
+			 SANCTN_SEQNO
+			,ORDR
+			,TOT_SANCTNER_CO
+			,SANCTN_ORDR
+			,SANCTN_SE_CODE
+			,SANCTN_PROGRS_SITTN_CODE
+			,SANCTNER_ID
+			,SANCTN_DTE
+			,USE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		)VALUES(
+			 #{sanctnSeqno}
+			,#{sanctnOrdr}
+			,#{totSanctnerCo}
+			,#{sanctnOrdr}
+			,#{sanctnSeCode}
+			,#{sanctnProgrsSittnCode}
+			,#{sanctnerId}
+			,#{sanctnDte}
+			,'Y'
+			,'${@lims.util.GetUserSession@getUserId()}'
+			,SYSDATE
+		)
+	</insert>
+
+	<!-- 제품 고객사 자재 저장 -->
+	<delete id="deleteSyPrductCtmmnyMtril" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		UPDATE SY_PRDUCT_CTMMNY_MTRIL
+		   SET DELETE_AT = 'Y'
+		 WHERE PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+		 AND  VER = #{ver}
+	</delete>
+
+	<!-- 결재 정보 삭제 -->
+	<delete id="deleteCMSanctnInfo" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		DELETE
+		  FROM CM_SANCTN_INFO
+		 WHERE SANCTN_SEQNO = #{sanctnSeqno}
+	</delete>
+
+	<!-- 현재 정보가 개정승인요청을 했는지 구분 -->
+	<select id="getAmendmentAt" parameterType="lims.wrk.vo.EntrpsSpecMVo" resultType="String">
+		SELECT LAST_VER_AT
+ 	     FROM SY_PRDUCT_CTMMNY
+ 	    WHERE PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+   	      AND VER = (SELECT MAX(VER) FROM SY_PRDUCT_CTMMNY WHERE PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}  AND DELETE_AT='N')
+	</select>
+
+	<!-- 제품삭제delete -->
+	<delete id="delSyPrductCtmmny" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		DELETE  SY_PRDUCT_CTMMNY
+	     WHERE  PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+	     AND VER = #{ver}
+	</delete>
+	
+	
+	<!-- 제품 자재 delete-->
+	<delete id="delSyPrductCtmmnyMtril" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		DELETE  SY_PRDUCT_CTMMNY_MTRIL
+	     WHERE  PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+	     AND VER = #{ver}
+	</delete>
+	
+	
+	<!-- 제품기준규격 delete-->
+	<delete id="delSyPrductCtmmnySdspc" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		DELETE  SY_PRDUCT_CTMMNY_SDSPC
+	     WHERE  PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+	     AND VER = #{ver}
+	</delete>
+	
+	<update id="delUpdLastVer" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		UPDATE  SY_PRDUCT_CTMMNY
+		   SET
+		   	LAST_VER_AT = 'Y'
+	     WHERE  PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+	     AND VER = #{ver}
+	</update>
+	
+
+	<update id="updSanctnCon" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		UPDATE CM_SANCTN SET
+         SANCTN_RECOMMAN_ID = #{lastChangerId}
+         ,SANCTN_RECOM_DTE = TO_CHAR(SYSDATE,'YYYY-MM-DD')
+         ,SANCTN_KND_CODE = #{sanctnKndCode}
+         ,SANCTN_PROGRS_SITTN_CODE = #{sanctnProgrsSittnCode}
+         ,USE_AT = 'Y'
+         ,LAST_CHANGER_ID = #{lastChangerId}
+         ,LAST_CHANGE_DT = SYSDATE
+		WHERE SANCTN_SEQNO = #{sanctnSeqno}
+	</update>
+
+	<delete id="delSanctnerCon" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		DELETE FROM CM_SANCTN_INFO
+         WHERE SANCTN_SEQNO = #{sanctnSeqno}
+	</delete>
+
+		<!-- 	상신 상세 -->
+	<insert id="insSanctnerCon" parameterType="lims.qa.vo.DocDto">
+<!-- 	<selectKey keyProperty="ordr" resultType="java.lang.String"	order="BEFORE"> -->
+<!-- 			SELECT SQ_CM_SANCTN_INFO.NEXTVAL AS ORDR FROM DUAL -->
+<!-- 	</selectKey> -->
+		INSERT INTO CM_SANCTN_INFO
+       (
+          ORDR
+         ,SANCTN_SEQNO
+         ,TOT_SANCTNER_CO
+         ,SANCTN_ORDR
+         ,SANCTN_SE_CODE
+         ,SANCTN_PROGRS_SITTN_CODE
+         ,SANCTNER_ID
+         ,SANCTN_DTE
+         ,USE_AT
+         ,LAST_CHANGER_ID
+         ,LAST_CHANGE_DT
+       )
+       VALUES
+       (
+          #{sanctnOrdr}
+         ,#{sanctnSeqno}
+         ,#{totSanctnerCo}
+         ,#{sanctnOrdr}
+         ,#{sanctnSeCode}
+         <choose>
+				<when test = "sanctnOrdr == 1">
+					, 'CM01000002'
+				</when>
+				<otherwise>
+					, 'CM01000003'
+				</otherwise>
+		</choose>
+		 ,#{sanctnerId}
+         ,#{sanctnDte}
+         ,'Y'
+         ,#{lastChangerId}
+         ,SYSDATE
+       )
+	</insert>
+		<!-- 제품삭제 -->
+	<update id="updLastVer" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		UPDATE  SY_PRDUCT_CTMMNY
+		   SET
+		   	LAST_VER_AT = 'N'
+	     WHERE  PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+	</update>
+	
+	
+	<insert id="insWdtbSanctn" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+	<selectKey keyProperty="wdtbSeqno" resultType="java.lang.String" order="BEFORE">
+			SELECT SQ_CM_WDTB.NEXTVAL AS WDTB_SEQNO FROM DUAL
+	</selectKey>
+		INSERT INTO CM_WDTB
+       (
+          WDTB_SEQNO
+         ,WDTB_PREARNGE_DT
+         ,WDTB_DT
+         ,USE_AT
+         ,WDTB_POSBL_AT
+         ,LAST_CHANGER_ID
+         ,LAST_CHANGE_DT
+       )
+       VALUES
+       (
+         #{wdtbSeqno}
+         <choose>
+	         <when test = "wdtbPrearngeDt != null and wdtbPrearngeDt != ''">
+	         ,#{wdtbPrearngeDt}
+	         </when>
+	         <otherwise>
+	         ,SYSDATE
+	         </otherwise>
+         </choose>
+         ,#{wdtbDt}
+         ,'Y'
+         ,'Y'
+         ,#{lastChangerId}
+         ,SYSDATE
+       )
+	</insert>
+	
+	<insert id="insWdtbTrgterSanctn" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+        INSERT INTO CM_WDTB_TRGTER(
+        
+		  WDTB_SEQNO
+		 ,ORDR
+         ,USER_ID
+         ,EMAIL_TRNSMIS_AT
+         ,EMAIL_TRNSMIS_COMPT_AT
+         ,DELETE_AT
+         ,LAST_CHANGER_ID
+         ,LAST_CHANGE_DT
+       )
+       VALUES
+       (
+       	  #{wdtbSeqno}
+       	 ,1
+       	 ,#{sanctnerId}
+         ,'Y'
+         ,'N'
+         ,'N'
+         ,#{lastChangerId}
+         ,SYSDATE
+       )
+	</insert>
+	<update id = "updSanctnSeqno" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		UPDATE SY_PRDUCT_CTMMNY SET
+			SANCTN_SEQNO = #{sanctnSeqno}
+		WHERE PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+		AND VER = #{ver}
+	</update>
+</mapper>

@@ -1,0 +1,8 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+<%@ taglib uri="http://tiles.apache.org/tags-tiles" prefix="tiles"%>
+
+<div id="sub_footer">
+	<p>COPYRIGHT@ 2022 FOOSUNG CO., LTD. ALL RIGHTS RESERVED.</p>
+    <div class="scrollTop">TOP</div>
+</div>

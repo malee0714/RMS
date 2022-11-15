@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.com.dao.DragDropFileMDao">
+
+	<!-- 해당 의뢰기관이 가진 파일들의 정보를 가져옴 -->
+	<select id="getFiles" resultType="lims.com.vo.FileDetailMVo"
+		parameterType="lims.com.vo.FileDetailMVo">
+		SELECT
+		ATCHMNFL_SEQNO
+		,FILE_SEQNO
+		,STRE_FILE_NM
+		,ORGINL_FILE_NM
+		,FILE_DATA
+		,FILE_MG
+		,FILE_MG/1000000 AS FORMAT_FILE_MG
+		,USE_AT
+		,LAST_CHANGER_ID
+		,LAST_CHANGE_DT
+		,SUBSTR(STRE_FILE_NM, INSTR(STRE_FILE_NM,'\',-1,1)+1, INSTR(SUBSTR(STRE_FILE_NM,
+		INSTR(STRE_FILE_NM,'\',-1,1)+1), '.', -1, 1)-1) AS UUID
+		FROM SY_ATCHMNFL_DETAIL
+		WHERE ATCHMNFL_SEQNO = #{atchmnflSeqno}
+		AND USE_AT = 'Y'
+		ORDER BY ATCHMNFL_SEQNO
+	</select>
+
+	<!-- 파일 번호 최대 값 +1 값을 가져옴 -->
+	<select id="getFileIdx" resultType="int">
+		SELECT NVL(MAX(ATCHMNFL_SEQNO),0)+1 FROM SY_ATCHMNFL_DETAIL
+	</select>
+
+	<select id="getMaxFileNum" resultType="int">
+		SELECT NVL(MAX(ATCHMNFL_SEQNO),0)+1 FROM SY_ATCHMNFL
+	</select>
+	
+	<!-- 파일 업로드 -->
+	<insert id="insUploadFiles" parameterType="lims.com.vo.FileDetailMVo">
+<!-- 		<selectKey keyProperty="fileSeqno" resultType="int" order="BEFORE"> -->
+<!-- 			SELECT NVL(MAX(FILE_SEQNO),0)+1 FROM SY_ATCHMNFL_DETAIL WHERE -->
+<!-- 			FILE_SEQNO = #{fileSeqno} -->
+<!-- 		</selectKey> -->
+		INSERT INTO SY_ATCHMNFL_DETAIL(
+		 ATCHMNFL_SEQNO
+		,FILE_SEQNO
+		,STRE_FILE_NM
+		,ORGINL_FILE_NM
+		,FILE_MG
+		,USE_AT
+		,LAST_CHANGER_ID
+		,LAST_CHANGE_DT
+		)
+		VALUES
+		(
+		#{atchmnflSeqno}
+		, (select nvl(max(FILE_SEQNO),0)+1 from sy_atchmnfl_detail where ATCHMNFL_SEQNO= #{atchmnflSeqno})
+		, #{streFileNm}
+		, #{orginlFileNm}
+		, to_number(#{fileMg})
+		, 'Y'
+		, #{lastChangerId}
+		, SYSDATE
+		)
+	</insert>
+	
+	<insert id="insRevisionUploadFiles" parameterType="lims.com.vo.FileDetailMVo">
+		INSERT INTO SY_ATCHMNFL_DETAIL(
+		 	 ATCHMNFL_SEQNO
+		    ,FILE_SEQNO
+			,STRE_FILE_NM
+			,ORGINL_FILE_NM
+			,FILE_MG
+			,USE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		)		
+		SELECT #{atchmnflSeqno} AS ATCHMNFL_SEQNO
+		   	  ,FILE_SEQNO
+			  ,STRE_FILE_NM
+			  ,ORGINL_FILE_NM
+			  ,FILE_MG
+			  ,USE_AT
+			  ,LAST_CHANGER_ID
+			  ,LAST_CHANGE_DT
+		  FROM SY_ATCHMNFL_DETAIL
+		 WHERE ATCHMNFL_SEQNO = #{oldAtchmnflSeqno}
+	</insert>
+
+<!-- 	파일 총 데이터 등록 -->
+	<insert id="amountUploadAction" parameterType="lims.com.vo.FileDetailMVo">
+		<selectKey keyProperty="atchmnflSeqno" resultType="lims.com.vo.FileDetailMVo" order="BEFORE">
+			SELECT SQ_SY_ATCHMNFL.NEXTVAL AS atchmnflSeqno FROM DUAL
+		</selectKey>
+		INSERT INTO SY_ATCHMNFL(
+			 ATCHMNFL_SEQNO
+			,TOT_FILE_CNT
+			,TOT_FILE_MG
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		)VALUES(
+			  #{atchmnflSeqno}
+			, #{totFileCnt}
+			, #{totFileMg}
+			, #{lastChangerId}
+			, sysdate
+		)
+	</insert>
+<!-- 	파일 총 데이터 수정 -->
+	<update id="UpdAmountAction" parameterType="lims.com.vo.FileDetailMVo">
+		UPDATE SY_ATCHMNFL SET
+		TOT_FILE_CNT = #{totFileCnt}
+		, TOT_FILE_MG = #{totFileMg}
+		, LAST_CHANGER_ID = #{lastChangerId}
+		, LAST_CHANGE_DT = SYSDATE
+		where ATCHMNFL_SEQNO = #{atchmnflSeqno}
+	</update>
+<!-- 	validation 체크 -->
+	<select id="checkAmount" resultType="hashmap" parameterType="int">
+		SELECT * FROM SY_ATCHMNFL WHERE ATCHMNFL_SEQNO = #{atchmnflSeqno}
+	</select>
+	
+	<!-- 다운로드할 파일의 정보를 가져옴 -->
+	<select id="getDownloadFile" resultType="lims.com.vo.FileDetailMVo"
+		parameterType="java.util.Map">
+		SELECT
+		ORGINL_FILE_NM
+		,STRE_FILE_NM
+		,FILE_MG
+		FROM SY_ATCHMNFL_DETAIL
+		WHERE FILE_SEQNO = #{fileSeqno} 
+		AND ATCHMNFL_SEQNO = #{atchmnflSeqno}
+	</select>
+
+	<!-- 파일 삭제 -->
+	<update id="deleteFiles" parameterType="lims.com.vo.FileDetailMVo">
+		UPDATE SY_ATCHMNFL_DETAIL SET
+		USE_AT = 'N'
+		<!-- ,ORD = 0 -->
+		WHERE FILE_SEQNO = #{fileSeqno} 
+		AND ATCHMNFL_SEQNO = #{atchmnflSeqno}
+	</update>
+
+
+	
+	<!-- <update id="updOrdAction" parameterType="lims.com.vo.FileDetailMVo"> -->
+	<!-- UPDATE SY_ATCHMNFL_DETAIL SET -->
+	<!-- ORD = #{ord} -->
+	<!-- WHERE #{uuid} = SUBSTR(STRE_FILE_NM, INSTR(STRE_FILE_NM,'\',-1,1)+1, 
+		INSTR(SUBSTR(STRE_FILE_NM, INSTR(STRE_FILE_NM,'\',-1,1)+1), '.', -1, 1)-1) -->
+	<!-- </update> -->
+
+</mapper>

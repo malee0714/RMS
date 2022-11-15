@@ -1,0 +1,143 @@
+
+/* 웹폰트 */
+@font-face { font-family: "AppleGothic"; 
+	src: url(/assets/font/AppleGothic.eot); 
+	src: url(/assets/font/AppleGothic.eot?#iefix) format("embedded-opentype"), url(/assets/font/AppleGothic.woff) format("woff"), url(/assets/font/AppleGothic.ttf) format("truetype"); }
+
+@font-face { font-family: "AppleGothicBold"; 
+	src: url(/assets/font/AppleGothicBold.eot); 
+	src: url(/assets/font/AppleGothicBold.eot?#iefix) format("embedded-opentype"), url(/assets/font/AppleGothicBold.woff) format("woff"), url(/assets/font/AppleGothicBold.ttf) format("truetype"); }
+
+@font-face { font-family: "NanumGothic"; 
+	src: url(/assets/font/NanumGothic.eot); 
+	src: url(/assets/font/NanumGothic.eot?#iefix) format("embedded-opentype"), url(/assets/font/NanumGothic.woff) format("woff"), url(/assets/font/NanumGothic.ttf) format("truetype"); }
+
+@font-face { font-family: "NanumGothicLight"; 
+	src: url(/assets/font/NanumGothicLight.eot); 
+	src: url(/assets/font/NanumGothicLight.eot?#iefix) format("embedded-opentype"), url(/assets/font/NanumGothicLight.woff) format("woff"), url(/assets/font/NanumGothicLight.ttf) format("truetype"); }
+
+/* @font-face { font-family: "NanumGothicBold";  */
+/* 	src: url(/assets/font/NanumGothicBold.eot);  */
+/* 	src: url(/assets/font/NanumGothicBold.eot?#iefix) format("embedded-opentype"), url(/assets/font/NanumGothicBold.woff) format("woff"), url(/assets/font/NanumGothicBold.ttf) format("truetype"); } */
+
+@font-face { font-family: "NanumGothicExtraBold"; 
+	src: url(/assets/font/NanumGothicExtraBold.eot); 
+	src: url(/assets/font/NanumGothicExtraBold.eot?#iefix) format("embedded-opentype"), url(/assets/font/NanumGothicExtraBold.woff) format("woff"), url(/assets/font/NanumGothicExtraBold.ttf) format("truetype"); }
+
+@font-face { font-family: "NanumBarunGothic"; 
+	src: url(/assets/font/NanumBarunGothic.eot); 
+	src: url(/assets/font/NanumBarunGothic.eot?#iefix) format("embedded-opentype"), url(/assets/font/NanumBarunGothic.woff) format("woff"), url(/assets/font/NanumBarunGothic.ttf) format("truetype"); }
+
+@font-face { font-family: "NanumBarunGothicBold"; 
+	src: url(/assets/font/NanumBarunGothicBold.eot); 
+	src: url(/assets/font/NanumBarunGothicBold.eot?#iefix) format("embedded-opentype"), url(/assets/font/NanumBarunGothicBold.woff) format("woff"), url(/assets/font/NanumBarunGothicBold.ttf) format("truetype"); }
+
+@font-face { font-family: "NanumBarunGothicLight"; 
+	src: url(/assets/font/NanumBarunGothicLight.eot); 
+	src: url(/assets/font/NanumBarunGothicLight.eot?#iefix) format("embedded-opentype"), url(/assets/font/NanumBarunGothicLight.woff) format("woff"), url(/assets/font/NanumBarunGothicLight.ttf) format("truetype"); }
+
+@font-face { font-family: "NanumBarunGothicUltraLight"; 
+	src: url(/assets/font/NanumBarunGothicUltraLight.eot); 
+	src: url(/assets/font/NanumBarunGothicUltraLight.eot?#iefix) format("embedded-opentype"), url(/assets/font/NanumBarunGothicUltraLight.woff) format("woff"), url(/assets/font/NanumBarunGothicUltraLight.ttf) format("truetype"); }
+
+@font-face { font-family: "MyriadPro-Regular"; 
+	src: url(/assets/font/MyriadPro-Regular.eot); 
+	src: url(/assets/font/MyriadPro-Regular.eot?#iefix) format("embedded-opentype"), url(/assets/font/MyriadPro-Regular.woff) format("woff"), url(/assets/font/MyriadPro-Regular.ttf) format("truetype"); }
+
+@font-face { font-family: "MyriadPro-Cond"; 
+	src: url(/assets/font/MyriadPro-Cond.eot); 
+	src: url(/assets/font/MyriadPro-Cond.eot?#iefix) format("embedded-opentype"), url(/assets/font/MyriadPro-Cond.woff) format("woff"), url(/assets/font/MyriadPro-Cond.ttf) format("truetype"); }
+
+@font-face { font-family: "SourceSansPro-Regular";
+	src: url(/assets/font/SourceSansPro-Regular.eot); 
+	src: url(/assets/font/SourceSansPro-Regular.eot?#iefix) format("embedded-opentype"), url(/assets/font/SourceSansPro-Regular.woff) format("woff"), url(/assets/font/SourceSansPro-Regular.ttf) format("truetype"); }
+
+@font-face { font-family: "SourceSansPro-Light"; 
+	src: url(/assets/font/SourceSansPro-Light.eot); 
+	src: url(/assets/font/SourceSansPro-Light.eot?#iefix) format("embedded-opentype"), url(/assets/font/SourceSansPro-Light.woff) format("woff"), url(/assets/font/SourceSansPro-Light.ttf) format("truetype"); }
+
+@font-face { font-family: "SourceSansPro-Bold"; 
+	src: url(/assets/font/SourceSansPro-Bold.eot); 
+	src: url(/assets/font/SourceSansPro-Bold.eot?#iefix) format("embedded-opentype"), url(/assets/font/SourceSansPro-Bold.woff) format("woff"), url(/assets/font/SourceSansPro-Bold.ttf) format("truetype"); }
+
+@font-face { font-family: "SourceSansPro-Semibold"; 
+	src: url(/assets/font/SourceSansPro-Semibold.eot); 
+	src: url(/assets/font/SourceSansPro-Semibold.eot?#iefix) format("embedded-opentype"), url(/assets/font/SourceSansPro-Semibold.woff) format("woff"), url(/assets/font/SourceSansPro-Semibold.ttf) format("truetype"); }
+
+@font-face { font-family: "SourceSansPro-ExtraLight"; 
+	src: url(/assets/font/SourceSansPro-ExtraLight.eot); 
+	src: url(/assets/font/SourceSansPro-ExtraLight.eot?#iefix) format("embedded-opentype"), url(/assets/font/SourceSansPro-ExtraLight.woff) format("woff"), url(/assets/font/SourceSansPro-ExtraLight.ttf) format("truetype"); }
+
+@font-face { font-family: "NotoSansKR-Medium-Hestia"; 
+	src: url(/assets/font/NotoSansKR-Medium-Hestia.eot); 
+	src: url(/assets/font/NotoSansKR-Medium-Hestia.eot?#iefix) format("embedded-opentype"), url(/assets/font/NotoSansKR-Medium-Hestia.woff) format("woff"), url(/assets/font/NotoSansKR-Medium-Hestia.ttf) format("truetype"); }
+
+@font-face { font-family: "NotoSansKR-Regular-Hestia"; 
+	src: url(/assets/font/NotoSansKR-Regular-Hestia.eot); 
+	src: url(/assets/font/NotoSansKR-Regular-Hestia.eot?#iefix) format("embedded-opentype"), url(/assets/font/NotoSansKR-Regular-Hestia.woff) format("woff"), url(/assets/font/NotoSansKR-Regular-Hestia.ttf) format("truetype"); }
+
+@font-face { font-family: "NotoSansKR-Thin-Hestia"; 
+	src: url(/assets/font/NotoSansKR-Thin-Hestia.eot); 
+	src: url(/assets/font/NotoSansKR-Thin-Hestia.eot?#iefix) format("embedded-opentype"), url(/assets/font/NotoSansKR-Thin-Hestia.woff) format("woff"), url(/assets/font/NotoSansKR-Thin-Hestia.ttf) format("truetype"); }
+
+@font-face { font-family: "NotoSansKR-Bold-Hestia"; 
+	src: url(/assets/font/NotoSansKR-Bold-Hestia.eot); 
+	src: url(/assets/font/NotoSansKR-Bold-Hestia.eot?#iefix) format("embedded-opentype"), url(/assets/font/NotoSansKR-Bold-Hestia.woff) format("woff"), url(/assets/font/NotoSansKR-Bold-Hestia.ttf) format("truetype"); }
+
+@font-face { font-family: "NotoSansKR-Black-Hestia"; 
+	src: url(/assets/font/NotoSansKR-Black-Hestia.eot); 
+	src: url(/assets/font/NotoSansKR-Black-Hestia.eot?#iefix) format("embedded-opentype"), url(/assets/font/NotoSansKR-Black-Hestia.woff) format("woff"), url(/assets/font/NotoSansKR-Black-Hestia.ttf) format("truetype"); }
+
+@font-face { font-family: "NotoSansKR-DemiLight-Hestia"; 
+	src: url(/assets/font/NotoSansKR-DemiLight-Hestia.eot); 
+	src: url(/assets/font/NotoSansKR-DemiLight-Hestia.eot?#iefix) format("embedded-opentype"), url(/assets/font/NotoSansKR-DemiLight-Hestia.woff) format("woff"), url(/assets/font/NotoSansKR-DemiLight-Hestia.ttf) format("truetype"); }
+
+@font-face { font-family: "Helvetica"; 
+	src: url(/assets/font/Helvetica.eot); 
+	src: url(/assets/font/Helvetica.eot?#iefix) format("embedded-opentype"), url(/assets/font/Helvetica.woff) format("woff"), url(/assets/font/Helvetica.ttf) format("truetype"); }
+
+@font-face { font-family: "HelveticaNarrow";
+	src: url(/assets/font/HelveticaNarrow.eot); 
+	src: url(/assets/font/HelveticaNarrow.eot?#iefix) format("embedded-opentype"), url(/assets/font/HelveticaNarrow.woff) format("woff"), url(/assets/font/HelveticaNarrow.ttf) format("truetype"); }
+
+@font-face { font-family: "HelveticaLight"; 
+	src: url(/assets/font/HelveticaLight.eot); 
+	src: url(/assets/font/HelveticaLight.eot?#iefix) format("embedded-opentype"), url(/assets/font/HelveticaLight.woff) format("woff"), url(/assets/font/HelveticaLight.ttf) format("truetype"); }
+
+@font-face { font-family: "HelveticaNarrowBold"; 
+	src: url(/assets/font/HelveticaNarrowBold.eot); 
+	src: url(/assets/font/HelveticaNarrowBold.eot?#iefix) format("embedded-opentype"), url(/assets/font/HelveticaNarrowBold.woff) format("woff"), url(/assets/font/HelveticaNarrowBold.ttf) format("truetype"); }
+
+@font-face { font-family: "HelveticaUltraCompressed"; 
+	src: url(/assets/font/HelveticaUltraCompressed.eot); 
+	src: url(/assets/font/HelveticaUltraCompressed.eot?#iefix) format("embedded-opentype"), url(/assets/font/HelveticaUltraCompressed.woff) format("woff"), url(/assets/font/HelveticaUltraCompressed.ttf) format("truetype"); }
+
+@font-face { font-family: "HelveticaCondensedBold"; 
+	src: url(/assets/font/HelveticaCondensedBold.eot); 
+	src: url(/assets/font/HelveticaCondensedBold.eot?#iefix) format("embedded-opentype"), url(/assets/font/HelveticaCondensedBold.woff) format("woff"), url(/assets/font/HelveticaCondensedBold.ttf) format("truetype"); }
+
+@font-face { font-family: "HelveticaCompressed"; 
+	src: url(/assets/font/HelveticaCompressed.eot); 
+	src: url(/assets/font/HelveticaCompressed.eot?#iefix) format("embedded-opentype"), url(/assets/font/HelveticaCompressed.woff) format("woff"), url(/assets/font/HelveticaCompressed.ttf) format("truetype"); }
+
+
+@font-face{font-family:'Rubik', sans-serif;
+	src:url(/assets/font/Rubik-Light);
+	src:url(/assets/font/Rubik-Light.otf);
+}
+
+/* Noto Sans Light */
+@font-face {
+    font-family:"Noto Sans Light";
+    font-style:normal;
+    font-weight:200;
+    src:url(/assets/font/NotoSans-Light.woff2) format("woff2"),
+       url(/assets/font/NotoSans-Light.woff) format("woff"),
+       url(/assets/font/NotoSans-Light.eot),
+       url(/assets/font/NotoSans-Light.eot?#iefix) format("embedded-opentype");
+ }
+
+
+/* crome 브라우저에서는 .eop파일을 지원해주지 않는다. 즉, 불필요한 다운로드가 일어나게 된다.
+이러한 불필요한 다운로드를 막기 위해서 format 속성을 사용한다.  format속성을 사용하면 브라우저에서 지원가능한 파일만 다운 받을수 있다.
+IE8이하 브라우저에서는 local()속성을 인식하지 못하기 때문에 local()속성은 대부분 사용하지 않는다*/

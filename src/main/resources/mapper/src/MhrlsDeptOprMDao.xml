@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.src.dao.MhrlsDeptOprMDao">
+
+<select id="getmhrlsDeptOprList" parameterType="lims.src.vo.MhrlsDeptOprMVo" resultType="lims.src.vo.MhrlsDeptOprMVo">
+
+         SELECT
+			IAA.MHRLS_CL_NM,
+			IAA.MHRLS_NM,
+			IAA.MHRLS_SEQNO,
+			IAA.INSPCT_INSTT_NM,
+			IAA.INSPCT_INSTT_CODE,
+			NVL(SUB.TEAMQY,0) AS TEAMQY,
+			IAA.MANAGE_DEPT_NM,
+			IAA.CHRG_TEAM_NM
+         FROM (SELECT 
+                IA.MHRLS_NM
+                ,IA.MHRLS_SEQNO
+                ,IB.INSPCT_INSTT_CODE
+                ,IB.INSPCT_INSTT_NM
+                ,(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE Q WHERE IA.MHRLS_CL_CODE = Q.CMMN_CODE)AS MHRLS_CL_NM
+                ,(SELECT INSPCT_INSTT_NM FROM SY_INSPCT_INSTT X WHERE IA.MANAGE_DEPT_CODE = X.INSPCT_INSTT_CODE) AS MANAGE_DEPT_NM
+                ,(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE CHT WHERE CHT.CMMN_CODE = IA.CHRG_TEAM_SE_CODE)AS CHRG_TEAM_NM             
+               FROM RS_MHRLS IA
+               INNER JOIN SY_INSPCT_INSTT IB ON 1=1 
+               WHERE IB.DELETE_AT = 'N'
+                 AND IB.USE_AT = 'Y'
+                 AND IB.MMNY_SE_CODE = 'SY01000001'
+                 AND IB.ANALS_AT = 'Y'
+                 AND IA.USE_AT = 'Y'
+                 AND IA.DELETE_AT = 'N'
+                 AND IB.DELETE_AT = 'N'
+                 AND IA.ANALS_REQRE_TIME > 0) IAA
+         LEFT OUTER JOIN (
+            SELECT
+                A.MHRLS_SEQNO
+                ,B.REQEST_DEPT_CODE
+                ,SUM((SELECT CASE WHEN C.INSPCT_INSTT_CODE = B.REQEST_DEPT_CODE THEN 1 ELSE 0 END FROM SY_INSPCT_INSTT C WHERE C.INSPCT_INSTT_CODE = B.REQEST_DEPT_CODE)) AS TEAMQY
+            FROM RS_MHRLS_OPR_SPLORE  A
+            LEFT OUTER JOIN IM_REQEST B ON A.REQEST_SEQNO = B.REQEST_SEQNO
+            WHERE A.OPR_DTE between #{dateDteSch} and #{dateDteFinish}
+            AND B.DELETE_AT='N'
+            GROUP BY A.MHRLS_SEQNO,B.REQEST_DEPT_CODE
+        ) SUB ON IAA.MHRLS_SEQNO = SUB.MHRLS_SEQNO
+         AND IAA.INSPCT_INSTT_CODE = SUB.REQEST_DEPT_CODE
+         ORDER BY MHRLS_SEQNO,IAA.INSPCT_INSTT_NM
+</select>
+
+
+
+
+
+
+
+
+
+
+
+</mapper>
+

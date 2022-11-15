@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.sys.dao.AuthMDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+
+	<select id="getAthMList" parameterType="lims.sys.vo.AuthMVo" resultType="lims.sys.vo.AuthMVo" >
+		SELECT
+		AUTHOR_CODE
+		,AUTHOR_NM
+		,AUTHOR_RM
+		,SORT_ORDR
+		,USE_AT
+		,LAST_CHANGER_ID
+		,TO_CHAR(LAST_CHANGE_DT,'YYYY-MM-DD HH24:MI:SS') LAST_CHANGE_DT
+		FROM SY_AUTHOR
+		WHERE 1=1
+		<if test=" useAt != null and useAt != '' ">
+			AND USE_AT = #{useAt}
+		</if>
+		<if test=" authorNm != null and authorNm != '' ">
+			AND AUTHOR_NM LIKE '%' ||  #{authorNm} || '%'
+		</if>
+		<if test=" userId != null and userId != '' ">
+			AND AUTHOR_CODE IN (
+			select SA.author_code
+			from SY_AUTHOR_USER SA
+			join sy_user SB on SA.user_id = SB.user_id
+			where SB.user_nm LIKE '%' ||  #{userId} || '%'
+			)
+		</if>
+		ORDER BY TO_NUMBER(SORT_ORDR), TO_NUMBER(AUTHOR_CODE)
+	</select>
+
+	<select id="getAllMenuList" parameterType="lims.sys.vo.AuthMVo" resultType="lims.sys.vo.AuthMVo" >
+		SELECT
+			B.MENU_NM AS TOP_MENU
+			 , A.MENU_SEQNO
+			 , A.MENU_NM
+		FROM SY_MENU A
+				 LEFT OUTER JOIN SY_MENU B ON A.UPPER_MENU_SEQNO = B.MENU_SEQNO
+		WHERE A.USE_AT = 'Y'
+		  AND CONNECT_BY_ISLEAF = 1
+			CONNECT BY PRIOR A.MENU_SEQNO = A.UPPER_MENU_SEQNO
+		START WITH A.UPPER_MENU_SEQNO IS NULL
+		ORDER SIBLINGS BY A.SORT_ORDR
+	</select>
+
+	<select id="getAthMenuList" parameterType="lims.sys.vo.AuthMVo" resultType="lims.sys.vo.AuthMVo" >
+		SELECT
+			A.MENU_SEQNO
+			 ,A.AUTHOR_CODE
+			 ,C.MENU_NM TOP_MENU
+			 ,B.MENU_NM
+		FROM SY_AUTHOR_MENU A
+				 LEFT JOIN SY_MENU B ON A.MENU_SEQNO = B.MENU_SEQNO
+				 LEFT OUTER JOIN SY_MENU C ON B.UPPER_MENU_SEQNO = C.MENU_SEQNO
+		WHERE 1=1
+		  AND A.AUTHOR_CODE = #{authorCode}
+	</select>
+
+	<select id="getAllUserList" resultType="lims.sys.vo.UserMVo" >
+		SELECT
+		SU.USER_ID,
+		SU.USER_NM,
+		SU.BPLC_CODE,
+		(SELECT SII.INSPCT_INSTT_NM FROM SY_INSPCT_INSTT SII WHERE SII.INSPCT_INSTT_CODE = SU.BPLC_CODE) AS BPLC_CODE_NM,
+		B.INSPCT_INSTT_NM AS DEPT_NM,
+		C.AUTHOR_CODE
+		FROM SY_USER SU
+		LEFT JOIN SY_INSPCT_INSTT B ON SU.DEPT_CODE = B.INSPCT_INSTT_CODE
+		LEFT JOIN SY_AUTHOR_USER C ON SU.USER_ID = C.USER_ID
+		AND C.AUTHOR_CODE = #{authorCode}     <!-- 화면에서 선택한 권한코드를 가진 사용자만 join -->
+		WHERE 1=1
+		AND SU.USE_AT = 'Y'
+		AND SU.DELETE_AT = 'N'
+		AND C.AUTHOR_CODE IS NULL  <!-- 권한이 부여되지 않은 사용자만 조회 -->
+		AND SU.SBSCRB_CONFM_AT = 'Y'  <!-- 가입 승인된 사용자 -->
+		AND SU.BPLC_CODE = <include refid="bplcCode"/>
+		<if test="pUserNm != null and pUserNm != ''">
+			AND SU.USER_NM LIKE '%' || #{pUserNm} || '%'
+		</if>
+<!--		<if test="bplcCodeSch != null and bplcCodeSch != ''">-->
+<!--			AND SU.BPLC_CODE = #{bplcCodeSch}-->
+<!--		</if>-->
+		<if test="deptCode != null and deptCode != ''">
+			AND SU.DEPT_CODE = #{deptCode}
+		</if>
+		<if test="limsUseAt != null and limsUseAt != ''">
+			AND B.LIMS_USE_AT = #{limsUseAt}
+		</if>
+		<if test="mmnySeCode != null and mmnySeCode != ''">
+			AND B.MMNY_SE_CODE = #{mmnySeCode}
+		</if>
+		<if test="userIdList != null and userIdList != ''">
+			<if test="userIdList.length > 0">
+				AND SU.USER_ID NOT IN
+				<foreach collection="userIdList" item="userId" open="(" close=")" separator=",">
+					#{userId}
+				</foreach>
+			</if>
+		</if>
+		<if test="notInSeqno != null and notInSeqno != ''">
+			AND SU.USER_ID NOT IN (
+				SELECT
+				    IA.USER_ID
+				FROM RS_CSTMR_DSCNTT_USER IA
+				WHERE IA.CSTMR_DSCNTT_SEQNO = #{notInSeqno} AND DELETE_AT = 'N'
+			)
+		</if>
+		ORDER BY BPLC_CODE_NM, DEPT_NM, USER_NM
+	</select>
+
+	<select id="getAthUserList" parameterType="lims.sys.vo.UserMVo" resultType="lims.sys.vo.UserMVo" >
+		SELECT SA.USER_NM USER_NM,
+			   SA.DEPT_CODE DEPT_CODE,
+			   SII.INSPCT_INSTT_NM DEPT_NM,
+			   SA.AUTHOR_CODE AUTHOR_CODE,
+			   SA.USER_ID,
+			   SA.STRE_AUTHOR_AT,
+			   SA.INQIRE_AUTHOR_AT,
+			   SA.DELETE_AUTHOR_AT,
+			   SA.OUTPT_AUTHOR_AT
+		FROM    (SELECT SU.USER_NM,
+						SU.DEPT_CODE,
+						SAE.USER_ID,
+						SAE.AUTHOR_CODE,
+						SAE.STRE_AUTHOR_AT,
+						SAE.INQIRE_AUTHOR_AT,
+						SAE.DELETE_AUTHOR_AT,
+						SAE.OUTPT_AUTHOR_AT
+				 FROM SY_AUTHOR_USER SAE
+						  LEFT JOIN SY_USER SU ON SU.USER_ID = SAE.USER_ID
+				 WHERE SU.DELETE_AT = 'N'
+				   AND SU.USE_AT ='Y'
+				   AND SU.SBSCRB_CONFM_AT = 'Y') SA
+					JOIN
+				SY_INSPCT_INSTT SII
+				ON SA.DEPT_CODE = SII.INSPCT_INSTT_CODE
+		WHERE SA.AUTHOR_CODE  = #{authorSeCode}
+		ORDER BY DEPT_NM, USER_NM
+	</select>
+
+
+	<!-- 권한메뉴 insert -->
+	<insert id="insAthMenu" parameterType="lims.sys.vo.AuthMVo"  >
+		INSERT INTO SY_AUTHOR_MENU
+		(
+			MENU_SEQNO,
+			AUTHOR_CODE,
+			LAST_CHANGER_ID,
+			LAST_CHANGE_DT
+		)
+		VALUES (
+				   #{menuSeqno},
+				   #{authorCode},
+				   #{lastChangerId},
+				   SYSDATE
+			   )
+	</insert>
+
+
+	<!-- 권한메뉴 delete -->
+	<delete id="delAthMenu" parameterType="lims.sys.vo.AuthMVo" >
+		DELETE FROM SY_AUTHOR_MENU WHERE MENU_SEQNO = #{menuSeqno} AND AUTHOR_CODE = #{authorCode}
+	</delete>
+
+	<!-- 권한사용자 update -->
+	<insert id="insAthUser" parameterType="lims.sys.vo.UserMVo"  >
+		<!-- 		update sy_user set -->
+		<!-- 		author_se_code = #{authorCode}, -->
+		<!-- 		last_changer_id = #{lastChangerId}, -->
+		<!-- 		last_change_dt = sysdate -->
+		<!-- 		where login_id = #{loginId}		 -->
+
+		INSERT INTO SY_AUTHOR_USER(
+		AUTHOR_CODE
+		,USER_ID
+		,STRE_AUTHOR_AT
+		,INQIRE_AUTHOR_AT
+		,DELETE_AUTHOR_AT
+		,OUTPT_AUTHOR_AT
+		,LAST_CHANGER_ID
+		,LAST_CHANGE_DT
+		)VALUES
+		(
+		#{authorCode},
+		#{userId},
+		#{streAuthorAt},
+		#{inqireAuthorAt},
+		#{deleteAuthorAt},
+		#{outptAuthorAt},
+		#{lastChangerId},
+		sysdate
+		)
+
+	</insert>
+
+	<!-- 사용자 권한에 추가시 계정 author_se_code 칼럼 값 수정 -->
+	<update id="updAthUser" parameterType="lims.sys.vo.UserMVo"  >
+		UPDATE SY_USER SET
+						   AUTHOR_SE_CODE = #{authorCode},
+						   LAST_CHANGER_ID = #{lastChangerId},
+						   LAST_CHANGE_DT = sysdate
+		WHERE USER_ID = #{userId}
+
+	</update>
+
+
+	<!-- 사용자 권한에서 삭제시 sy_user테이블에 계정 author_se_code 칼럼 값 삭제 -->
+	<update id="updAthUser2" parameterType="lims.sys.vo.UserMVo"  >
+		UPDATE SY_USER SET
+						   AUTHOR_SE_CODE = '',
+						   LAST_CHANGER_ID = #{lastChangerId},
+						   LAST_CHANGE_DT = sysdate
+		WHERE USER_ID = #{userId}
+
+	</update>
+
+	<!-- 권한에 사용자 추가시 SY_AUTHOR_USER 테이블에 이미 값이 있으면 권한 값만 수정 -->
+	<update id="updAthUser3" parameterType="lims.sys.vo.UserMVo"  >
+		UPDATE SY_AUTHOR_USER SET
+								  AUTHOR_CODE = #{authorCode},
+								  LAST_CHANGER_ID = #{lastChangerId},
+								  LAST_CHANGE_DT = sysdate
+		WHERE USER_ID = #{userId}
+
+	</update>
+
+	<!-- 사용자 권한에 추가시 계정 author_se_code 칼럼 값 수정 -->
+	<update id="updAthUserSS" parameterType="lims.sys.vo.UserMVo"  >
+		UPDATE SY_AUTHOR_USER SET
+			INQIRE_AUTHOR_AT = CASE WHEN #{inqireAuthorAt} ='true' THEN 'Y' ELSE 'N' END
+								, STRE_AUTHOR_AT = CASE WHEN #{streAuthorAt} ='true' THEN 'Y' ELSE 'N' END
+								, DELETE_AUTHOR_AT = CASE WHEN #{deleteAuthorAt} ='true' THEN 'Y' ELSE 'N' END
+								, OUTPT_AUTHOR_AT = CASE WHEN #{outptAuthorAt} ='true' THEN 'Y' ELSE 'N' END
+								, LAST_CHANGER_ID = #{lastChangerId}
+								, LAST_cHANGE_DT = SYSDATE
+		WHERE USER_ID = #{userId} AND AUTHOR_CODE = #{authorCode}
+
+	</update>
+
+
+	<!-- 권한사용자 (삭제)update -->
+	<update id="delAthUser" parameterType="lims.sys.vo.UserMVo"  >
+		DELETE FROM SY_AUTHOR_USER WHERE USER_ID = #{userId} AND AUTHOR_CODE = #{authorCode}
+	</update>
+
+	<select id="checkAuthUser" parameterType="lims.sys.vo.UserMVo" resultType="int">
+		select count(*) from SY_AUTHOR_USER where user_id=#{userId} and AUTHOR_CODE = #{authorCode}
+	</select>
+
+	<!-- 권한그룹 insert -->
+	<insert id="insAthGroup" parameterType="lims.sys.vo.AuthMVo"  >
+		INSERT INTO SY_AUTHOR
+		(
+			AUTHOR_CODE,
+			AUTHOR_NM,
+			AUTHOR_RM,
+			SORT_ORDR,
+			USE_AT,
+			LAST_CHANGER_ID,
+			LAST_CHANGE_DT
+		)
+		VALUES (
+				   SQ_SY_AUTHOR.NEXTVAL,
+				   #{authorNm},
+				   #{authorRm},
+				   NVL(#{sortOrdr}, (SELECT NVL(MAX(SORT_ORDR), 0) + 1 FROM SY_AUTHOR)),
+				   #{useAt},
+				   #{lastChangerId},
+				   SYSDATE
+			   )
+	</insert>
+
+	<!-- 권한그룹 update -->
+	<insert id="updAthGroup" parameterType="lims.sys.vo.AuthMVo" >
+
+		UPDATE SY_AUTHOR SET
+			AUTHOR_CODE = #{authorCode}
+						   , AUTHOR_NM = #{authorNm}
+						   , AUTHOR_RM = #{authorRm}
+						   , SORT_ORDR = NVL(#{sortOrdr}, (SELECT NVL(MAX(SORT_ORDR), 0) + 1 FROM SY_AUTHOR))
+						   , USE_AT = #{useAt}
+						   , LAST_CHANGER_ID = #{lastChangerId}
+						   , LAST_CHANGE_DT = SYSDATE
+		WHERE AUTHOR_CODE = #{authorCode}
+
+	</insert>
+
+	<!-- AUDIT TRAIL -->
+	<insert id="insertAudit" parameterType="lims.com.vo.AuditVo">
+		INSERT INTO AT_EXPR_HIST
+		(
+			HIST_SEQNO
+		,INSPCT_INSTT_CODE
+		,HIST_SE_CODE
+		,HIST_SE_DETAIL_CODE
+		,CHANGE_BFE_CN
+		,CHANGE_AFTER_CN
+		,REQEST_SEQNO
+		,EXPRIEM_SEQNO
+		,CONECT_IP
+		,MENU_URL
+		,CHANGER_ID
+		,LAST_CHANGER_ID
+		,HIST_PBLICTE_DT
+		,LAST_CHANGE_DT
+		)
+		VALUES
+			(
+				SQ_AT_EXPR_HIST.NEXTVAL
+			,#{inspctInsttCode}
+			,#{histSeCode}
+			,#{histSeDetailCode}
+			,#{changeBfeCn}
+			,FN_GET_CHANGE_AFTER_CN(#{histSeCode},#{histSeDetailCode},#{key1})
+			,#{reqestSeqno}
+			,#{expriemSeqno}
+			,#{conectIp}
+			,#{menuUrl}
+			,#{changerId}
+			,#{lastChangerId}
+			,SYSDATE
+			,SYSDATE
+			)
+
+	</insert>
+</mapper>

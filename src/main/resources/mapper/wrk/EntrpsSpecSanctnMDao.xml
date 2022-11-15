@@ -1,0 +1,418 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.EntrpsSpecSanctnMDao">
+
+	<!-- 결재 정보 조회-->
+	<select id="getCmSanctnInfo" parameterType="lims.wrk.vo.EntrpsSpecMVo" resultType="lims.wrk.vo.EntrpsSpecMVo">
+		SELECT   SANCTN_SEQNO
+				,TOT_SANCTNER_CO
+				,SANCTN_ORDR
+				,SANCTN_SE_CODE
+				,SANCTN_PROGRS_SITTN_CODE				
+				,SANCTNER_ID
+				,FN_GET_USERNM(SANCTNER_ID) AS USER_NM
+				,TO_CHAR(TO_DATE(SANCTN_DTE), 'YYYY-MM-DD') AS SANCTN_DTE
+				,USE_AT
+				,LAST_CHANGER_ID
+				,LAST_CHANGE_DT
+		  FROM   CM_SANCTN_INFO
+		 WHERE   SANCTN_SEQNO = #{sanctnSeqno}
+	</select>
+	
+	<!-- 사용자가 결재 순서인지 조회 -->
+	<select id="getApprovalCnt" parameterType="lims.wrk.vo.EntrpsSpecMVo" resultType="java.lang.Integer">
+		SELECT   COUNT(*)
+		  FROM   CM_SANCTN_INFO
+		 WHERE   SANCTN_SEQNO = #{sanctnSeqno}
+		   AND   SANCTNER_ID = '${@lims.util.GetUserSession@getUserId()}'
+		   AND   SANCTN_PROGRS_SITTN_CODE = 'CM01000001'
+	</select>
+	
+	
+	<!-- 승인자 기준으로 결재정보 조회 -->
+	<select id="getCmSanctnInfoSanctUser" parameterType="lims.wrk.vo.EntrpsSpecMVo" resultType="lims.wrk.vo.EntrpsSpecMVo">
+		SELECT   SANCTN_SEQNO
+				,TOT_SANCTNER_CO
+				,SANCTN_ORDR
+				,SANCTN_SE_CODE
+				,SANCTN_PROGRS_SITTN_CODE
+				,SANCTN_DTE
+				,SANCTNER_ID
+				,USE_AT
+				,LAST_CHANGER_ID
+				,LAST_CHANGE_DT
+		  FROM   CM_SANCTN_INFO
+		 WHERE   SANCTN_SEQNO = #{sanctnSeqno}
+		   AND   SANCTNER_ID = '${@lims.util.GetUserSession@getUserId()}'
+	</select>
+	
+	<!-- 결재 정보 승인자별 업데이트 -->
+	<update id="updCmSanctnInfo" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		UPDATE CM_SANCTN_INFO
+		   SET SANCTN_PROGRS_SITTN_CODE  = #{sanctnProgrsSittnCode}
+		      ,SANCTN_DTE  = TO_CHAR(SYSDATE,'YYYY-MM-DD')
+		      ,REAL_SANCTNER_ID  = '${@lims.util.GetUserSession@getUserId()}'
+		      ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			  ,LAST_CHANGE_DT = SYSDATE
+		 WHERE SANCTN_SEQNO = #{sanctnSeqno}
+		   AND SANCTNER_ID = '${@lims.util.GetUserSession@getUserId()}'
+	</update>
+	
+	<!-- 결재 정보 진행상황 -->
+	<update id="updCmSanctnSanctnProgrsSittnCode" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		UPDATE CM_SANCTN_INFO
+		   SET SANCTN_PROGRS_SITTN_CODE  = #{sanctnProgrsSittnCode}
+		      ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			  ,LAST_CHANGE_DT = SYSDATE
+		 WHERE SANCTN_SEQNO = #{sanctnSeqno}
+		   AND SANCTN_ORDR = #{sanctnOrdr}
+	</update>
+	
+	<!-- 진행상황 초기화 -->
+	<update id="updCmSanctnSanctn" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		UPDATE CM_SANCTN
+		   SET SANCTN_PROGRS_SITTN_CODE  = #{sanctnProgrsSittnCode}
+		      ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			  ,LAST_CHANGE_DT = SYSDATE
+		 WHERE SANCTN_SEQNO = #{sanctnSeqno}
+	</update>
+
+	<!-- 제품 고객사 결재정보 업데이트 -->
+	<update id="updatePrductCtmmnySanctnLineLastVerYn" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		UPDATE SY_PRDUCT_CTMMNY
+		   SET 
+		      LAST_VER_AT = CASE WHEN VER = #{ver} THEN 'Y' ELSE 'N' END
+		      ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			  ,LAST_CHANGE_DT = SYSDATE
+		 WHERE PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+		
+	</update>
+	
+	<!-- 이전버전 종료일 업데이트 -->
+	<update id="updatePrductCtmmnyPrevious" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		UPDATE SY_PRDUCT_CTMMNY
+		   SET 
+		      END_DTE = #{beginDte}
+		     ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			 ,LAST_CHANGE_DT = SYSDATE
+		 WHERE PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+		   AND VER = #{ver}
+		
+	</update>
+		
+	<!-- 제품 고객사 결재정보 업데이트 -->
+	<update id="updatePrductCtmmnySanctnLine" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+	
+		UPDATE SY_PRDUCT_CTMMNY
+		   SET CHCKER_SUMRY  = #{chckerSumry}
+		      ,SPPRTR_SUMRY  = #{spprtrSumry}
+		      ,CONFMER_SUMRY = #{confmerSumry}
+		      ,SANCTN_PROGRS_AT = #{sanctnProgrsAt}
+		      ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			  ,LAST_CHANGE_DT = SYSDATE
+		 WHERE PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+		   AND VER = #{ver}
+		
+	</update>
+	
+	<!-- 결재진행 여부 업데이트 -->
+	<update id="insReturnSanctn" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+	
+		UPDATE SY_PRDUCT_CTMMNY
+		   SET SANCTN_PROGRS_AT = #{sanctnProgrsAt}
+		      ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			  ,LAST_CHANGE_DT = SYSDATE
+		 WHERE PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}
+		   AND VER = #{ver}
+	</update>
+	
+	<!-- 2021-07-19 -->
+		<!-- 결재 승인-상세 -->
+	<update id="approveSanctnInfo" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		UPDATE CM_SANCTN_INFO
+		SET
+			SANCTN_PROGRS_SITTN_CODE = 'CM01000005'
+			, SANCTN_DTE = TO_DATE(SYSDATE,'YYYY-MM-DD')
+			, SANCTNER_ID = #{lastChangerId}
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE SANCTN_SEQNO = #{sanctnSeqno}
+		AND SANCTN_PROGRS_SITTN_CODE = 'CM01000002'
+		AND USE_AT = 'Y'
+
+		<selectKey keyProperty="sanctnNextCnt" resultType="java.lang.Integer" order="AFTER">
+			SELECT
+				COUNT(*) AS SANCTN_NEXT_CNT
+			FROM CM_SANCTN_INFO
+			WHERE SANCTN_SEQNO = #{sanctnSeqno}
+			AND SANCTN_PROGRS_SITTN_CODE = 'CM01000003'
+			AND USE_AT = 'Y'
+		</selectKey>
+	</update>
+	
+	<!--결재 승인-상세 후 다음승인자 지정 -->
+	<update id="approveSanctnInfoNextAppn" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		UPDATE CM_SANCTN_INFO A
+		SET
+			SANCTN_PROGRS_SITTN_CODE = 'CM01000002'
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE A.SANCTN_SEQNO = #{sanctnSeqno}
+		AND A.USE_AT = 'Y'
+		AND A.SANCTN_ORDR = (
+			SELECT MIN(SANCTN_ORDR) FROM CM_SANCTN_INFO
+			WHERE SANCTN_SEQNO = A.SANCTN_SEQNO
+			AND SANCTN_PROGRS_SITTN_CODE = 'CM01000003'
+			AND USE_AT = 'Y'
+		)
+	</update>
+	
+	<!-- 결재 승인 -->
+	<update id="approveSanctn" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		UPDATE CM_SANCTN A
+		SET
+			SANCTN_PROGRS_SITTN_CODE = (
+				SELECT MIN(SANCTN_PROGRS_SITTN_CODE)
+				FROM CM_SANCTN_INFO
+				WHERE SANCTN_SEQNO = A.SANCTN_SEQNO AND USE_AT = 'Y'
+			)
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE A.SANCTN_SEQNO = #{sanctnSeqno}
+		AND A.USE_AT = 'Y'
+	</update> 
+	<!-- 결재진행 여부 업데이트 -->
+	<insert id="insRtnSanctn" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+<!-- 		<selectKey keyProperty="ordr" resultType="java.lang.String"	order="BEFORE"> -->
+<!-- 			SELECT SQ_CM_RTN.NEXTVAL AS ORDR FROM DUAL -->
+<!-- 		</selectKey> -->
+		INSERT INTO CM_RTN
+		(
+		ORDR
+		,SANCTN_SEQNO
+		,RETURNER_ID
+		,RTN_RESN
+		,LAST_CHANGER_ID
+		,LAST_CHANGE_DT
+		)
+		VALUES
+		(
+		#{ordr}
+		,#{sanctnSeqno}
+		,'${@lims.util.GetUserSession@getUserId()}'
+		,#{rtnResn}
+		,#{lastChangerId}
+		,SYSDATE
+		)
+	</insert>
+	
+	<!-- 결재 정보 진행상황 초기화-->
+	<update id="updSanctnInfoProgrsCode" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		UPDATE CM_SANCTN_INFO
+		   SET SANCTN_PROGRS_SITTN_CODE  = #{sanctnProgrsSittnCode}
+		      ,LAST_CHANGER_ID = #{lastChangerId}
+			  ,LAST_CHANGE_DT = SYSDATE
+		 WHERE SANCTN_SEQNO = #{sanctnSeqno}
+	</update>
+	
+	<!-- 진행상황 초기화 -->
+	<update id="updSanctnProgrsCode" parameterType="lims.qa.vo.DocDto">
+		UPDATE CM_SANCTN
+		   SET SANCTN_PROGRS_SITTN_CODE  = #{sanctnProgrsSittnCode}
+		      ,LAST_CHANGER_ID = #{lastChangerId}
+			  ,LAST_CHANGE_DT = SYSDATE
+		 WHERE SANCTN_SEQNO = #{sanctnSeqno}
+	</update>
+	
+	<update id="updRtnSanctnUseAt" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+		UPDATE CM_RTN SET
+		   USE_AT = 'N' 
+		 WHERE SANCTN_SEQNO = #{sanctnSeqno}
+	</update>
+	
+<select id="getMtrilSeqno" parameterType="lims.wrk.vo.EntrpsSpecMVo" resultType="lims.wrk.vo.EntrpsSpecMVo">
+			SELECT MTRIL_SEQNO
+				FROM SY_PRDUCT_CTMMNY_MTRIL
+			WHERE prduct_Ctmmny_Seqno =  #{prductCtmmnySeqno}
+</select>	
+	
+	
+	
+	
+<select id="limitMtril" parameterType="lims.wrk.vo.EntrpsSpecMVo" resultType="lims.wrk.vo.EntrpsSpecMVo">
+
+
+ 
+SELECT 
+MTRIL_SDSPC_SEQNO
+,XC.EXPRIEM_SEQNO
+,XA.LSL_VALUE AS EXTRL_MUMM_VALUE
+,XA.LSL_VALUE_SE_CODE AS EXTRL_MUMM_VALUE_SE_CODE
+,XB.USL_VALUE AS EXTRL_MXMM_VALUE
+,XB.USL_VALUE_SE_CODE AS EXTRL_MXMM_VALUE_SE_CODE
+FROM SY_EXPRIEM XC
+
+INNER JOIN 
+
+
+
+
+(SELECT
+	MTRIL_SDSPC_SEQNO,
+	EXPRIEM_SEQNO,
+	EXPRIEM_NM,
+	LSL_VALUE,
+	LSL_VALUE_SE_CODE,
+	(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_cODE = LSL_VALUE_SE_CODE) AS lsl_value_se_nm
+FROM 
+(
+       SELECT 
+    ROW_NUMBER() OVER(PARTITION BY C.EXPRIEM_SEQNO ORDER BY TO_NUMBER(b.LSL_VALUE) DESC,b.LSL_VALUE_SE_CODE DESC) AS NUM1,
+    C.MTRIL_SDSPC_SEQNO,
+    A.MTRIL_SEQNO,
+    C.EXPRIEM_SEQNO,
+    D.EXPRIEM_NM,
+    B.LSL_VALUE,
+    B.LSL_VALUE_SE_CODE,
+    (SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_cODE = B.LSL_VALUE_SE_CODE) AS lsl_value_se_nm
+    FROM SY_PRDUCT_CTMMNY_MTRIL A
+
+    INNER JOIN SY_PRDUCT_CTMMNY_SDSPC B ON A.PRDUCT_CTMMNY_SEQNO = B.PRDUCT_CTMMNY_SEQNO 
+    INNER JOIN SY_MTRIL_SDSPC C ON B.MTRIL_SDSPC_SEQNO = C.MTRIL_SDSPC_SEQNO
+    INNER JOIN SY_EXPRIEM D ON C.EXPRIEM_SEQNO = D.EXPRIEM_SEQNO
+    INNER JOIN SY_PRDUCT_CTMMNY E ON B.PRDUCT_CTMMNY_SEQNO = E.PRDUCT_CTMMNY_SEQNO
+    INNER JOIN CM_SANCTN F ON E.SANCTN_SEQNO = F.SANCTN_SEQNO AND F.SANCTN_PROGRS_SITTN_CODE = 'CM01000005'
+
+    WHERE E.PRDUCT_CTMMNY_SEQNO =   #{prductCtmmnySeqno} /**P*/
+    AND A.DELETE_AT = 'N'
+    AND B.DELETE_AT = 'N'
+    AND B.LSL_VALUE IS NOT NULL
+    AND B.LSL_VALUE_SE_CODE IS NOT NULL
+) T
+
+WHERE T.NUM1 = 1
+ 
+) XA ON  XC.EXPRIEM_SEQNO = XA.EXPRIEM_SEQNO
+ 
+INNER JOIN 
+
+(
+SELECT
+	
+	EXPRIEM_SEQNO,
+	EXPRIEM_NM,
+	USL_VALUE,
+	USL_VALUE_SE_CODE,
+	(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_cODE = USL_VALUE_SE_CODE) AS USL_VALUE_SE_NM
+
+
+FROM
+
+(SELECT 
+	ROW_NUMBER() OVER(PARTITION BY C.EXPRIEM_SEQNO ORDER BY TO_NUMBER(b.USL_VALUE) ASC,b.USL_VALUE_SE_CODE DESC) AS NUM1,
+	C.MTRIL_SDSPC_SEQNO,
+	A.MTRIL_SEQNO,
+	C.EXPRIEM_SEQNO,
+	D.EXPRIEM_NM,
+	B.USL_VALUE,
+	B.USL_VALUE_SE_CODE,
+	
+	(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_cODE =B.USL_VALUE_SE_CODE) AS lsl_value_se_nm
+	FROM SY_PRDUCT_CTMMNY_MTRIL A
+	
+	INNER JOIN SY_PRDUCT_CTMMNY_SDSPC B ON A.PRDUCT_CTMMNY_SEQNO = B.PRDUCT_CTMMNY_SEQNO 
+	INNER JOIN SY_MTRIL_SDSPC C ON B.MTRIL_SDSPC_SEQNO = C.MTRIL_SDSPC_SEQNO
+	INNER JOIN SY_EXPRIEM D ON C.EXPRIEM_SEQNO = D.EXPRIEM_SEQNO
+	INNER JOIN SY_PRDUCT_CTMMNY E ON B.PRDUCT_CTMMNY_SEQNO = E.PRDUCT_CTMMNY_SEQNO
+	INNER JOIN CM_SANCTN F ON E.SANCTN_SEQNO = F.SANCTN_SEQNO AND F.SANCTN_PROGRS_SITTN_CODE = 'CM01000005'
+	
+	WHERE E.PRDUCT_CTMMNY_SEQNO = #{prductCtmmnySeqno}/**P*/
+	AND A.DELETE_AT = 'N'
+	AND B.DELETE_AT = 'N'
+  AND B.USL_VALUE IS NOT NULL
+  AND B.USL_VALUE_SE_CODE IS NOT NULL
+  ) T
+
+WHERE T.NUM1 = 1
+
+
+) XB  ON XB.EXPRIEM_SEQNO = XC.EXPRIEM_SEQNO
+	</select>
+	
+	
+	
+	
+<update id="updMtrilSdspc" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+	
+		UPDATE SY_MTRIL_SDSPC SET
+		    LSL_VALUE = #{extrlMummValue}
+			,LSL_VALUE_SE_CODE = #{extrlMummValueSeCode}
+			,USL_VALUE =#{extrlMxmmValue}
+			,USL_VALUE_SE_CODE = #{extrlMxmmValueSeCode}
+			
+			WHERE mtril_sdspc_seqno = #{mtrilSdspcSeqno}
+			and expriem_seqno = #{expriemSeqno} 
+	</update>
+	
+	
+	<insert id="insWdtbSanctn" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+	<selectKey keyProperty="wdtbSeqno" resultType="java.lang.String" order="BEFORE">
+			SELECT SQ_CM_WDTB.NEXTVAL AS WDTB_SEQNO FROM DUAL
+	</selectKey>
+		INSERT INTO CM_WDTB
+       (
+          WDTB_SEQNO
+         ,WDTB_PREARNGE_DT
+         ,SJ
+         ,CN
+         ,USE_AT
+         ,WDTB_POSBL_AT
+         ,LAST_CHANGER_ID
+         ,LAST_CHANGE_DT
+       )
+       VALUES
+       (
+         #{wdtbSeqno}
+         ,SYSDATE
+         ,#{sanctnSj}
+         ,#{sanctnCn}
+         ,'Y'
+         ,'Y'
+         ,#{lastChangerId}
+         ,SYSDATE
+       )
+	</insert>
+	
+	<insert id="insWdtbTrgterSanctn" parameterType="lims.wrk.vo.EntrpsSpecMVo">
+	<selectKey keyProperty="sanctnerId" resultType="java.lang.String" order="BEFORE">
+			SELECT SANCTNER_ID FROM CM_SANCTN_INFO
+      			WHERE sanctn_seqno = #{sanctnSeqno}
+      			AND SANCTN_PROGRS_SITTN_CODE = 'CM01000002'
+	</selectKey>
+	  
+        INSERT INTO CM_WDTB_TRGTER(
+		  WDTB_SEQNO
+		 ,ORDR
+         ,USER_ID
+         ,EMAIL_TRNSMIS_AT
+         ,EMAIL_TRNSMIS_COMPT_AT
+         ,DELETE_AT
+         ,LAST_CHANGER_ID
+         ,LAST_CHANGE_DT
+       )
+       VALUES
+       (
+       	  #{wdtbSeqno}
+       	 ,1
+       	 ,#{sanctnerId}
+         ,'Y'
+         ,'N'
+         ,'N'
+         ,#{lastChangerId}
+         ,SYSDATE
+       )
+	</insert>
+	
+	
+	
+</mapper>

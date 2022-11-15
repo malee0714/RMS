@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.rsc.dao.DlyvyMDao">
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+	<select id="getBacode" parameterType="lims.rsc.vo.DlyvyMVo"
+		resultType="lims.rsc.vo.DlyvyMVo">
+		SELECT
+		RP.CUSTLAB_SEQNO,
+		RPWB.PRDUCT_WRHSDLVR_BRCD_SEQNO,
+		RPWB.PRDUCT_WRHSDLVR_SEQNO ,
+		RPWB.PRDUCT_SEQNO ,
+		RPWB.BRCD ,
+		VALID_TMLMT_MTHD_CODE,
+		UNSEAL_AFTER_TMLMT,
+		CYCLE_CODE,
+		RPWB.VALID_DTE,
+		CASE
+		WHEN RP.VALID_TMLMT_MTHD_CODE = 'RS15000001' THEN (SELECT CMMN_CODE_NM
+		FROM SY_CMMN_CODE WHERE cmmn_code =RP.VALID_TMLMT_MTHD_CODE)
+		||RP.UNSEAL_AFTER_TMLMT
+		WHEN VALID_TMLMT_MTHD_CODE = 'RS15000002' THEN (SELECT CMMN_CODE_NM FROM
+		SY_CMMN_CODE WHERE cmmn_code =RP.VALID_TMLMT_MTHD_CODE)
+		||RP.UNSEAL_AFTER_TMLMT||
+		(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE cmmn_code =RP.CYCLE_CODE)
+		END AS VALIDDATE,
+		RPWB.LAST_CHANGER_ID,
+		RPWB.LAST_CHANGE_DT,
+		RPWB.BPLC_CODE,
+		RP.PRDUCT_CL_CODE,
+		RP.PRDUCT_NM,
+		RP.PRDUCT_PRPOS,
+		RP.CPCTY,
+		RP.USE_PURPS,
+		RPWB.WRHSDLVR_SE_CODE,
+		RPW.RM,
+		RP.NOW_INVNTRY_QY,
+		RPW.PACKNG_STTUS,
+		RP.VALID_TMLMT_TRGET_AT
+		FROM RS_PRDUCT_WRHSDLVR_BRCD RPWB
+		JOIN RS_PRDUCT_WRHSDLVR RPW ON RPW.PRDUCT_WRHSDLVR_SEQNO=
+		RPWB.PRDUCT_WRHSDLVR_SEQNO
+		JOIN RS_PRDUCT RP ON RP.PRDUCT_SEQNO =RPWB.PRDUCT_SEQNO
+		WHERE RPWB.BRCD = TRIM (#{brcd})   AND RPWB.DELETE_AT ='N' AND RP.USE_AT ='Y'
+			AND RPWB.BPLC_CODE = 	<include refid="bplcCode"/>
+	</select>
+
+	<select id="getBacodeChk" parameterType="lims.rsc.vo.DlyvyMVo"
+		resultType="lims.rsc.vo.DlyvyMVo">
+		SELECT
+		COUNT(RPWB.BRCD) as BRCD_CHKVAL
+		FROM RS_PRDUCT_WRHSDLVR_BRCD RPWB
+		JOIN RS_PRDUCT_WRHSDLVR RPW ON RPW.PRDUCT_WRHSDLVR_SEQNO=
+		RPWB.PRDUCT_WRHSDLVR_SEQNO
+		JOIN RS_PRDUCT RP ON RP.PRDUCT_SEQNO =RPWB.PRDUCT_SEQNO
+		WHERE BRCD =#{brcd} AND WRHSDLVR_SE_CODE = 'RS08000001' 
+		AND RPWB.DELETE_AT ='N' AND RP.VALID_TMLMT_TRGET_AT ='Y'
+		<if test="custlabSeqno != null and custlabSeqno != '' ">
+			AND RP.CUSTLAB_SEQNO = #{custlabSeqno}
+		</if>
+			AND RPWB.BPLC_CODE = <include refid="bplcCode"/>
+		OR BRCD IN (SELECT
+		BRCD FROM RS_PRDUCT_WRHSDLVR_BRCD RPWB
+		JOIN RS_PRDUCT RP ON RP.PRDUCT_SEQNO =  RPWB.PRDUCT_SEQNO
+		 WHERE RPWB.PRDUCT_SEQNO =#{prductSeqno} AND RPWB.DELETE_AT ='N' AND RPWB.WRHSDLVR_SE_CODE = 'RS08000001' 
+		AND (<![CDATA[RPWB.VALID_DTE> to_char(SYSDATE-1, 'YYYY-MM-DD')]]>AND <![CDATA[RPWB.VALID_DTE < #{validDte}]]>)
+		AND RP.VALID_TMLMT_TRGET_AT ='Y'
+		<if test="brcdList != null and brcdList != ''">
+			<if test="brcdList.length > 0">
+				AND RPWB.BRCD NOT IN (
+				<foreach collection="brcdList" item="brcdChk" separator=",">
+					#{brcdChk}
+				</foreach>
+				)
+			</if>
+		</if>
+		)
+	</select>
+
+	<select id="getPrductSeqno" parameterType="lims.rsc.vo.DlyvyMVo"
+		resultType="lims.rsc.vo.DlyvyMVo">
+		SELECT
+		RPWB.PRDUCT_SEQNO,
+		RPWB.BRCD ,
+		RPWB.VALID_DTE,
+		RPWB.BPLC_CODE
+		FROM RS_PRDUCT_WRHSDLVR_BRCD RPWB
+		JOIN RS_PRDUCT RP ON RP.PRDUCT_SEQNO = RPWB.PRDUCT_SEQNO
+		WHERE RPWB.BRCD = TRIM (#{brcd}) AND WRHSDLVR_SE_CODE = 'RS08000001'AND RPWB.DELETE_AT ='N'
+			AND RPWB.BPLC_CODE = 	<include refid="bplcCode"/>
+		<if test="custlabSeqno != null and custlabSeqno != '' ">
+			AND RP.CUSTLAB_SEQNO = #{custlabSeqno}
+		</if>
+	</select>
+
+	<update id="updateBrcd" parameterType="lims.rsc.vo.DlyvyMVo">
+		UPDATE RS_PRDUCT_WRHSDLVR_BRCD
+		SET WRHSDLVR_SE_CODE =#{wrhsdlvrSeCode},
+		WRHSDLVR_DT =SYSDATE,
+		VALID_DTE =#{validDte},
+		LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}' ,
+		LAST_CHANGE_DT=SYSDATE
+		WHERE BRCD = #{brcd}
+		AND BPLC_CODE =	<include refid="bplcCode"/>
+	</update>
+
+	<select id="checkBrcd" parameterType="lims.rsc.vo.DlyvyMVo"
+		resultType="int">
+		SELECT
+		COUNT(BRCD)
+		FROM RS_PRDUCT_WRHSDLVR_BRCD
+		WHERE PRDUCT_SEQNO=#{prductSeqno} AND DELETE_AT ='N'  AND WRHSDLVR_SE_CODE = 'RS08000001' 
+		AND (<![CDATA[VALID_DTE> to_char(SYSDATE-1, 'YYYY-MM-DD')]]>AND <![CDATA[VALID_DTE < #{validDte}]]>)
+	</select>
+	<select id="checkBrcds" parameterType="lims.rsc.vo.DlyvyMVo"
+		resultType="int">
+		SELECT
+		COUNT(BRCD)
+		FROM RS_PRDUCT_WRHSDLVR_BRCD
+		WHERE PRDUCT_SEQNO=#{prductSeqno} AND DELETE_AT ='N' AND WRHSDLVR_SE_CODE = 'RS08000001' AND
+		VALID_DTE = #{validDte}
+	</select>
+
+
+	<select id="getSeqno" parameterType="lims.rsc.vo.DlyvyMVo"
+		resultType="lims.rsc.vo.DlyvyMVo">
+		SELECT
+		PRDUCT_WRHSDLVR_BRCD_SEQNO,
+		WRHSDLVR_SE_CODE,
+		BPLC_CODE
+		FROM RS_PRDUCT_WRHSDLVR_BRCD
+		WHERE BRCD=#{brcd}AND DELETE_AT ='N'  AND WRHSDLVR_SE_CODE =#{wrhsdlvrSeCode} AND BPLC_CODE = 	<include refid="bplcCode"/>
+	</select>
+
+	<select id="getPopupBrcd" parameterType="lims.rsc.vo.DlyvyMVo"
+		resultType="lims.rsc.vo.DlyvyMVo">
+		SELECT
+		RP.CUSTLAB_SEQNO,
+		(SELECT CUSTLAB_NM FROM RS_CUSTLAB A  WHERE A.CUSTLAB_SEQNO = RP.CUSTLAB_SEQNO) AS CUSTLAB_NM,
+		RPWB.PRDUCT_WRHSDLVR_BRCD_SEQNO,
+		RPWB.PRDUCT_WRHSDLVR_SEQNO ,
+		RPWB.PRDUCT_SEQNO ,
+		RPWB.BRCD ,
+		VALID_TMLMT_MTHD_CODE,
+		UNSEAL_AFTER_TMLMT,
+		CYCLE_CODE,
+		RPWB.VALID_DTE,
+		WRHSDLVR_DT,
+		CASE
+		WHEN RP.VALID_TMLMT_MTHD_CODE = 'RS15000001' THEN (SELECT CMMN_CODE_NM
+		FROM SY_CMMN_CODE WHERE cmmn_code =RP.VALID_TMLMT_MTHD_CODE)
+		||RP.UNSEAL_AFTER_TMLMT
+		WHEN VALID_TMLMT_MTHD_CODE = 'RS15000002' THEN (SELECT CMMN_CODE_NM FROM
+		SY_CMMN_CODE WHERE cmmn_code =RP.VALID_TMLMT_MTHD_CODE)
+		||RP.UNSEAL_AFTER_TMLMT||
+		(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE cmmn_code =RP.CYCLE_CODE)
+		END AS VALIDDATE,
+		RPWB.LAST_CHANGER_ID,
+		RPWB.LAST_CHANGE_DT,
+		RP.BPLC_CODE,
+		RP.PRDUCT_CL_CODE,
+		RP.PRDUCT_NM,
+		RP.PRDUCT_PRPOS,
+		RP.CPCTY,
+		RP.USE_PURPS,
+		RPWB.WRHSDLVR_SE_CODE,
+    FN_GET_CDDTLNM(RPWB.WRHSDLVR_SE_CODE) AS WRHSDLVR_SE_CODE_NM,
+		RPW.RM,
+		RP.NOW_INVNTRY_QY,
+		RPW.PACKNG_STTUS,
+		RP.VALID_TMLMT_TRGET_AT,
+   (SELECT USER_NM FROM SY_User WHERE USer_id = RPWB.LAST_CHANGER_ID) as USER_ID
+		FROM RS_PRDUCT RP 
+		JOIN RS_PRDUCT_WRHSDLVR_BRCD RPWB ON RP.PRDUCT_SEQNO =RPWB.PRDUCT_SEQNO
+		JOIN RS_PRDUCT_WRHSDLVR RPW ON RPW.PRDUCT_WRHSDLVR_SEQNO=RPWB.PRDUCT_WRHSDLVR_SEQNO
+		WHERE RP.PRDUCT_SEQNO =#{prductSeqno} 	AND RPWB.DELETE_AT ='N' AND
+		<if test="exceptionCode != null and exceptionCode !=''">
+			(
+		</if>
+		RPWB.WRHSDLVR_SE_CODE = #{wrhsdlvrSeCode}
+		<if test="exceptionCode != null and exceptionCode !=''">
+			OR RPWB.WRHSDLVR_SE_CODE = #{exceptionCode})
+		</if>
+    
+ 	</select>
+
+	<insert id="updateBrcdHist" parameterType="lims.rsc.vo.DlyvyMVo">
+		<selectKey keyProperty="ordr" resultType="lims.rsc.vo.DlyvyMVo"
+			order="BEFORE">
+			SELECT NVL(MAX(B.ORDR),0) AS ORDR FROM (select #{prductWrhsdlvrBrcdSeqno}
+			as PRDUCT_WRHSDLVR_BRCD_SEQNO from dual ) A LEFT OUTER JOIN
+			(SELECT PRDUCT_WRHSDLVR_BRCD_SEQNO , ORDR FROM RS_PRDUCT_WRHSDLVR_BRCD_HIST
+			WHERE PRDUCT_WRHSDLVR_BRCD_SEQNO=#{prductWrhsdlvrBrcdSeqno})B
+			ON A.PRDUCT_WRHSDLVR_BRCD_SEQNO = B.PRDUCT_WRHSDLVR_BRCD_SEQNO
+		</selectKey>
+		INSERT INTO RS_PRDUCT_WRHSDLVR_BRCD_HIST(
+		PRDUCT_WRHSDLVR_BRCD_SEQNO
+		,ORDR
+		,WRHSDLVR_SE_CODE
+		,WRHSDLVR_DT
+		,WRHSDLVRMAN_ID
+		,LAST_CHANGER_ID
+		,LAST_CHANGE_DT
+		,BPLC_CODE
+		) VALUES (
+		#{prductWrhsdlvrBrcdSeqno}
+		,#{ordr}+1
+		, #{wrhsdlvrSeCode}
+		, SYSDATE
+		, '${@lims.util.GetUserSession@getUserId()}'
+		, '${@lims.util.GetUserSession@getUserId()}'
+		, SYSDATE
+		,	<include refid="bplcCode"/>
+		)
+	</insert>
+</mapper>

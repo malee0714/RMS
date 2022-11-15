@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.src.dao.PedigeeMDao">
+	<select id="getUpperPrduct" parameterType="lims.src.vo.PedigeeMVo" resultType="lims.src.vo.PedigeeMVo">
+		SELECT
+			DISTINCT B.PRDUCT_UPPER_SEQNO VALUE,
+			B.PRDUCT_DETAIL_NM KEY
+		FROM
+			SY_PRDUCT A 
+			LEFT OUTER JOIN SY_PRDUCT_UPPER B ON A.PRDUCT_UPPER_SEQNO = B.PRDUCT_UPPER_SEQNO 
+		WHERE DEPT_CODE = #{deptCodeSch}
+		AND PROCESS_TY_CODE = #{processTySch} AND A.DELETE_AT = 'N' AND B.DELETE_AT = 'N'
+	</select>
+	
+	<select id="getReqestPrductList" resultType="lims.src.vo.PedigeeMVo" parameterType="lims.src.vo.PedigeeMVo">
+		SELECT
+			/*+ OPT_PARAM('_optimizer_connect_by_cost_based', 'false') */
+			IB.MTRIL_SEQNO
+			,IA.UPPER_REQEST_SEQNO
+			,IB.REQEST_SEQNO
+			,SP.MTRIL_CODE
+			,LOT_NO
+			,REQEST_DTE
+			,MNFCTUR_DTE
+			,DEPT.INSPCT_INSTT_NM AS REQEST_DEPT_NM
+			,SP.MTRIL_NM
+			,IB.JDGMNT_WORD_CODE
+			,SCC2.CMMN_CODE_NM PROGRS_SITTN_CODE_NM
+			,SCC3.CMMN_CODE_NM JDGMNT_WORD_CODE_NM
+		    ,SCC4.CMMN_CODE_NM INSPCT_TY_NM
+			,IB.FRST_LOT_NO
+			,SP.MTRIL_NM
+		FROM (
+				SELECT
+				    a.REQEST_SEQNO, NULL AS upper_reqest_seqno
+				FROM IM_REQEST a
+				WHERE 1=1
+				and a.REQEST_SEQNO IN (
+						SELECT
+							CONNECT_by_root b.REQEST_SEQNO
+						<if test='lotTrace != null and "Y".equals(lotTrace)'>
+							FROM IM_REQEST_UPPER_LOT_ID b
+						</if>
+						<if test='lotTrace != null and "N".equals(lotTrace)'>
+							FROM IM_REQEST_UPPER_REAL_LOT_ID b
+						</if>
+						START WITH b.LOT_ID_REQEST_SEQNO IN (
+							SELECT
+								IA.REQEST_SEQNO
+							FROM IM_REQEST IA
+							JOIN SY_MTRIL IB ON IA.MTRIL_SEQNO = IB.MTRIL_SEQNO
+							WHERE IA.DELETE_AT= 'N'
+							<if test="authorSeCode == 'SY09000004'">
+								AND IA.CTMMNY_OTHBC_AT = 'Y'
+							</if>
+							<if test="bplcCode != null and bplcCode != ''">
+								AND IA.BPLC_CODE = #{bplcCode}
+							</if>
+							<if test="lotNo != null and lotNo != ''">
+								AND IA.LOT_NO LIKE '%' || UPPER(#{lotNo}) || '%'
+							</if>
+							<if test="reqestNo != null and reqestNo != ''">
+								AND IA.REQEST_NO LIKE '%' || UPPER(#{reqestNo}) || '%'
+							</if>
+							<if test="mtrilNm != null and mtrilNm != ''">
+								AND IB.MTRIL_NM LIKE '%' || #{mtrilNm} || '%'
+							</if>
+							<if test="reqestBeginDte != null and reqestBeginDte != ''">
+								<if test="reqestEndDte != null and reqestEndDte != ''">
+									AND IA.REQEST_DTE BETWEEN #{reqestBeginDte} AND #{reqestEndDte}
+								</if>
+								<if test="reqestEndDte == null or reqestEndDte == ''">
+									AND IA.REQEST_DTE <![CDATA[ > ]]> #{reqestBeginDte}
+								</if>
+							</if>
+							<if test="mnfcturBeginDte != null and mnfcturBeginDte != ''">
+								<if test="mnfcturEndDte != null and mnfcturEndDte != ''">
+									AND IA.MNFCTUR_DTE BETWEEN #{mnfcturBeginDte} AND #{mnfcturEndDte}
+								</if>
+								<if test="mnfcturEndDte == null or mnfcturEndDte == ''">
+									AND IA.MNFCTUR_DTE <![CDATA[ > ]]> #{mnfcturBeginDte}
+								</if>
+							</if>
+							<if test="progrsSittnCode != null and progrsSittnCode != ''">
+								AND IA.PROGRS_SITTN_CODE = #{progrsSittnCode}
+							</if>
+							<if test="inspctTyCode != null and inspctTyCode != ''">
+								AND IA.INSPCT_TY_CODE = #{inspctTyCode}
+							</if>
+						)
+						CONNECT BY PRIOR b.REQEST_SEQNO =  b.LOT_ID_REQEST_SEQNO
+				)
+				UNION
+				SELECT B.LOT_ID_REQEST_SEQNO, B.REQEST_SEQNO AS upper_reqest_seqno
+				<if test='lotTrace != null and "Y".equals(lotTrace)'>
+					FROM IM_REQEST_UPPER_LOT_ID B
+				</if>
+				<if test='lotTrace != null and "N".equals(lotTrace)'>
+					FROM IM_REQEST_UPPER_REAL_LOT_ID B
+				</if>
+				WHERE B.BPLC_CODE = #{bplcCode}
+				UNION
+				SELECT
+				    C.REQEST_SEQNO, NULL AS upper_reqest_seqno
+				FROM IM_REQEST C
+				WHERE C.BPLC_CODE = #{bplcCode}
+				<if test="authorSeCode == 'SY09000004'">
+					AND C.CTMMNY_OTHBC_AT = 'Y'
+				</if>
+				<if test="lotNo != null and lotNo != ''">
+					AND C.LOT_NO LIKE '%' || UPPER(#{lotNo}) || '%'
+				</if>
+				<if test="reqestNo != null and reqestNo != ''">
+					AND C.REQEST_NO LIKE '%' || UPPER(#{reqestNo}) || '%'
+				</if>
+				<if test="mtrilNm != null and mtrilNm != ''">
+					AND C.MTRIL_NM LIKE '%' || #{mtrilNm} || '%'
+				</if>
+				<if test="reqestBeginDte != null and reqestBeginDte != ''">
+					<if test="reqestEndDte != null and reqestEndDte != ''">
+						AND C.REQEST_DTE BETWEEN #{reqestBeginDte} AND #{reqestEndDte}
+					</if>
+					<if test="reqestEndDte == null or reqestEndDte == ''">
+						AND C.REQEST_DTE <![CDATA[ > ]]> #{reqestBeginDte}
+					</if>
+				</if>
+				<if test="mnfcturBeginDte != null and mnfcturBeginDte != ''">
+					<if test="mnfcturEndDte != null and mnfcturEndDte != ''">
+						AND C.MNFCTUR_DTE BETWEEN #{mnfcturBeginDte} AND #{mnfcturEndDte}
+					</if>
+					<if test="mnfcturEndDte == null or mnfcturEndDte == ''">
+						AND C.MNFCTUR_DTE <![CDATA[ > ]]> #{mnfcturBeginDte}
+					</if>
+				</if>
+				<if test="progrsSittnCode != null and progrsSittnCode != ''">
+					AND C.PROGRS_SITTN_CODE = #{progrsSittnCode}
+				</if>
+				<if test="inspctTyCode != null and inspctTyCode != ''">
+					AND C.INSPCT_TY_CODE = #{inspctTyCode}
+				</if>
+		) ia
+		JOIN IM_REQEST IB ON IA.REQEST_SEQNO = IB.REQEST_SEQNO
+		LEFT JOIN SY_CMMN_CODE SCC2 ON SCC2.CMMN_CODE = IB.PROGRS_SITTN_CODE
+		LEFT JOIN SY_CMMN_CODE SCC3 ON SCC3.CMMN_CODE = IB.JDGMNT_WORD_CODE
+		LEFT JOIN SY_CMMN_CODE SCC4 ON SCC4.CMMN_CODE = IB.INSPCT_TY_CODE
+		LEFT JOIN SY_MTRIL SP ON SP.MTRIL_SEQNO = IB.MTRIL_SEQNO
+		JOIN SY_INSPCT_INSTT DEPT ON DEPT.INSPCT_INSTT_CODE = IB.REQEST_DEPT_CODE
+		WHERE IB.DELETE_AT = 'N'
+		<if test="authorSeCode == 'SY09000004'">
+			AND IB.CTMMNY_OTHBC_AT = 'Y'
+		</if>
+		START WITH ia.upper_reqest_seqno IS NULL
+		CONNECT BY prior ia.REQEST_SEQNO = ia.upper_reqest_seqno
+	</select>
+	
+	<select id="getReqestIssueList" resultType="lims.test.vo.IssueMVo" parameterType="lims.test.vo.IssueMVo">
+		SELECT
+			*
+		FROM
+			IM_ISSUE
+		WHERE REQEST_SEQNO = #{reqestSeqno}
+	</select> 
+</mapper>
+	

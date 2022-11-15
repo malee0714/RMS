@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.lng.dao.CountryLangMDao">
+
+	<select id="getConlang" parameterType="lims.lng.vo.CountryLangMVo" resultType="lims.lng.vo.CountryLangMVo">	
+		SELECT 
+		    A.LANG_MASTR_SEQNO,
+		    A.LANG_NM AS DETAILNM,
+		    B.NATION_LANG_CODE,
+		    B.DELETE_AT,
+		    B.LANG_DETAIL_SEQNO,
+		    B.LANG_NM,
+		    NVL(B.USE_AT, 'Y') AS USE_AT,
+		    A.LANG_CODE
+		FROM SY_LANG_MASTR A
+		LEFT OUTER JOIN SY_LANG_DETAIL B ON A.LANG_MASTR_SEQNO = B.LANG_MASTR_SEQNO
+		<if test="nationLangCode != null and nationLangCode != ''">
+			AND NATION_LANG_CODE = #{nationLangCode}
+		</if>
+		WHERE A.DELETE_AT = 'N'
+		AND A.USE_AT = 'Y'
+			<if test=" detailNmSch != null and detailNmSch != '' ">
+				AND UPPER(A.LANG_NM) LIKE '%'||UPPER(#{detailNmSch})||'%'
+			</if>
+			
+			<if test=" langNmSch != null and langNmSch != '' ">
+				AND UPPER(B.LANG_NM) LIKE '%'||UPPER(#{langNmSch})||'%'
+			</if>
+			
+			<if test='useAtSch == "Y"'>
+				AND B.USE_AT = 'Y'
+			</if>
+				 
+			<if test='useAtSch == "N"'>
+				AND B.USE_AT = 'N'
+			</if>	
+			ORDER BY LANG_NM ASC
+	</select>
+	
+	<insert id="saveConlang" parameterType="lims.lng.vo.CountryLangMVo">
+		INSERT INTO SY_LANG_DETAIL(
+			LANG_DETAIL_SEQNO
+			,LANG_MASTR_SEQNO
+			,NATION_LANG_CODE
+			,USE_AT
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,LANG_NM
+			) VALUES (
+			SQ_SY_LANG_DETAIL.NEXTVAL
+			, #{langMastrSeqno}
+			, #{nationLangCode}
+			, CASE WHEN #{useAt} IS NULL THEN 'Y' ELSE #{useAt} END
+			, 'N'
+			, #{lastChangerId}
+			, SYSDATE 
+			, #{langNm}
+			)
+	</insert> 	
+	
+	<!-- 중복체크  -->
+	<select id="conlangChk" parameterType="lims.lng.vo.CountryLangMVo" resultType="int">
+		SELECT COUNT(LANG_NM) AS conlangChk FROM SY_LANG_DETAIL WHERE DELETE_AT ='N' AND LANG_NM = #{langNm}
+	</select>
+	
+	
+	<update id="upConlang" parameterType="lims.lng.vo.CountryLangMVo">
+		UPDATE SY_LANG_DETAIL SET
+			 LANG_MASTR_SEQNO = #{langMastrSeqno}
+			, NATION_LANG_CODE = #{nationLangCode}
+			, USE_AT = #{useAt}
+			, DELETE_AT = 'N'
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+			, LANG_NM = #{langNm}
+		WHERE LANG_DETAIL_SEQNO = #{langDetailSeqno}
+		AND DELETE_AT = 'N'	
+	</update>
+	
+	<update id="delConlang" parameterType="lims.lng.vo.CountryLangMVo">
+		UPDATE SY_LANG_DETAIL SET		
+			, LANG_MASTR_SEQNO = #{langMastrSeqno}
+			, NATION_LANG_CODE = #{nationLangCode}
+			, USE_AT = #{useAt}
+			, DELETE_AT = 'Y'
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+			, LANG_NM = #{langNm}
+		WHERE LANG_DETAIL_SEQNO = #{langDetailSeqno}
+		AND DELETE_AT = 'N'	
+	</update>
+
+</mapper>

@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.sys.dao.MenuMDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+
+	<select id="getMeuMList" parameterType="lims.sys.vo.MenuMVo"
+		resultType="lims.sys.vo.MenuMVo">
+			WITH T AS(SELECT MENU_SEQNO, UPPER_MENU_SEQNO, MENU_NM,MNL_CN, MENU_DC, USE_AT, SORT_ORDR, MENU_URL , MNL_USE_AT, CTMMNY_OTHBC_AT, level menu_Lv, LAST_CHANGER_ID, LAST_CHANGE_DT
+            FROM SY_MENU SY
+            WHERE USE_AT = 'Y'
+            <if test=" menuSeqno != null and menuSeqno != '' ">
+			AND MENU_SEQNO = #{menuSeqno}
+			</if>
+			<if test=" menuUrl != null and menuUrl != '' ">
+				AND MENU_URL = #{menuUrl}
+			</if>
+            CONNECT BY PRIOR SY.MENU_SEQNO = SY.UPPER_MENU_SEQNO
+            START WITH SY.UPPER_MENU_SEQNO IS NULL
+            ORDER SIBLINGS BY SORT_ORDR)
+
+			SELECT * FROM T, (SELECT MENU_SEQNO
+            FROM SY_MENU
+            WHERE USE_AT = 'Y'
+            START WITH
+			<choose>
+				<when test="menuNmSearch != null and menuNmSearch != '' ">
+					MENU_NM LIKE '%' || #{menuNmSearch} || '%'
+				</when>
+				<when test="menuTwo != null and menuTwo != '' and menuTwo != 0 ">
+					MENU_SEQNO = #{menuTwo}
+				</when>
+				<when test="menuOne != null and menuOne != '' and menuOne != 0 ">
+					MENU_SEQNO = #{menuOne}
+				</when>
+				<otherwise>
+					UPPER_MENU_SEQNO IS NULL
+				</otherwise>
+			</choose>
+            CONNECT BY PRIOR MENU_SEQNO = UPPER_MENU_SEQNO
+            GROUP BY MENU_SEQNO
+            UNION
+            SELECT MENU_SEQNO
+            FROM SY_MENU
+            WHERE USE_AT = 'Y'
+            START WITH
+			<choose>
+				<when test="menuNmSearch != null and menuNmSearch != '' ">
+					MENU_NM LIKE '%' || #{menuNmSearch} || '%'
+				</when>
+				<when test="menuTwo != null and menuTwo != '' and menuTwo != 0 ">
+					MENU_SEQNO = #{menuTwo}
+				</when>
+				<when test="menuOne != null and menuOne != '' and menuOne != 0 ">
+					MENU_SEQNO = #{menuOne}
+				</when>
+				<otherwise>
+					UPPER_MENU_SEQNO IS NULL
+				</otherwise>
+			</choose>
+            CONNECT BY PRIOR UPPER_MENU_SEQNO = MENU_SEQNO
+            GROUP BY MENU_SEQNO
+            ) M
+        	WHERE T.MENU_SEQNO = M.MENU_SEQNO
+	</select>
+
+
+
+	<insert id="insMeuLv" parameterType="lims.sys.vo.MenuMVo">
+		INSERT INTO SY_MENU (
+	 		MENU_SEQNO
+	 		,UPPER_MENU_SEQNO
+	 		,MENU_NM
+	 		,MENU_DC
+	 		,USE_AT
+	 		,SORT_ORDR
+	 		,MENU_URL
+	 		,MNL_USE_AT
+	 		,CTMMNY_OTHBC_AT
+	 		,LAST_CHANGER_ID
+	 		,LAST_CHANGE_DT
+		) VALUES (
+			SQ_SY_MENU.NEXTVAL
+			,#{upperMenuSeqno}
+			,#{menuNm}
+			,#{menuDc}
+			,#{useAt}
+			,(SELECT NVL(MAX(SORT_ORDR),0)+1 FROM SY_MENU WHERE UPPER_MENU_SEQNO = #{upperMenuSeqno})
+			,#{menuUrl}
+			,#{mnlUseAt}
+			,#{ctmmnyOthbcAt}
+			,<include refid="loginId"/>
+			,SYSDATE
+		)
+	</insert>
+
+	<update id="updMenuM" parameterType="lims.sys.vo.MenuMVo">
+		UPDATE SY_MENU SET
+			MENU_SEQNO        = #{menuSeqno}
+			,UPPER_MENU_SEQNO = #{upperMenuSeqno}
+			,MENU_NM          = #{menuNm}
+			,MENU_DC          = #{menuDc}
+			,USE_AT           = #{useAt}
+			,SORT_ORDR        = #{sortOrdr}
+			,MENU_URL         = #{menuUrl}
+			,MNL_USE_AT       = #{mnlUseAt}
+			,CTMMNY_OTHBC_AT  = #{ctmmnyOthbcAt}
+			,LAST_CHANGER_ID  = <include refid="loginId"/>
+			,LAST_CHANGE_DT   = SYSDATE
+		WHERE MENU_SEQNO = #{menuSeqno}
+	</update>
+
+	<select id="getHirMenuList" parameterType="lims.sys.vo.MenuMVo" resultType="lims.sys.vo.MenuMVo">
+		SELECT
+		    MENU_SEQNO VALUE
+		    ,REGEXP_REPLACE(LPAD('-',1*(LEVEL-1)), '', '-')|| DECODE(LEVEL-1,0,'',LEVEL-1 ||'차 메뉴 : ') || MENU_NM KEY
+		FROM SY_MENU
+		WHERE LEVEL != 4
+		START WITH UPPER_MENU_SEQNO IS NULL
+		CONNECT BY PRIOR MENU_SEQNO = UPPER_MENU_SEQNO
+	</select>
+
+	<select id="getMenuLvList" parameterType="lims.sys.vo.MenuMVo"
+		resultType="lims.sys.vo.MenuMVo">
+		SELECT LEVEL VALUE, MENU_NM KEY
+		FROM
+		SY_MENU
+		WHERE LEVEL != 4
+		START WITH UPPER_MENU_SEQNO IS NULL
+		CONNECT BY PRIOR
+		MENU_SEQNO = UPPER_MENU_SEQNO
+		ORDER SIBLINGS BY UPPER_MENU_SEQNO, SORT_ORDR
+	</select>
+
+	<select id="getMenuOneList" parameterType="lims.sys.vo.MenuMVo"
+		resultType="lims.sys.vo.MenuMVo">
+
+		SELECT MENU_SEQNO VALUE,  REGEXP_REPLACE(LPAD('-',1*(LEVEL-1)), '
+		','-') || decode(LEVEL-1,0,'',LEVEL-1 ||'차 메뉴 : ') || MENU_NM KEY
+		FROM
+		SY_MENU m
+		WHERE LEVEL = 2
+		START WITH UPPER_MENU_SEQNO IS NULL
+		CONNECT BY PRIOR MENU_SEQNO = UPPER_MENU_SEQNO
+	</select>
+
+
+	<select id="getMenuTwoList" parameterType="lims.sys.vo.MenuMVo"
+		resultType="lims.sys.vo.MenuMVo">
+
+		SELECT MENU_SEQNO VALUE,  REGEXP_REPLACE(LPAD('-',1*(LEVEL-1)), '
+		','-') || decode(LEVEL-1,0,'',LEVEL ||'차 메뉴 : ') || MENU_NM KEY
+		FROM
+		SY_MENU m
+		WHERE LEVEL = 2
+		START WITH MENU_SEQNO = #{menuSeqno}
+		CONNECT BY PRIOR MENU_SEQNO = UPPER_MENU_SEQNO
+	</select>
+
+
+	<select id="getMenuSeqno" parameterType="lims.sys.vo.MenuMVo" resultType="lims.sys.vo.MenuMVo">
+		SELECT
+			A.MENU_SEQNO
+		FROM SY_MENU A
+		WHERE A.MENU_URL = #{menuUrl}
+		  AND A.USE_AT = 'Y'
+	</select>
+
+	<select id="getSchAuth" parameterType="lims.sys.vo.AuthMVo"
+		resultType="lims.sys.vo.AuthMVo">
+         SELECT
+           AUTHOR_CODE
+           ,USER_ID
+           ,INQIRE_AUTHOR_AT
+           ,STRE_AUTHOR_AT
+           ,DELETE_AUTHOR_AT
+           ,OUTPT_AUTHOR_AT
+           ,LAST_CHANGER_ID
+           ,LAST_CHANGE_DT
+         FROM SY_AUTHOR_USER
+         WHERE USER_ID = #{userId}
+	</select>
+
+	<update id="insManual" parameterType="lims.sys.vo.MenuMVo">
+		UPDATE SY_MENU SET
+			MNL_CN = 'CLOB TO BLOB'
+			,DATA = #{blobMnlCn}
+			,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			,LAST_CHANGE_DT = SYSDATE
+		WHERE MENU_SEQNO = #{menuSeqno}
+	</update>
+
+	<select id="getEditorData" parameterType="lims.sys.vo.MenuMVo" resultType="lims.sys.vo.MenuMVo">
+		SELECT
+			A.DATA AS BLOB_MNL_CN,
+			MENU_NM
+		FROM SY_MENU A
+		WHERE A.MENU_SEQNO =  #{menuSeqno}
+		AND MENU_URL = #{menuUrl}
+	</select>
+	
+	<!-- 북마크메뉴 여부 검증 -->
+	<select id="chkBookMarkRegistred" parameterType="lims.sys.vo.MenuMVo" resultType="int">
+		SELECT COUNT(A.MENU_SEQNO) FROM SY_MENU_BKMK A
+		WHERE A.USER_ID = <include refid="loginId"/>
+		  AND A.MENU_SEQNO = #{menuSeqno}
+	</select>
+	
+	<!-- 북마크메뉴 추가 -->
+	<insert id="insMenuBookMark" parameterType="lims.sys.vo.MenuMVo">
+		INSERT INTO SY_MENU_BKMK (
+			USER_ID
+			,MENU_SEQNO
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) VALUES (
+			TO_NUMBER(<include refid="loginId"/>)
+			,#{menuSeqno}
+			,<include refid="loginId"/>
+			,SYSDATE
+		)
+	</insert>
+
+	<!-- 북마크메뉴 삭제 -->
+	<delete id="delMenuBookMark" parameterType="lims.sys.vo.MenuMVo">
+		DELETE FROM SY_MENU_BKMK
+		WHERE USER_ID = TO_NUMBER(<include refid="loginId"/>)
+		  AND MENU_SEQNO = #{menuSeqno}
+	</delete>
+
+</mapper>

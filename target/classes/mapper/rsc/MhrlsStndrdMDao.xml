@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.rsc.dao.MhrlsStndrdMDao">
+	<select id="getMhrlsStndrdUseMList" parameterType="lims.rsc.vo.MhrlsStndrdMVo" resultType="lims.rsc.vo.MhrlsStndrdMVo">
+		SELECT 
+			A.PRDUCT_STNDRD_SEQNO
+			,A.PRDUCT_STNDRD_SE_CODE
+			,SCC1.CMMN_CODE_NM PRDUCT_STNDRD_SE_CODE_NM
+			,A.STD_MTTR_SE_CODE
+			,SCC2.CMMN_CODE_NM STD_MTTR_SE_CODE_NM
+			,A.PRDUCT_STNDRD_NM
+			,A.WRHOUSNG_DTE
+			,A.VALID_DTE
+			,A.USE_AT
+			,A.DELETE_AT
+			,A.RM
+		FROM
+		RS_PRDUCT_STNDRD A
+		LEFT JOIN SY_CMMN_CODE SCC1 ON A.PRDUCT_STNDRD_SE_CODE = SCC1.CMMN_CODE
+		LEFT JOIN SY_CMMN_CODE SCC2 ON A.STD_MTTR_SE_CODE = SCC2.CMMN_CODE
+		WHERE 1 = 1 AND DELETE_AT = 'N'
+		<if test="schPrductStndrdSeCode != null and schPrductStndrdSeCode != ''">
+			AND A.PRDUCT_STNDRD_SE_CODE = #{schPrductStndrdSeCode}
+		</if>
+		<if test="schStdMttrSeCode != null and schStdMttrSeCode != ''">
+			AND A.STD_MTTR_SE_CODE = #{schStdMttrSeCode}
+		</if>
+		<if test="schPrductStndrdNm != null and schPrductStndrdNm != ''">
+			AND UPPER(A.PRDUCT_STNDRD_NM) LIKE '%'|| UPPER(#{schPrductStndrdNm}) ||'%'
+		</if>
+		<if test="useAtSch != null and useAtSch != ''">
+			AND A.USE_AT = #{useAtSch}
+		</if>
+	</select>
+	<insert id="instMhrlsStndrdUseM"  parameterType="lims.rsc.vo.MhrlsStndrdMVo">
+		INSERT INTO RS_PRDUCT_STNDRD(
+			PRDUCT_STNDRD_SEQNO
+			,PRDUCT_STNDRD_SE_CODE
+			,STD_MTTR_SE_CODE
+			,PRDUCT_STNDRD_NM
+			,WRHOUSNG_DTE
+			,VALID_DTE
+			,USE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,RM
+		)VALUES(
+			SQ_RS_PRDUCT_STNDRD.NEXTVAL
+			, #{prductStndrdSeCode}
+			, #{stdMttrSeCode}
+			, #{prductStndrdNm}
+			, #{wrhousngDte}
+			, #{validDte}
+			, #{useAt}
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+			, #{rm}
+		)
+		
+	</insert>
+	<update id="updtMhrlsStndrdUseM"  parameterType="lims.rsc.vo.MhrlsStndrdMVo">
+		UPDATE RS_PRDUCT_STNDRD SET
+			PRDUCT_STNDRD_SE_CODE = #{prductStndrdSeCode}
+			, STD_MTTR_SE_CODE = #{stdMttrSeCode}
+			, PRDUCT_STNDRD_NM = #{prductStndrdNm}
+			, WRHOUSNG_DTE = #{wrhousngDte}
+			, VALID_DTE = #{validDte}
+			, USE_AT = #{useAt}
+			, LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			, LAST_CHANGE_DT = SYSDATE
+			, RM = #{rm}
+			, DELETE_AT = #{deleteAt}
+		WHERE PRDUCT_STNDRD_SEQNO = #{prductStndrdSeqno}
+	</update>
+</mapper>

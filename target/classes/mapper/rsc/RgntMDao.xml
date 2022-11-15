@@ -1,0 +1,331 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.rsc.dao.RgntMDao">
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+	<select id="getRgntMList" resultType="lims.rsc.vo.RgntMVo"
+		parameterType="lims.rsc.vo.RgntMVo">
+		SELECT
+		PRDUCT_SEQNO,
+		CUSTLAB_SEQNO,
+		(SELECT CUSTLAB_NM FROM RS_CUSTLAB A  WHERE A.CUSTLAB_SEQNO = RP.CUSTLAB_SEQNO) AS CUSTLAB_NM,
+		BPLC_CODE,
+		(SELECT INSPCT_INSTT_NM FROM SY_INSPCT_INSTT  where INSPCT_INSTT_CODE= BPLC_CODE)AS  BPLC_CODE_NM,
+		PRDUCT_CL_CODE,
+		PRDUCT_NM,
+		(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE = PRDUCT_CL_CODE)AS PRDUCT_CL_CODE_NM,
+		VALID_TMLMT_TRGET_AT,
+		VALID_TMLMT_MTHD_CODE,
+		UNSEAL_AFTER_TMLMT,
+		CYCLE_CODE,
+		NVL(PROPRT_INVNTRY_QY,0) as PROPRT_INVNTRY_QY,
+		NVL(NOW_INVNTRY_QY,0) as NOW_INVNTRY_QY,
+		PRDUCT_PRPOS,
+		CPCTY,
+		CAS_NO,
+		CTLG_NO,
+		USE_PURPS,
+		PRDUCT_STTUS_CODE,
+		ENTRPS_NM,
+		ENTRPS_CHARGER_NM,
+		ENTRPS_CHARGER_CTTPC,
+		UNIT_SEQNO,
+		ATCHMNFL_SEQNO,
+		ITEM_NO,
+		LOT_NO,
+		RM,USE_AT,
+		DELETE_AT,
+		LAST_CHANGER_ID,
+		LAST_CHANGE_DT,
+		MANAGE_RSPNBER_J_ID,
+		(SELECT USER_NM ||'('||LOGIN_ID||')' FROM SY_USER WHERE 1=1 AND DELETE_AT ='N' AND USE_AT='Y' AND USER_ID= MANAGE_RSPNBER_J_ID) as MANAGE_RSPNBER_J_Nm,
+		MANAGE_RSPNBER_B_ID,
+		(SELECT USER_NM ||'('||LOGIN_ID||')' FROM SY_USER WHERE 1=1 AND DELETE_AT ='N' AND USE_AT='Y' AND USER_ID= MANAGE_RSPNBER_B_ID) as MANAGE_RSPNBER_B_Nm,
+		MANAGE_DEPT_CODE
+		FROM RS_PRDUCT RP WHERE 1=1 AND DELETE_AT='N'
+			AND BPLC_CODE = <include refid="bplcCode"/>
+		<if test="custlabSeqno != null and custlabSeqno != '' ">
+			AND CUSTLAB_SEQNO = #{custlabSeqno}
+		</if>
+		<if test='@lims.util.GetUserSession@getAuthorSeCode() != "SY09000001"'>
+		AND BPLC_CODE ='${@lims.util.GetUserSession@getBestInspctInsttCode()}'
+		</if>
+		<if test="prductClCodesch != null and prductClCodesch != '' ">
+			AND PRDUCT_CL_CODE = #{prductClCodesch}
+		</if>
+		<if test="prductClCodeNmsch != null and prductClCodeNmsch != '' ">
+			AND UPPER(FN_GET_CDDTLNM(PRDUCT_CL_CODE)) LIKE '%'||UPPER(TRIM(#{prductClCodeNmsch}))||'%'
+		</if>
+		<if test="prductNmSch != null and prductNmSch != '' ">
+			AND UPPER(PRDUCT_NM) LIKE '%'|| UPPER(TRIM(#{prductNmSch}))||'%'
+		</if>
+		<if test="useAtSch != null and useAtSch != '' ">
+			AND USE_AT = #{useAtSch}
+		</if>
+		<if test="prductSeqno !=null and prductSeqno !=''">
+			AND PRDUCT_SEQNO= #{prductSeqno}
+		</if>
+		<if test="popupSch != null and popupSch !=''">
+			 AND (SELECT COUNT(*)FROM RS_PRDUCT_WRHSDLVR_BRCD PRW WHERE PRW.PRDUCT_SEQNO =RP.PRDUCT_SEQNO AND DELETE_AT='N'
+			
+			AND (WRHSDLVR_SE_CODE ='RS08000001'
+			 <if test="popupSch =='#dsuseMGrid'"> 
+			 OR WRHSDLVR_SE_CODE ='RS08000002'
+			 </if>)) <![CDATA[>]]> 0
+		</if>
+		ORDER BY PRDUCT_SEQNO
+	</select>
+<select id="listPrevnt" resultType="lims.rsc.vo.RgntMVo"
+		parameterType="lims.rsc.vo.RgntMVo">
+		SELECT PRDUCT_SEQNO,EXPRIEM_SEQNO,
+		(SELECT EXPRIEM_NM FROM SY_EXPRIEM WHERE EXPRIEM_SEQNO = RPE.EXPRIEM_SEQNO) AS EXPRIEM_NM,
+		BPLC_CODE,
+		SORT_ORDR,
+		LAST_CHANGER_ID,
+		LAST_CHANGE_DT
+		FROM RS_PRDUCT_EXPRIEM RPE
+		WHERE PRDUCT_SEQNO = #{prductSeqno}
+  		<!--AND CUSTLAB_SEQNO = #{custlabSeqno}-->
+		AND DELETE_AT='N'
+		ORDER BY EXPRIEM_SEQNO
+		</select>
+	<insert id="saveRgntM" parameterType="lims.rsc.vo.RgntMVo">
+	<selectKey keyProperty="prductSeqno" resultType="lims.rsc.vo.RgntMVo" 
+			order="BEFORE"> SELECT SQ_RS_PRDUCT.NEXTVAL AS PRDUCT_SEQNO FROM DUAL </selectKey>
+		INSERT INTO RS_PRDUCT(
+		PRDUCT_SEQNO,
+		BPLC_CODE,
+		PRDUCT_CL_CODE,
+		PRDUCT_NM,
+		VALID_TMLMT_TRGET_AT,
+		VALID_TMLMT_MTHD_CODE,
+		UNSEAL_AFTER_TMLMT,
+		CYCLE_CODE,
+		PROPRT_INVNTRY_QY,
+		NOW_INVNTRY_QY,
+		PRDUCT_STTUS_CODE,
+		PRDUCT_PRPOS,
+		CPCTY,
+		USE_PURPS,
+		CAS_NO,
+		CTLG_NO,
+		RM,
+		ENTRPS_NM,
+		ENTRPS_CHARGER_NM,
+		ENTRPS_CHARGER_CTTPC,
+		DELETE_AT,
+		USE_AT,
+		LAST_CHANGER_ID,
+		LAST_CHANGE_DT,
+		MANAGE_RSPNBER_J_ID,
+		MANAGE_RSPNBER_B_ID,
+		MANAGE_DEPT_CODE,
+		CUSTLAB_SEQNO,
+		UNIT_SEQNO,
+		ATCHMNFL_SEQNO,
+		ITEM_NO,
+		LOT_NO
+		)VALUES(
+		#{prductSeqno}
+		,'${@lims.util.GetUserSession@getBestInspctInsttCode()}'
+		, #{prductClCode}
+		, #{prductNm}
+		, #{validTmlmtTrgetAt}
+		, #{validTmlmtMthdCode}
+		, #{unsealAfterTmlmt}
+		, #{cycleCode}
+		, #{proprtInvntryQy}
+		, '0'
+		, #{prductSttusCode}
+		, #{prductPrpos}
+		, #{cpcty}
+		, #{usePurps}
+		, #{casNo}
+		, #{ctlgNo}
+		, #{rm}
+		, #{entrpsNm}
+		, #{entrpsChargerNm}
+		, #{entrpsChargerCttpc}
+		, 'N'
+		, #{useAt}
+		, '${@lims.util.GetUserSession@getUserId()}'
+		, SYSDATE
+		, #{manageRspnberJId}
+		, #{manageRspnberBId}
+		, #{manageDeptCode}
+		, #{custlabSeqno}
+		, #{unitSeqno}
+		, #{atchmnflSeqno}
+		, #{itemNo}
+		, #{lotNo}
+		)
+	</insert>
+	
+	<insert id="savePrevnt" parameterType="lims.rsc.vo.RgntMVo">
+		MERGE INTO RS_PRDUCT_EXPRIEM
+			USING DUAL ON (PRDUCT_SEQNO = #{prductSeqno} AND EXPRIEM_SEQNO =#{expriemSeqno})
+			WHEN MATCHED THEN
+				UPDATE SET
+					BPLC_CODE = '${@lims.util.GetUserSession@getBestInspctInsttCode()}',
+					SORT_ORDR=#{sortOrdr},
+		 			LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}',
+         			LAST_CHANGE_DT = SYSDATE,
+		 			DELETE_AT = 'N'
+        WHEN NOT MATCHED THEN
+        INSERT (
+		PRDUCT_SEQNO,
+		EXPRIEM_SEQNO,
+		BPLC_CODE,
+		SORT_ORDR,
+		LAST_CHANGER_ID,
+		LAST_CHANGE_DT,
+		DELETE_AT
+		)
+		VALUES
+		(
+		    #{prductSeqno},
+			#{expriemSeqno},
+			'${@lims.util.GetUserSession@getBestInspctInsttCode()}',
+			#{sortOrdr},
+			'${@lims.util.GetUserSession@getUserId()}',
+			SYSDATE,
+			'N'
+		)
+	</insert>
+
+		<update id="delPrevnt" parameterType="lims.rsc.vo.RgntMVo">
+		UPDATE RS_PRDUCT_EXPRIEM SET
+		LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}',
+		LAST_CHANGE_DT = SYSDATE,
+		DELETE_AT ='Y'
+		WHERE PRDUCT_SEQNO = #{prductSeqno} AND EXPRIEM_SEQNO=#{expriemSeqno}
+	</update>
+
+	<update id="updateRgntM" parameterType="lims.rsc.vo.RgntMVo">
+		UPDATE RS_PRDUCT SET
+		BPLC_CODE = <include refid="bplcCode"/>,
+		CUSTLAB_SEQNO = #{custlabSeqno},
+		PRDUCT_CL_CODE = #{prductClCode},
+		PRDUCT_NM = #{prductNm},
+		VALID_TMLMT_TRGET_AT = #{validTmlmtTrgetAt},
+		VALID_TMLMT_MTHD_CODE = #{validTmlmtMthdCode},
+		UNSEAL_AFTER_TMLMT = #{unsealAfterTmlmt},
+		CYCLE_CODE = #{cycleCode},
+		PROPRT_INVNTRY_QY = #{proprtInvntryQy},
+		PRDUCT_STTUS_CODE = #{prductSttusCode},
+		PRDUCT_PRPOS = #{prductPrpos},
+		CPCTY = #{cpcty},
+		USE_PURPS = #{usePurps},
+		CAS_NO = #{casNo},
+		CTLG_NO = #{ctlgNo},
+		RM = #{rm},
+		ENTRPS_NM = #{entrpsNm},
+		ENTRPS_CHARGER_NM =#{entrpsChargerNm},
+		ENTRPS_CHARGER_CTTPC =#{entrpsChargerCttpc},
+		USE_AT =#{useAt},
+		LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}',
+		LAST_CHANGE_DT = SYSDATE,
+		MANAGE_RSPNBER_J_ID = #{manageRspnberJId},
+		MANAGE_RSPNBER_B_ID =  #{manageRspnberBId},
+		MANAGE_DEPT_CODE= #{manageDeptCode},
+		UNIT_SEQNO = #{unitSeqno},
+		ATCHMNFL_SEQNO = #{atchmnflSeqno},
+		ITEM_NO = #{itemNo},
+		LOT_NO = #{lotNo}
+		where PRDUCT_SEQNO = #{prductSeqno}
+	</update>
+	
+		<update id="deletRgntM" parameterType="lims.rsc.vo.RgntMVo">
+		UPDATE RS_PRDUCT SET
+		DELETE_AT= 'Y',
+		LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}',
+		LAST_CHANGE_DT = SYSDATE
+		where PRDUCT_SEQNO = #{prductSeqno}
+	</update>
+			<update id="deletPrevntlist" parameterType="lims.rsc.vo.RgntMVo">
+		UPDATE RS_PRDUCT_EXPRIEM SET
+		DELETE_AT= 'Y',
+		LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}',
+		LAST_CHANGE_DT = SYSDATE
+		where PRDUCT_SEQNO = #{prductSeqno}
+		and ORDR = #{sortOrdr}
+	</update>
+	
+	
+
+	<select id="getPrductdate" resultType="lims.rsc.vo.RgntMVo"
+		parameterType="lims.rsc.vo.RgntMVo">
+		SELECT
+		A.PRDUCT_SEQNO,
+		A.BPLC_CODE,
+		A.PRDUCT_CL_CODE,
+		A.PRDUCT_NM,
+		A.VALID_TMLMT_TRGET_AT,
+		A.VALID_TMLMT_MTHD_CODE,
+		A.UNSEAL_AFTER_TMLMT,
+		A.CYCLE_CODE,
+    	CASE 
+    	WHEN VALID_TMLMT_MTHD_CODE = 'RS15000001' THEN  (SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE cmmn_code =A.VALID_TMLMT_MTHD_CODE)
+		||A.UNSEAL_AFTER_TMLMT 
+      	WHEN VALID_TMLMT_MTHD_CODE = 'RS15000002' THEN  (SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE cmmn_code =A.VALID_TMLMT_MTHD_CODE)
+		||A.UNSEAL_AFTER_TMLMT||
+    	(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE cmmn_code =A.CYCLE_CODE)
+    	END AS VALIDDATE,
+		NVL(A.PROPRT_INVNTRY_QY,0) as PROPRT_INVNTRY_QY,
+		NVL(A.NOW_INVNTRY_QY,0) as NOW_INVNTRY_QY,
+		A.PRDUCT_PRPOS,
+		A.CPCTY,
+		A.CAS_NO,
+		A.CTLG_NO,
+		A.USE_PURPS,
+		A.PRDUCT_STTUS_CODE,
+		A.ENTRPS_NM,
+		A.ENTRPS_CHARGER_NM,
+		A.ENTRPS_CHARGER_CTTPC,
+		A.RM,
+		A.USE_AT,
+		A.DELETE_AT,
+		A.LAST_CHANGER_ID,
+		A.LAST_CHANGE_DT
+		FROM RS_PRDUCT A
+		WHERE A.PRDUCT_SEQNO =#{prductSeqno} AND A.DELETE_AT ='N'
+	</select>
+
+	<select id="getprductSeqno" parameterType="lims.rsc.vo.RgntMVo"
+		resultType="lims.rsc.vo.RgntMVo">
+		SELECT PRDUCT_SEQNO as value, PRDUCT_NM as key
+		FROM RS_PRDUCT
+		WHERE CUSTLAB_SEQNO = #{custlabSeqno} AND PRDUCT_CL_CODE =#{prductClCode} AND DELETE_AT ='N' AND USE_AT = 'Y'
+		AND BPLC_CODE = '${@lims.util.GetUserSession@getBestInspctInsttCode()}'
+		ORDER BY PRDUCT_NM, PRDUCT_SEQNO
+	</select>
+
+	<update id="nowInvntryupdate" parameterType="lims.rsc.vo.RgntMVo">
+		UPDATE RS_PRDUCT SET
+		<choose>
+			<when test="wrhsdlvrSeCode == 'RS08000001'">
+				NOW_INVNTRY_QY = NVL(NOW_INVNTRY_QY,0)+#{wrhsdlvrQy}
+			</when>
+			<otherwise>
+			NOW_INVNTRY_QY = NVL(NOW_INVNTRY_QY,0)-#{wrhsdlvrQy}
+			</otherwise>
+		</choose>
+		WHERE PRDUCT_SEQNO = #{prductSeqno}
+	</update>
+	
+	
+	<update id="nowInvntrydelet" parameterType="lims.rsc.vo.RgntMVo">
+		UPDATE RS_PRDUCT SET
+		<choose>
+			<when test="wrhsdlvrSeBeforeCode == 'RS08000001'">
+				NOW_INVNTRY_QY = NVL(NOW_INVNTRY_QY,0)-#{wrhsdlvrQy}
+			</when>
+			<otherwise>
+			NOW_INVNTRY_QY = NVL(NOW_INVNTRY_QY,0)
+			</otherwise>
+		</choose>
+		WHERE PRDUCT_SEQNO = #{prductSeqno}
+	</update>
+	<insert id="saveimagefile" parameterType="lims.rsc.vo.RgntMVo">
+	
+	</insert>
+</mapper>

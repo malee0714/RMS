@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.ChrgTeamMDao">
+
+<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+
+<select id="getChrgTeamList" parameterType="lims.wrk.vo.ChrgTeamMVo" resultType="lims.wrk.vo.ChrgTeamMVo">
+	SELECT A.CHRG_TEAM_SEQNO
+			, A.DEPT_CODE
+			, B.INSPCT_INSTT_NM AS DEPT_NM
+			, A.CHRG_TEAM_NM
+			, A.ABRV
+			, A.RCEPT_PC_IP
+			, A.RM
+			, A.USE_AT
+	FROM SY_CHRG_TEAM A
+	JOIN SY_INSPCT_INSTT B ON A.DEPT_CODE = B.INSPCT_INSTT_CODE AND B.USE_AT = 'Y' AND A.DELETE_AT = 'N'
+	<where>
+<!-- 	AND B.BEST_INSPCT_INSTT_CODE = #{inspctInsttCode} -->
+<!-- 	AND A.DEPT_CODE = #{deptCode} -->
+ 		AND A.DELETE_AT = 'N'
+		AND A.DEPT_CODE = '3992'
+	<if test="chrgTeamNmSearch != null and chrgTeamNmSearch != '' ">
+		AND A.CHRG_TEAM_NM LIKE '%' || #{chrgTeamNmSearch} || '%'
+	</if>	
+	<if test="useAtSearch != null and useAtSearch != '' ">
+		AND A.USE_AT = #{useAtSearch}
+	</if>
+	<if test="userNmSearch != null and userNmSearch != '' ">
+		AND EXISTS (
+		SELECT 
+			'O'
+		FROM SY_CHRG_TEAM_USER IA
+		INNER JOIN SY_USER IB ON IA.TEAM_CHARGER_ID = IB.USER_ID
+		WHERE IA.CHRG_TEAM_SEQNO = A.CHRG_TEAM_SEQNO
+		AND IB.USER_NM LIKE '%' || #{userNmSearch} || '%' 
+		)
+	</if>
+	</where>
+	ORDER BY B.INSPCT_INSTT_NM, A.CHRG_TEAM_NM
+</select>
+
+<select id="getChrgTeamIpList" parameterType="lims.wrk.vo.ChrgTeamMVo" resultType="lims.wrk.vo.ChrgTeamMVo">
+     SELECT
+	 	CHRG_TEAM_IP_SEQNO
+		,CHRG_TEAM_SEQNO
+		,CHRG_TEAM_SE_NM
+		,RCEPT_PC_IP
+	FROM SY_CHRG_TEAM_IP
+	WHERE CHRG_TEAM_SEQNO = #{chrgTeamSeqno}
+</select>
+
+<select id="getChrgTeamIpComboList" parameterType="lims.wrk.vo.ChrgTeamMVo" resultType="lims.wrk.vo.ChrgTeamMVo">
+     SELECT
+	 	CHRG_TEAM_IP_SEQNO VALUE
+		,CHRG_TEAM_SE_NM KEY
+	FROM SY_CHRG_TEAM_IP
+	WHERE CHRG_TEAM_SEQNO = #{chrgTeamSeqno}
+</select>
+
+<select id="getUserList" parameterType="lims.wrk.vo.ChrgTeamMVo" resultType="lims.wrk.vo.ChrgTeamMVo">
+	SELECT 
+		'' AS CHRG_TEAM_SEQNO
+		, A.USER_ID AS TEAM_CHARGER_ID
+		, A.USER_NM AS TEAM_CHARGER_NM
+		, C.INSPCT_INSTT_NM AS DEPT_NM
+	FROM SY_USER A
+	INNER JOIN SY_INSPCT_INSTT C ON A.DEPT_CODE = C.INSPCT_INSTT_CODE
+	LEFT OUTER JOIN 
+	(
+		SELECT * 
+		FROM SY_CHRG_TEAM_USER IA
+		WHERE IA.CHRG_TEAM_SEQNO = #{chrgTeamSeqno}
+	) B ON A.USER_ID = B.TEAM_CHARGER_ID
+	WHERE A.USE_AT = 'Y'
+	AND B.CHRG_TEAM_SEQNO IS NULL
+	<if test="userNmSearch != null and userNmSearch != '' ">
+		AND A.USER_NM LIKE '%'|| #{userNmSearch} ||'%'
+	</if>
+	<if test="mmnySeCode != null and mmnySeCode != '' ">
+		AND C.MMNY_SE_CODE = #{mmnySeCode}
+	</if>
+	<if test="deptCodeSearch != null and deptCodeSearch != '' ">
+		AND C.INSPCT_INSTT_CODE = #{deptCodeSearch}
+	</if>
+	<if test="limsUseAtSch != null and limsUseAtSch != ''">
+		AND C.LIMS_USE_AT = #{limsUseAtSch}
+	</if>
+	<if test="analsAtSch != null and analsAtSch != ''">
+		AND C.ANAL_AT = #{analsAtSch} 
+	</if>
+		
+	ORDER BY C.INSPCT_INSTT_NM, A.USER_NM
+</select>
+
+<select id="getChrgTeamUserList" parameterType="lims.wrk.vo.ChrgTeamMVo" resultType="lims.wrk.vo.ChrgTeamMVo">
+	SELECT 
+		A.CHRG_TEAM_SEQNO
+		, A.TEAM_CHARGER_ID USER_ID
+		, B.USER_NM
+		, A.TIMHDER_AT
+		, C.INSPCT_INSTT_NM AS DEPT_NM
+	FROM SY_CHRG_TEAM_USER A
+	JOIN SY_USER B ON A.TEAM_CHARGER_ID = B.USER_ID
+	INNER JOIN SY_INSPCT_INSTT C ON B.DEPT_CODE = C.INSPCT_INSTT_CODE
+	WHERE A.CHRG_TEAM_SEQNO = #{chrgTeamSeqno}
+	ORDER BY C.INSPCT_INSTT_NM, B.USER_NM
+</select>
+
+<insert id="insertChrgTeam" parameterType="lims.wrk.vo.ChrgTeamMVo">
+	<selectKey keyProperty="chrgTeamSeqno" resultType="java.lang.String" order="BEFORE">
+		SELECT SQ_SY_CHRG_TEAM.NEXTVAL AS chrgTeamSeqno 
+		FROM DUAL
+      </selectKey>
+
+	INSERT INTO SY_CHRG_TEAM
+	(
+		CHRG_TEAM_SEQNO
+		,DEPT_CODE
+		,CHRG_TEAM_NM
+		,RM		
+		,RCEPT_PC_IP
+		,ABRV
+		,USE_AT
+		,LAST_CHANGER_ID
+		,LAST_CHANGE_DT
+	)
+	VALUES(
+		#{chrgTeamSeqno}
+<!-- 		기존 ,#{deptCode}  -->
+		,3992
+		,#{chrgTeamNm}
+		,#{rm}	
+		,#{rceptPcIp}	
+		,#{abrv}
+		,#{useAt}
+		,#{lastChangerId}
+		,SYSDATE
+	)
+</insert>
+
+<update id="updateChrgTeam" parameterType="lims.wrk.vo.ChrgTeamMVo">	
+	UPDATE SY_CHRG_TEAM SET
+		DEPT_CODE = '3992'
+		,CHRG_TEAM_NM = #{chrgTeamNm}
+		,ABRV = #{abrv}
+		,RCEPT_PC_IP = #{rceptPcIp}
+		,RM = #{rm}
+		,USE_AT = #{useAt}
+		,LAST_CHANGER_ID = #{lastChangerId}
+		,LAST_CHANGE_DT = SYSDATE
+	WHERE CHRG_TEAM_SEQNO = #{chrgTeamSeqno}
+</update>
+
+<delete id="deleteChrgTeamUser" parameterType="lims.wrk.vo.ChrgTeamMVo">	
+	DELETE SY_CHRG_TEAM_USER 
+ 	WHERE CHRG_TEAM_SEQNO = #{chrgTeamSeqno} 
+</delete>
+
+<insert id="insertChrgTeamUser" parameterType="lims.wrk.vo.ChrgTeamMVo">
+	INSERT INTO SY_CHRG_TEAM_USER
+	(
+		CHRG_TEAM_SEQNO
+		,TEAM_CHARGER_ID	
+		,TIMHDER_AT	
+		,LAST_CHANGER_ID
+		,LAST_CHANGE_DT
+	) VALUES(
+		#{chrgTeamSeqno}
+		,#{teamChargerId}
+		,CASE WHEN #{timhderAt} = 'true' THEN 'Y' ELSE 'N' END
+		,#{lastChangerId}
+		,SYSDATE
+	)
+</insert> 
+<update id="deleteChrgTeam" parameterType="lims.wrk.vo.ChrgTeamMVo">
+	UPDATE SY_CHRG_TEAM
+	SET
+		DELETE_AT = 'Y'
+		, LAST_CHANGER_ID = #{lastChangerId}
+		, LAST_CHANGE_DT = SYSDATE
+	WHERE CHRG_TEAM_SEQNO = #{chrgTeamSeqno}
+</update>
+
+<insert id="addChrgIp" parameterType="lims.wrk.vo.ChrgTeamMVo">
+	INSERT INTO SY_CHRG_TEAM_IP(
+		 CHRG_TEAM_IP_SEQNO
+		,CHRG_TEAM_SEQNO
+		,CHRG_TEAM_SE_NM
+		,RCEPT_PC_IP
+		,LAST_CHANGER_ID
+		,LAST_CHANGE_DT
+	) VALUES (
+		SQ_SY_CHRG_TEAM_IP.NEXTVAL
+		,#{chrgTeamSeqno}
+		,#{chrgTeamSeNm}
+		,#{rceptPcIp}
+		,<include refid="loginId"/>
+		,SYSDATE
+	)
+</insert>
+
+<update id="editChrgIp" parameterType="lims.wrk.vo.ChrgTeamMVo">
+	UPDATE SY_CHRG_TEAM_IP SET
+		CHRG_TEAM_SE_NM = #{chrgTeamSeNm}
+		,RCEPT_PC_IP = #{rceptPcIp}
+		,LAST_CHANGER_ID = <include refid="loginId"/>
+		,LAST_CHANGE_DT = SYSDATE
+	WHERE CHRG_TEAM_IP_SEQNO = #{chrgTeamIpSeqno}
+	AND CHRG_TEAM_SEQNO = #{chrgTeamSeqno}
+</update>
+
+<delete id="delChrgIp" parameterType="lims.wrk.vo.ChrgTeamMVo">
+	DELETE FROM SY_CHRG_TEAM_IP
+	WHERE CHRG_TEAM_IP_SEQNO = #{chrgTeamIpSeqno}
+	AND CHRG_TEAM_SEQNO = #{chrgTeamSeqno}
+</delete>
+
+<delete id="delChrgTeamUser" parameterType="String">
+	DELETE FROM SY_CHRG_TEAM_USER
+	WHERE CHRG_TEAM_SEQNO = #{vo}
+</delete>
+
+<insert id="instChrgTeamUser" parameterType="lims.wrk.vo.ChrgTeamMVo">
+	INSERT INTO SY_CHRG_TEAM_USER
+	(
+		CHRG_TEAM_SEQNO,
+		TEAM_CHARGER_ID,
+		LAST_CHANGER_ID,
+		LAST_CHANGE_DT
+	)VALUES(
+		#{chrgTeamSeqno},
+		#{userId},
+		'${@lims.util.GetUserSession@getUserId()}',
+		SYSDATE
+	)
+</insert>
+</mapper>

@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.src.dao.UserTyTestCntMDao">
+	
+	<select id="getReqCntByUser" parameterType="lims.src.vo.UserTyTestCntMVo" resultType="lims.src.vo.UserTyTestCntMVo">
+		SELECT
+			A.BPLC_CODE
+			,A.DEPT_CODE
+			,A.USER_ID
+			,SII.INSPCT_INSTT_NM AS BPLC_NM
+			,(SELECT B.INSPCT_INSTT_NM FROM SY_INSPCT_INSTT B WHERE B.INSPCT_INSTT_CODE = A.DEPT_CODE) AS DEPT_NM
+			,SU.USER_NM AS USER_NM
+			,NVL(SUM(CASE WHEN A.SYS_MNTH = '01' THEN A.REQ_CNT END), 0) AS JAN_CNT
+			,NVL(SUM(CASE WHEN A.SYS_MNTH = '02' THEN A.REQ_CNT END), 0) AS FEB_CNT
+			,NVL(SUM(CASE WHEN A.SYS_MNTH = '03' THEN A.REQ_CNT END), 0) AS MAR_CNT
+			,NVL(SUM(CASE WHEN A.SYS_MNTH = '04' THEN A.REQ_CNT END), 0) AS APR_CNT
+			,NVL(SUM(CASE WHEN A.SYS_MNTH = '05' THEN A.REQ_CNT END), 0) AS MAY_CNT
+			,NVL(SUM(CASE WHEN A.SYS_MNTH = '06' THEN A.REQ_CNT END), 0) AS JUN_CNT
+			,NVL(SUM(CASE WHEN A.SYS_MNTH = '07' THEN A.REQ_CNT END), 0) AS JUL_CNT
+			,NVL(SUM(CASE WHEN A.SYS_MNTH = '08' THEN A.REQ_CNT END), 0) AS AUG_CNT
+			,NVL(SUM(CASE WHEN A.SYS_MNTH = '09' THEN A.REQ_CNT END), 0) AS SEP_CNT
+			,NVL(SUM(CASE WHEN A.SYS_MNTH = '10' THEN A.REQ_CNT END), 0) AS OCT_CNT
+			,NVL(SUM(CASE WHEN A.SYS_MNTH = '11' THEN A.REQ_CNT END), 0) AS NOV_CNT
+			,NVL(SUM(CASE WHEN A.SYS_MNTH = '12' THEN A.REQ_CNT END), 0) AS DEC_CNT
+		FROM (
+				SELECT
+					IA.BPLC_CODE
+					,IA.DEPT_CODE
+					,IA.USER_ID
+					,IA.CMMN_CODE AS EQPMN_CL_CODE
+					,IB.REQ_CNT
+					,IA.SYS_MNTH
+				FROM (
+						SELECT DISTINCT
+							ICC.BPLC_CODE
+							,ICC.DEPT_CODE
+							,ICC.USER_ID
+							,IBB.CMMN_CODE
+							,IAA.SYS_MNTH
+						FROM (
+								SELECT
+								TO_CHAR(ADD_MONTHS(TO_DATE(#{yearSch} || '01', 'YYYYMM'), LEVEL-1), 'MM') AS SYS_MNTH
+								FROM DUAL
+								CONNECT BY ADD_MONTHS(TO_DATE(#{yearSch} || '01', 'YYYYMM'), LEVEL-1) <![CDATA[ <= ]]> ADD_MONTHS(TO_DATE(#{yearSch} || '01', 'YYYYMM'), 11)
+							 ) IAA
+						FULL OUTER JOIN (SELECT SCC.CMMN_CODE FROM SY_CMMN_CODE SCC WHERE SCC.UPPER_CMMN_CODE = 'RS02') IBB ON 1=1
+						FULL OUTER JOIN SY_USER ICC ON 1=1
+				) IA
+				LEFT JOIN (
+				    		SELECT
+				    			IBB.BPLC_CODE
+				    		    ,IBB.RESULT_REGISTER_ID
+				    			,IBB.EQPMN_CL_CODE
+								,COUNT(IBB.ODR_CNT) AS REQ_CNT
+								,IBB.REQ_MNTH
+				    		FROM (
+									SELECT
+										IR.BPLC_CODE
+										,IR.REQEST_SEQNO
+										,IRER.RESULT_REGISTER_ID
+										,IRE.EQPMN_CL_CODE
+										,COUNT(IRER.EXPR_ODR) AS ODR_CNT
+										,TO_CHAR(TO_DATE(IR.REQEST_DTE, 'YYYY-MM-DD'), 'MM') AS REQ_MNTH
+									FROM IM_REQEST IR
+									JOIN IM_REQEST_EXPRIEM IRE ON IRE.REQEST_SEQNO = IR.REQEST_SEQNO
+									JOIN IM_REQEST_EXPRIEM_RESULT IRER ON IRER.REQEST_EXPRIEM_SEQNO = IRE.REQEST_EXPRIEM_SEQNO
+									WHERE
+										IRER.RESULT_VALUE IS NOT NULL
+									AND
+										IRER.DELETE_AT = 'N'
+									AND
+										IR.REQEST_DTE BETWEEN #{yearSch} || '-01-01' AND #{yearSch} || '-12-31'
+									GROUP BY
+										IR.BPLC_CODE
+										,IR.REQEST_SEQNO
+										,IRER.RESULT_REGISTER_ID
+										,IRE.EQPMN_CL_CODE
+										,TO_CHAR(TO_DATE(IR.REQEST_DTE, 'YYYY-MM-DD'), 'MM')
+									ORDER BY
+										IRER.RESULT_REGISTER_ID
+										,IRE.EQPMN_CL_CODE
+								 ) IBB
+				    		GROUP BY
+								IBB.BPLC_CODE
+								,IBB.RESULT_REGISTER_ID
+								,IBB.EQPMN_CL_CODE
+								,IBB.REQ_MNTH
+				) IB ON IB.RESULT_REGISTER_ID = IA.USER_ID AND IB.EQPMN_CL_CODE = IA.CMMN_CODE
+					 AND IB.REQ_MNTH = IA.SYS_MNTH
+				ORDER BY
+					IA.USER_ID
+					,IA.CMMN_CODE
+			 ) A
+
+		LEFT JOIN SY_INSPCT_INSTT SII ON SII.INSPCT_INSTT_CODE = A.BPLC_CODE
+		LEFT JOIN SY_USER SU ON SU.USER_ID = A.USER_ID
+		WHERE
+			A.BPLC_CODE = #{bplcCodeSch}
+		<if test=' deptCodeSch != null and deptCodeSch != "" '>
+			AND
+				A.DEPT_CODE = #{deptCodeSch}
+		</if>
+		<if test=' userNmSch != null and userNmSch != "" '>
+			AND
+				A.USER_ID = #{userNmSch}
+		</if>
+		GROUP BY
+			A.BPLC_CODE
+			,A.DEPT_CODE
+			,A.USER_ID
+			,SII.INSPCT_INSTT_NM
+			,SU.USER_NM
+		ORDER BY
+			A.DEPT_CODE
+			,A.USER_ID
+	</select>
+
+</mapper>

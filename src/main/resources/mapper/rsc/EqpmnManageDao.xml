@@ -1,0 +1,498 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.rsc.dao.EqpmnManageDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+	
+    <!-- 장비목록 조회 -->
+    <select id="getEqpmnMList" resultType="lims.rsc.vo.EqpmnManageDto" parameterType="lims.rsc.vo.EqpmnManageDto">
+		SELECT
+			A.EQPMN_SEQNO
+			, A.BPLC_CODE
+			, A.CHRG_DEPT_CODE
+		 	, (SELECT SII.INSPCT_INSTT_NM FROM SY_INSPCT_INSTT SII WHERE SII.INSPCT_INSTT_CODE = A.CHRG_DEPT_CODE) AS CHRG_DEPT_NM
+			, A.EQPMN_CL_CODE
+			, FN_GET_CDDTLNM(A.EQPMN_CL_CODE) AS EQPMN_CL_NM
+			, A.EQPMN_MANAGE_NO
+			, A.EQPMN_NM
+			, A.SERIAL_NO
+			, A.MODL_NM
+			, A.MNFCTUR_CMPNY_NM
+			, A.DVYFGOFFIC_NM
+			, A.PURCHS_DTE
+			, A.PRPOS
+			, A.CUSTLAB_SEQNO
+		 	, E.CUSTLAB_NM
+			, A.REPLC_EQPMN_NM
+		 	, (SELECT RE.EQPMN_NM FROM RS_EQPMN RE WHERE RE.EQPMN_SEQNO = A.REPLC_EQPMN_NM) AS REPLC_EQPMN
+			, A.MANAGE_RSPNBER_J_ID
+			, A.MANAGE_RSPNBER_B_ID
+		 	, (SELECT SU.USER_NM FROM SY_USER SU WHERE SU.USER_ID = A.MANAGE_RSPNBER_J_ID) AS MANAGE_RSPNBER_J
+			, (SELECT SU.USER_NM FROM SY_USER SU WHERE SU.USER_ID = A.MANAGE_RSPNBER_B_ID) AS MANAGE_RSPNBER_B
+			, A.ACQS_STTUS_CODE
+		 	, FN_GET_CDDTLNM(A.ACQS_STTUS_CODE) AS ACQS_STTUS
+			, A.ACQS_AMOUNT
+		    , A.CN_YYCNT
+			, A.WRHOUSNG_DTE
+			, A.MHRLS_STTUS_CODE
+			, FN_GET_CDDTLNM(A.MHRLS_STTUS_CODE) AS MHRLS_STTUS
+			, A.DSUSE_DTE
+			, A.DSUSE_RESN
+			, A.OPR_AT
+			, A.ATCHMNFL_SEQNO
+			, A.LAS_USE_AT
+			, A.MHRLS_PC_IP
+			, A.COM_PORT_NO
+			, A.COMMN_VE_VALUE
+			, A.DATA_BIT_VALUE
+			, A.PARITY_VALUE
+			, A.DTR_WIRE_VALUE
+			, A.RM
+			, A.LAS_RESULT_SE_CODE
+		 	, FN_GET_CDDTLNM(A.LAS_RESULT_SE_CODE) AS LAS_RESULT
+		    , A.USE_AT
+		    , A.DELETE_AT
+			, A.ANALS_REQRE_TIME
+			, CASE WHEN D.MTRIL_NM IS NOT NULL
+				   THEN (CASE WHEN C.OTHER_CNT > 0
+							  THEN D.MTRIL_NM || ' 외' || TO_CHAR(C.OTHER_CNT) || '건'
+						      ELSE D.MTRIL_NM END)
+				   ELSE ''
+			  END AS MTRIL_NM
+		FROM RS_EQPMN A
+		LEFT JOIN (
+			SELECT
+				IA.EQPMN_SEQNO
+				, MIN(IA.MTRIL_SEQNO) AS REP_PRDUCT
+				, COUNT(IA.MTRIL_SEQNO)-1 AS OTHER_CNT
+			FROM RS_EQPMN_ANALS_PRDUCT IA
+			LEFT JOIN SY_MTRIL IB ON IB.MTRIL_SEQNO = IA.MTRIL_SEQNO AND IB.DELETE_AT = 'N' AND IB.USE_AT = 'Y'
+			WHERE IA.DELETE_AT = 'N'
+			GROUP BY IA.EQPMN_SEQNO
+		) C ON C.EQPMN_SEQNO = A.EQPMN_SEQNO
+		LEFT JOIN SY_MTRIL D ON D.MTRIL_SEQNO = C.REP_PRDUCT
+		INNER JOIN RS_CUSTLAB E ON E.CUSTLAB_SEQNO = A.CUSTLAB_SEQNO AND E.DELETE_AT = 'N' AND E.USE_AT = 'Y'
+		WHERE 1=1
+		  AND A.BPLC_CODE = <include refid="bplcCode"/>
+		  AND A.DELETE_AT = 'N'
+		<if test='schEqpmnClCode != null and schEqpmnClCode != ""'>
+	 		AND A.EQPMN_CL_CODE = #{schEqpmnClCode}
+		</if>
+		<if test='schCustLab != null and schCustLab !=""'>
+			AND A.CUSTLAB_SEQNO = #{schCustLab}
+		</if>
+		<if test="schEqpmnNm != null and schEqpmnNm != ''">
+	 		AND UPPER(A.EQPMN_NM) LIKE '%'|| UPPER(TRIM(#{schEqpmnNm})) ||'%'
+		</if>
+		<if test="schUseAt != null and schUseAt != '' ">
+	 		AND A.USE_AT = #{schUseAt}
+		</if>
+		ORDER BY A.EQPMN_SEQNO DESC
+    </select>
+   
+   	<!-- 장비 등록 -->
+   	<insert id="insEqpmn" parameterType="lims.rsc.vo.EqpmnManageDto">
+		<selectKey keyProperty="eqpmnSeqno" resultType="lims.rsc.vo.EqpmnManageDto" order="BEFORE">
+			SELECT SQ_RS_EQPMN.NEXTVAL AS eqpmnSeqno FROM DUAL
+		</selectKey>
+
+		INSERT INTO RS_EQPMN (
+			EQPMN_SEQNO
+			, BPLC_CODE
+			, EQPMN_CL_CODE
+			, EQPMN_MANAGE_NO
+			, EQPMN_NM
+			, MNFCTUR_CMPNY_NM
+			, MODL_NM
+			, SERIAL_NO
+			, DVYFGOFFIC_NM
+			, PURCHS_DTE
+			, PRPOS
+			, CUSTLAB_SEQNO
+			, REPLC_EQPMN_NM
+			, ANALS_REQRE_TIME
+			, CHRG_DEPT_CODE
+			, MANAGE_RSPNBER_J_ID
+			, MANAGE_RSPNBER_B_ID
+			, ACQS_STTUS_CODE
+			, ACQS_AMOUNT
+			, CN_YYCNT
+			, WRHOUSNG_DTE
+			, MHRLS_STTUS_CODE
+			, DSUSE_DTE
+			, DSUSE_RESN
+			, OPR_AT
+			, ATCHMNFL_SEQNO
+			, LAS_USE_AT
+			, MHRLS_PC_IP
+			, COM_PORT_NO
+			, COMMN_VE_VALUE
+			, DATA_BIT_VALUE
+			, PARITY_VALUE
+			, DTR_WIRE_VALUE
+			, LAS_RESULT_SE_CODE
+			, USE_AT
+			, DELETE_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{eqpmnSeqno}
+			, <include refid="bplcCode"/>
+			, #{eqpmnClCode}
+			, 'QC-' || SUBSTR(#{eqpmnClCode},-3,3) || '-' || (SELECT LPAD(COUNT(*)+1,3,'0') FROM RS_EQPMN WHERE EQPMN_CL_CODE = #{eqpmnClCode})
+			, #{eqpmnNm}
+			, #{mnfcturCmpnyNm}
+			, #{modlNm}
+			, #{serialNo}
+			, #{dvyfgofficNm}
+			, #{purchsDte}
+		    , #{prpos}
+		    , #{custlabSeqno}
+			, #{replcEqpmnNm}
+			, #{analsReqreTime}
+			, #{chrgDeptCode}
+			, #{manageRspnberJId}
+			, #{manageRspnberBId}
+			, #{acqsSttusCode}
+			, #{acqsAmount}
+			, #{cnYycnt}
+			, #{wrhousngDte}
+			, #{mhrlsSttusCode}
+			, #{dsuseDte}
+			, #{dsuseResn}
+			, #{oprAt}
+			, #{atchmnflSeqno}
+			, #{lasUseAt}
+			, #{mhrlsPcIp}
+			, #{comPortNo}
+			, #{commnVeValue}
+			, #{dataBitValue}
+			, #{parityValue}
+			, #{dtrWireValue}
+			, #{lasResultSeCode}
+			, #{useAt}
+			, 'N'
+			, <include refid="loginId"/>
+			, SYSDATE
+		)
+   	</insert>
+   
+   	<!-- 장비정보 수정 -->
+   	<update id="updEqpmn" parameterType="lims.rsc.vo.EqpmnManageDto">
+		UPDATE RS_EQPMN
+		   SET EQPMN_CL_CODE       = #{eqpmnClCode}
+		     , EQPMN_NM            = #{eqpmnNm}
+			 , MNFCTUR_CMPNY_NM    = #{mnfcturCmpnyNm}
+			 , MODL_NM             = #{modlNm}
+			 , SERIAL_NO           = #{serialNo}
+			 , DVYFGOFFIC_NM       = #{dvyfgofficNm}
+		  	 , PURCHS_DTE          = #{purchsDte}
+		  	 , PRPOS               = #{prpos}
+		  	 , CUSTLAB_SEQNO       = #{custlabSeqno}
+			 , REPLC_EQPMN_NM      = #{replcEqpmnNm}
+			 , ANALS_REQRE_TIME    = #{analsReqreTime}
+			 , CHRG_DEPT_CODE      = #{chrgDeptCode}
+			 , MANAGE_RSPNBER_J_ID = #{manageRspnberJId}
+			 , MANAGE_RSPNBER_B_ID = #{manageRspnberBId}
+			 , ACQS_STTUS_CODE     = #{acqsSttusCode}
+			 , ACQS_AMOUNT         = #{acqsAmount}
+			 , CN_YYCNT            = #{cnYycnt}
+			 , WRHOUSNG_DTE        = #{wrhousngDte}
+			 , MHRLS_STTUS_CODE    = #{mhrlsSttusCode}
+			 , DSUSE_DTE           = #{dsuseDte}
+			 , DSUSE_RESN          = #{dsuseResn}
+		  	 , OPR_AT              = #{oprAt}
+			 , ATCHMNFL_SEQNO      = #{atchmnflSeqno}
+			 , LAS_USE_AT          = #{lasUseAt}
+			 , MHRLS_PC_IP         = #{mhrlsPcIp}
+			 , COM_PORT_NO         = #{comPortNo}
+			 , COMMN_VE_VALUE      = #{commnVeValue}
+			 , DATA_BIT_VALUE      = #{dataBitValue}
+			 , PARITY_VALUE        = #{parityValue}
+		  	 , DTR_WIRE_VALUE      = #{dtrWireValue}
+		  	 , LAS_RESULT_SE_CODE  = #{lasResultSeCode}
+			 , USE_AT              = #{useAt}
+			 , LAST_CHANGER_ID     = <include refid="loginId"/>
+			 , LAST_CHANGE_DT      = SYSDATE
+			 , DELETE_AT		   = #{deleteAt}
+		 WHERE EQPMN_SEQNO = #{eqpmnSeqno}
+	</update>
+	
+	<!-- 관련제품 조회 -->
+	<select id="getAnalsMtrilList" parameterType="lims.rsc.vo.EqpmnManageDto" resultType="lims.rsc.vo.EqpmnManageDto">
+		SELECT
+			A.EQPMN_ANALS_PRDUCT_SEQNO
+			, A.EQPMN_SEQNO
+			, A.MTRIL_SEQNO
+			, C.INSPCT_INSTT_NM DEPT_NM
+			, D.CMMN_CODE_NM PRDUCT_SE_CODE_NM
+			, B.MTRIL_CODE
+			, B.MTRIL_NM
+		FROM RS_EQPMN_ANALS_PRDUCT A
+		JOIN SY_MTRIL B ON B.MTRIL_SEQNO = A.MTRIL_SEQNO AND B.DELETE_AT = 'N' AND B.USE_AT = 'Y'
+		JOIN SY_INSPCT_INSTT C ON C.INSPCT_INSTT_CODE = B.DEPT_CODE
+		JOIN SY_CMMN_CODE D ON D.CMMN_CODE = B.PRDUCT_SE_CODE
+		WHERE A.DELETE_AT = 'N'
+		  AND A.EQPMN_SEQNO = #{eqpmnSeqno}
+		ORDER BY A.SORT_ORDR
+	</select>
+
+	<!-- 관련제품 등록 -->
+	<insert id="insAnalsMtril" parameterType="lims.rsc.vo.EqpmnManageDto">
+		<selectKey keyProperty="eqpmnAnalsPrductSeqno" resultType="lims.rsc.vo.EqpmnManageDto" order="BEFORE">
+			SELECT SQ_RS_EQPMN_ANALS_PRDUCT.NEXTVAL AS eqpmnAnalsPrductSeqno FROM DUAL
+		</selectKey>
+
+		INSERT INTO RS_EQPMN_ANALS_PRDUCT (
+			EQPMN_ANALS_PRDUCT_SEQNO
+			, BPLC_CODE
+			, EQPMN_SEQNO
+			, MTRIL_SEQNO
+			, SORT_ORDR
+			, DELETE_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{eqpmnAnalsPrductSeqno}
+			, <include refid="bplcCode"/>
+		    , #{eqpmnSeqno}
+		    , #{mtrilSeqno}
+		    , #{sortOrdr}
+		    , 'N'
+		    , <include refid="loginId"/>
+		    , SYSDATE
+ 		)
+	</insert>
+
+	<!-- 관련제품 순서변경 -->
+	<update id="updMtrilSortOrdr" parameterType="lims.rsc.vo.EqpmnManageDto">
+		UPDATE RS_EQPMN_ANALS_PRDUCT
+		   SET SORT_ORDR = #{sortOrdr}
+		 WHERE EQPMN_ANALS_PRDUCT_SEQNO = #{eqpmnAnalsPrductSeqno}
+	</update>
+
+	<!-- 관련제품 삭제 -->
+	<update id="delAnalsMtril" parameterType="lims.rsc.vo.EqpmnManageDto">
+		UPDATE RS_EQPMN_ANALS_PRDUCT
+		   SET DELETE_AT       = 'Y'
+		     , LAST_CHANGER_ID = <include refid="loginId"/>
+		     , LAST_CHANGE_DT  = SYSDATE
+		 WHERE EQPMN_ANALS_PRDUCT_SEQNO = #{eqpmnAnalsPrductSeqno}
+	</update>
+	
+	<!-- 관련시험항목 조회 -->
+	<select id="getAnalsItemList" parameterType="lims.rsc.vo.EqpmnManageDto" resultType="lims.rsc.vo.EqpmnManageDto">
+		SELECT
+			A.EQPMN_ANALS_IEM_SEQNO
+			, A.BPLC_CODE
+		    , A.EQPMN_SEQNO
+		    , A.EXPRIEM_SEQNO
+		    , B.EXPRIEM_NM
+		    , A.SORT_ORDR
+		    , A.DELETE_AT
+		    , A.LAST_CHANGER_ID
+		    , A.LAST_CHANGE_DT
+		FROM RS_EQPMN_ANALS_IEM A
+		JOIN SY_EXPRIEM B ON B.EXPRIEM_SEQNO = A.EXPRIEM_SEQNO AND B.DELETE_AT= 'N' AND B.USE_AT = 'Y'
+		WHERE A.DELETE_AT= 'N'
+		  AND A.EQPMN_SEQNO = #{eqpmnSeqno}
+		ORDER BY A.SORT_ORDR
+	</select>
+
+	<!-- 관련시험항목 등록 -->
+	<insert id="insAnalsItem" parameterType="lims.rsc.vo.EqpmnManageDto">
+		<selectKey keyProperty="eqpmnAnalsIemSeqno" resultType="lims.rsc.vo.EqpmnManageDto" order="BEFORE">
+			SELECT SQ_RS_EQPMN_ANALS_IEM.NEXTVAL AS eqpmnAnalsIemSeqno FROM DUAL
+		</selectKey>
+
+		INSERT INTO RS_EQPMN_ANALS_IEM (
+			EQPMN_ANALS_IEM_SEQNO
+			, BPLC_CODE
+			, EQPMN_SEQNO
+			, EXPRIEM_SEQNO
+			, SORT_ORDR
+			, DELETE_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{eqpmnAnalsIemSeqno}
+			, <include refid="bplcCode"/>
+		    , #{eqpmnSeqno}
+		    , #{expriemSeqno}
+		    , #{sortOrdr}
+		    , 'N'
+		    , <include refid="loginId"/>
+		    , SYSDATE
+	 	)
+	</insert>
+
+	<!-- 관련시험항목 순서변경 -->
+	<update id="updItemSortOrdr" parameterType="lims.rsc.vo.EqpmnManageDto">
+		UPDATE RS_EQPMN_ANALS_IEM
+		   SET SORT_ORDR = #{sortOrdr}
+		 WHERE EQPMN_ANALS_IEM_SEQNO = #{eqpmnAnalsIemSeqno}
+	</update>
+
+	<!-- 관련시험항목 삭제 -->
+	<update id="delAnalsItem" parameterType="lims.rsc.vo.EqpmnManageDto">
+		UPDATE RS_EQPMN_ANALS_IEM
+		   SET DELETE_AT       = 'Y'
+			 , LAST_CHANGER_ID = <include refid="loginId"/>
+			 , LAST_CHANGE_DT  = SYSDATE
+		 WHERE EQPMN_ANALS_IEM_SEQNO = #{eqpmnAnalsIemSeqno}
+	</update>
+	
+	<!-- 검교정주기 조회 -->
+	<select id="getCrrctCycleList" parameterType="lims.rsc.vo.EqpmnManageDto" resultType="lims.rsc.vo.EqpmnManageDto">
+		SELECT
+			A.EQPMN_SEQNO
+			, A.INSPCT_CRRCT_SE_CODE
+		    , B.CMMN_CODE_NM INSPCT_CRRCT_SE_NM
+			, A.BPLC_CODE
+			, A.INSPCT_CRRCT_CYCLE
+			, A.CYCLE_CODE
+			, A.INSPCT_CRRCT_PREARNGE_DTE
+			, A.RECENT_INSPCT_CRRCT_DTE
+		FROM RS_EQPMN_INSPCT_CRRCT_CYCLE A
+		JOIN SY_CMMN_CODE B ON B.CMMN_CODE = A.INSPCT_CRRCT_SE_CODE
+		WHERE A.DELETE_AT = 'N'
+		  AND A.EQPMN_SEQNO = #{eqpmnSeqno}
+	</select>
+
+	<!-- 검교정주기정보 등록 -->
+	<insert id="insCrrctCycle" parameterType="lims.rsc.vo.EqpmnManageDto">
+		INSERT INTO RS_EQPMN_INSPCT_CRRCT_CYCLE (
+			EQPMN_SEQNO
+			, INSPCT_CRRCT_SE_CODE
+			, BPLC_CODE
+			, INSPCT_CRRCT_CYCLE
+			, CYCLE_CODE
+			, DELETE_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{eqpmnSeqno}
+			, #{inspctCrrctSeCode}
+			, <include refid="bplcCode"/>
+			, #{inspctCrrctCycle}
+			, #{cycleCode}
+			, 'N'
+			, <include refid="loginId"/>
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- 검교정주기정보 수정 -->
+	<update id="updCrrctCycle" parameterType="lims.rsc.vo.EqpmnManageDto">
+		UPDATE RS_EQPMN_INSPCT_CRRCT_CYCLE
+		   SET INSPCT_CRRCT_CYCLE = #{inspctCrrctCycle}
+			 , CYCLE_CODE         = #{cycleCode}
+			 , LAST_CHANGER_ID    = <include refid="loginId"/>
+			 , LAST_CHANGE_DT     = SYSDATE
+		 WHERE EQPMN_SEQNO = #{eqpmnSeqno}
+		   AND INSPCT_CRRCT_SE_CODE = #{inspctCrrctSeCode}
+	</update>
+
+	<!-- 검교정주기정보 삭제 -->
+	<update id="delCrrctCycle" parameterType="lims.rsc.vo.EqpmnManageDto">
+		UPDATE RS_EQPMN_INSPCT_CRRCT_CYCLE
+		   SET DELETE_AT       = 'Y'
+			 , LAST_CHANGER_ID = <include refid="loginId"/>
+			 , LAST_CHANGE_DT  = SYSDATE
+		 WHERE EQPMN_SEQNO = #{eqpmnSeqno}
+		   AND INSPCT_CRRCT_SE_CODE = #{inspctCrrctSeCode}
+	</update>
+
+	<!-- 일상점검시험항목 조회 -->
+	<select id="getEqpmnChckExpr" parameterType="lims.rsc.vo.EqpmnManageDto" resultType="lims.rsc.vo.EqpmnManageDto">
+		SELECT
+			A.EQPMN_CHCK_EXPRIEM_SEQNO
+			, A.BPLC_CODE
+			, A.EQPMN_SEQNO
+			, A.EXPRIEM_SEQNO
+			, B.EXPRIEM_NM
+			, A.UNIT_SEQNO
+			, A.JDGMNT_FOM_CODE
+			, A.TEXT_STDR
+			, A.MUMM_VALUE
+			, A.MUMM_VALUE_SE_CODE
+			, A.MXMM_VALUE
+			, A.MXMM_VALUE_SE_CODE
+			, A.SORT_ORDR
+		FROM RS_EQPMN_CHCK_EXPRIEM A
+		JOIN SY_EXPRIEM B ON B.EXPRIEM_SEQNO = A.EXPRIEM_SEQNO AND B.EXPRIEM_CL_CODE = 'SY05000002'
+					     AND B.DELETE_AT = 'N' AND B.USE_AT = 'Y'
+		WHERE A.DELETE_AT = 'N'
+	 	  AND A.EQPMN_SEQNO = #{eqpmnSeqno}
+		ORDER BY A.SORT_ORDR
+	</select>
+
+	<!-- 일상점검시험항목 등록 -->
+	<insert id="insChckExpr" parameterType="lims.rsc.vo.EqpmnManageDto">
+		<selectKey keyProperty="eqpmnChckExpriemSeqno" resultType="lims.rsc.vo.EqpmnManageDto" order="BEFORE">
+			SELECT SQ_RS_EQPMN_CHCK_EXPRIEM.NEXTVAL AS eqpmnChckExpriemSeqno FROM DUAL
+		</selectKey>
+
+		INSERT INTO RS_EQPMN_CHCK_EXPRIEM (
+			EQPMN_CHCK_EXPRIEM_SEQNO
+			, BPLC_CODE
+			, EQPMN_SEQNO
+			, EXPRIEM_SEQNO
+			, UNIT_SEQNO
+			, JDGMNT_FOM_CODE
+			, TEXT_STDR
+			, MUMM_VALUE
+			, MUMM_VALUE_SE_CODE
+			, MXMM_VALUE
+			, MXMM_VALUE_SE_CODE
+			, SORT_ORDR
+			, DELETE_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{eqpmnChckExpriemSeqno}
+			, <include refid="bplcCode"/>
+			, #{eqpmnSeqno}
+			, #{expriemSeqno}
+			, #{unitSeqno}
+			, #{jdgmntFomCode}
+			, #{textStdr}
+			, #{mummValue}
+			, #{mummValueSeCode}
+			, #{mxmmValue}
+			, #{mxmmValueSeCode}
+			, #{sortOrdr}
+			, 'N'
+			, <include refid="loginId"/>
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- 일상점검시험항목 수정 -->
+	<update id="updChckExpr" parameterType="lims.rsc.vo.EqpmnManageDto">
+		UPDATE RS_EQPMN_CHCK_EXPRIEM
+		   SET UNIT_SEQNO         = #{unitSeqno}
+			 , JDGMNT_FOM_CODE    = #{jdgmntFomCode}
+			 , TEXT_STDR          = #{textStdr}
+			 , MUMM_VALUE         = #{mummValue}
+			 , MUMM_VALUE_SE_CODE = #{mummValueSeCode}
+			 , MXMM_VALUE         = #{mxmmValue}
+			 , MXMM_VALUE_SE_CODE = #{mxmmValueSeCode}
+			 , SORT_ORDR          = #{sortOrdr}
+			 , DELETE_AT          = 'N'
+			 , LAST_CHANGER_ID    = <include refid="loginId"/>
+			 , LAST_CHANGE_DT     = SYSDATE
+		 WHERE EQPMN_CHCK_EXPRIEM_SEQNO = #{eqpmnChckExpriemSeqno}
+	</update>
+    
+    <!-- 일상점검시험항목 삭제 -->  
+    <update id="delChckExpr" parameterType="lims.rsc.vo.EqpmnManageDto">
+		UPDATE RS_EQPMN_CHCK_EXPRIEM
+		   SET DELETE_AT       = 'Y'
+			 , LAST_CHANGER_ID = <include refid="loginId"/>
+			 , LAST_CHANGE_DT  = SYSDATE
+		 WHERE EQPMN_CHCK_EXPRIEM_SEQNO = #{eqpmnChckExpriemSeqno}
+	</update>
+
+</mapper>

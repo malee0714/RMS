@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.dly.dao.DlivyBrcdValidMDao">
+	
+	<!-- 바코드 조회 -->
+	<select id="getBrcdVal" parameterType="lims.dly.vo.DlivyMVo" resultType="lims.dly.vo.DlivyMVo">
+<!-- 		SELECT * -->
+<!-- 		  FROM( -->
+<!-- 				SELECT DB.DLIVY_BRCD_SEQNO  -->
+<!-- 				      ,REQ.REQEST_DEPT_CODE -->
+<!-- 		    		  ,DBD.TOP_REPR -->
+<!-- 		      		  ,DB.BRCD_CREAT_DTE -->
+<!-- 		      		  ,REQ.PROGRS_SITTN_CODE -->
+<!-- 		      		  ,DBD.DLIVY_BRCD_STTUS_CODE -->
+<!-- 		      		  ,DBD.BRCD1 -->
+<!-- 		      		  ,DBD.BRCD2 -->
+<!-- 		      		  ,DBD.BRCD3 -->
+<!-- 		      		  ,DBD.BRCD4 -->
+<!-- 		      		  ,DBD.BRCD5 -->
+<!-- 		      		  ,DBD.ORDR -->
+<!-- 		      		  ,DB.DEPT_CODE -->
+<!-- 		      		  ,FN_GET_INSPCT_INSTT(DB.DEPT_CODE) DEPT_NM -->
+<!-- 		      		  ,DB.DVYFG_ENTRPS_NM -->
+<!-- 		              ,DB.MTRIL_NM -->
+<!-- 		              ,REQ.LOT_ID -->
+<!-- 		              ,DB.UNIT_NM -->
+<!-- 		              ,DB.BATCH_NO -->
+<!-- 		              ,DBD.VRIFY_AT -->
+<!-- 		              ,DB.DLIVY_QY -->
+<!-- 		              ,DB.CTMMNY_MTRIL_CODE -->
+<!-- 		              ,DBD.VRIFY_QY -->
+<!-- 		              ,DBD.VRIFY_CNT -->
+<!-- 				  FROM IM_REQEST REQ  -->
+<!-- 		              ,IM_DLIVY_BRCD DB -->
+<!-- 		              ,( -->
+<!-- 	              		SELECT	A.DLIVY_BRCD_SEQNO -->
+<!-- 							  , B.ORDR -->
+<!-- 							  , COUNT(*) AS CNT_REPR -->
+<!-- 							  , MAX(A.TOP_REPR) AS TOP_REPR -->
+<!-- 							  , MAX(B.DLIVY_BRCD_STTUS_CODE) AS DLIVY_BRCD_STTUS_CODE -->
+<!-- 							  , MAX(CASE WHEN B.REPR = 1 THEN B.BRCD END) AS BRCD1 -->
+<!-- 							  , MAX(CASE WHEN B.REPR = 2 THEN B.BRCD END) AS BRCD2 -->
+<!-- 							  , MAX(CASE WHEN B.REPR = 3 THEN B.BRCD END) AS BRCD3 -->
+<!-- 							  , MAX(CASE WHEN B.REPR = 4 THEN B.BRCD END) AS BRCD4 -->
+<!-- 							  , MAX(CASE WHEN B.REPR = 5 THEN B.BRCD END) AS BRCD5 -->
+<!-- 							  , A.VRIFY_AT -->
+<!-- 							  , B.VRIFY_QY -->
+<!-- 							  , B.VRIFY_CNT -->
+<!-- 							FROM IM_DLIVY_BRCD A -->
+<!-- 							INNER JOIN IM_DLIVY_BRCD_DETAIL B ON A.DLIVY_BRCD_SEQNO = B.DLIVY_BRCD_SEQNO -->
+<!-- 							GROUP BY A.DLIVY_BRCD_SEQNO, B.ORDR, A.VRIFY_AT, B.VRIFY_QY, B.VRIFY_CNT -->
+<!-- 		               ) DBD -->
+<!-- 				 WHERE DB.DLIVY_BRCD_SEQNO = DBD.DLIVY_BRCD_SEQNO -->
+<!-- 		           AND DB.REQEST_SEQNO = REQ.REQEST_SEQNO(+) -->
+<!-- 		           AND DB.DELETE_AT = 'N' -->
+<!-- 		           AND BRCD1 = #{brcd1} -->
+<!-- 				 <if test="brcd2 != null and brcd2 != '' "> -->
+<!-- 				   AND BRCD2 = #{brcd2} -->
+<!-- 				 </if> -->
+<!-- 				 <if test="brcd3 != null and brcd3 != '' "> -->
+<!-- 				   AND BRCD3 = #{brcd3} -->
+<!-- 				 </if> -->
+<!-- 				 <if test="brcd4 != null and brcd4 != '' "> -->
+<!-- 				   AND BRCD4 = #{brcd4} -->
+<!-- 				 </if> -->
+<!-- 				 <if test="brcd5 != null and brcd5 != '' "> -->
+<!-- 				   AND BRCD5 = #{brcd5} -->
+<!-- 				 </if> -->
+<!-- 				  ORDER BY DLIVY_BRCD_SEQNO DESC -->
+<!-- 		 ) -->
+<!-- 		 WHERE ROWNUM = 1 -->
+		SELECT *
+		  FROM(
+				SELECT DB.DLIVY_BRCD_SEQNO 
+				      ,REQ.REQEST_DEPT_CODE
+		    		  ,DBD.TOP_REPR
+		      		  ,DB.BRCD_CREAT_DTE
+		      		  ,REQ.PROGRS_SITTN_CODE
+		      		  ,DBD.DLIVY_BRCD_STTUS_CODE
+		      		  ,DBD.BRCD1
+		      		  ,DBD.BRCD2
+		      		  ,DBD.BRCD3
+		      		  ,DBD.BRCD4
+		      		  ,DBD.BRCD5
+		      		  ,DBD.ORDR
+		      		  ,DB.DEPT_CODE
+		      		  ,FN_GET_INSPCT_INSTT(DB.DEPT_CODE) DEPT_NM
+		      		  ,DB.DVYFG_ENTRPS_NM
+		              ,DB.MTRIL_NM
+		              ,REQ.LOT_ID
+		              ,DB.UNIT_NM
+		              ,DB.BATCH_NO
+		              ,DBD.VRIFY_AT
+		              ,DB.DLIVY_QY
+		              ,DB.CTMMNY_MTRIL_CODE
+		              ,DBD.VRIFY_QY
+		              ,DBD.VRIFY_CNT
+		              ,DB.SHIPMNT_LC_CODE
+              		  ,DBD.DLIVY_DTE
+				  FROM IM_REQEST REQ 
+		              ,IM_DLIVY_BRCD DB
+		              ,(
+	              		SELECT	A.DLIVY_BRCD_SEQNO
+							  , B.ORDR
+							  , COUNT(*) AS CNT_REPR
+							  , MAX(A.TOP_REPR) AS TOP_REPR
+							  , MAX(B.DLIVY_BRCD_STTUS_CODE) AS DLIVY_BRCD_STTUS_CODE
+							  , MAX(CASE WHEN B.REPR = 1 THEN B.BRCD END) AS BRCD1
+							  , MAX(CASE WHEN B.REPR = 2 THEN B.BRCD END) AS BRCD2
+							  , MAX(CASE WHEN B.REPR = 3 THEN B.BRCD END) AS BRCD3
+							  , MAX(CASE WHEN B.REPR = 4 THEN B.BRCD END) AS BRCD4
+							  , MAX(CASE WHEN B.REPR = 5 THEN B.BRCD END) AS BRCD5
+							  , A.VRIFY_AT
+							  , B.VRIFY_QY
+							  , B.VRIFY_CNT
+							  ,	B.DLIVY_DTE
+							FROM IM_DLIVY_BRCD A
+							INNER JOIN IM_DLIVY_BRCD_DETAIL B ON A.DLIVY_BRCD_SEQNO = B.DLIVY_BRCD_SEQNO
+							GROUP BY A.DLIVY_BRCD_SEQNO, B.ORDR, A.VRIFY_AT, B.VRIFY_QY, B.VRIFY_CNT,B.DLIVY_DTE
+		               ) DBD
+				 WHERE DB.DLIVY_BRCD_SEQNO = DBD.DLIVY_BRCD_SEQNO
+		           AND DB.REQEST_SEQNO = REQ.REQEST_SEQNO(+)
+		           AND DB.DELETE_AT = 'N'
+		           AND BRCD1 = #{brcd1}
+				 <if test="brcd2 != null and brcd2 != '' ">
+				   AND BRCD2 = #{brcd2}
+				 </if>
+				 <if test="brcd3 != null and brcd3 != '' ">
+				   AND BRCD3 = #{brcd3}
+				 </if>
+				 <if test="brcd4 != null and brcd4 != '' ">
+				   AND BRCD4 = #{brcd4}
+				 </if>
+				 <if test="brcd5 != null and brcd5 != '' ">
+				   AND BRCD5 = #{brcd5}
+				 </if>
+				  ORDER BY DLIVY_BRCD_SEQNO DESC
+		 )
+		 WHERE ROWNUM = 1
+	</select>
+	
+	<select id="getBrcdValidation" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*) CNT
+		  FROM(
+				SELECT DB.DLIVY_BRCD_SEQNO
+				  FROM IM_REQEST REQ 
+		              ,IM_DLIVY_BRCD DB
+		              ,(
+	              		SELECT	A.DLIVY_BRCD_SEQNO
+							  , B.ORDR
+							  , COUNT(*) AS CNT_REPR
+							  , MAX(A.TOP_REPR) AS TOP_REPR
+							  , MAX(A.DLIVY_BRCD_STTUS_CODE) AS DLIVY_BRCD_STTUS_CODE
+							  , MAX(CASE WHEN B.REPR = 1 THEN B.BRCD END) AS BRCD1
+							  , MAX(CASE WHEN B.REPR = 2 THEN B.BRCD END) AS BRCD2
+							  , MAX(CASE WHEN B.REPR = 3 THEN B.BRCD END) AS BRCD3
+							  , MAX(CASE WHEN B.REPR = 4 THEN B.BRCD END) AS BRCD4
+							  , MAX(CASE WHEN B.REPR = 5 THEN B.BRCD END) AS BRCD5
+							FROM IM_DLIVY_BRCD A
+							INNER JOIN IM_DLIVY_BRCD_DETAIL B ON A.DLIVY_BRCD_SEQNO = B.DLIVY_BRCD_SEQNO
+							GROUP BY A.DLIVY_BRCD_SEQNO, B.ORDR
+		               ) DBD
+				 WHERE DB.DLIVY_BRCD_SEQNO = DBD.DLIVY_BRCD_SEQNO
+		           AND DB.REQEST_SEQNO = REQ.REQEST_SEQNO(+)
+		           AND DB.DELETE_AT = 'N'
+		         <if test="brcd1 != null and brcd1 != '' ">  
+			       AND BRCD1 = #{brcd1}
+			     </if>
+				 <if test="brcd2 != null and brcd2 != '' ">
+				   AND BRCD2 = #{brcd2}
+				 </if>
+				 <if test="brcd3 != null and brcd3 != '' ">
+				   AND BRCD3 = #{brcd3}
+				 </if>
+				 <if test="brcd4 != null and brcd4 != '' ">
+				   AND BRCD4 = #{brcd4}
+				 </if>
+				 <if test="brcd5 != null and brcd5 != '' ">
+				   AND BRCD5 = #{brcd5}
+				 </if>
+				  ORDER BY DLIVY_BRCD_SEQNO DESC
+		 )
+		 WHERE ROWNUM = 1
+	</select>
+	
+	<!-- 합격 바코드수 조회 -->
+	<select id="getBrcdProgrsSittnCode" parameterType="lims.dly.vo.DlivyMVo" resultType="lims.dly.vo.DlivyMVo">
+		SELECT CASE WHEN A_CNT != 0 AND A_CNT = B_CNT THEN 'Y'
+		            WHEN C_CNT <![CDATA[ > ]]> 0 THEN 'N'
+		            ELSE 'N/A'
+		        END AS SUCCESS_RESULT
+		  FROM (
+		SELECT COUNT(*) A_CNT 
+		  FROM IM_DLIVY_BRCD DB
+		      ,IM_DLIVY_BRCD_DETAIL DBD
+		 WHERE DB.DLIVY_BRCD_SEQNO = DBD.DLIVY_BRCD_SEQNO
+		   AND DB.DLIVY_BRCD_SEQNO = #{dlivyBrcdSeqno}
+		   AND DBD.DLIVY_BRCD_STTUS_CODE = 'IM16000002'
+		   AND DB.DELETE_AT = 'N'
+           AND DBD.DELETE_AT = 'N'
+		)A,
+		(
+		SELECT COUNT(*) B_CNT 
+		  FROM IM_DLIVY_BRCD DB
+		      ,IM_DLIVY_BRCD_DETAIL DBD
+		 WHERE DB.DLIVY_BRCD_SEQNO = DBD.DLIVY_BRCD_SEQNO
+		   AND DB.DLIVY_BRCD_SEQNO = #{dlivyBrcdSeqno}
+		   AND DB.DELETE_AT = 'N'
+           AND DBD.DELETE_AT = 'N'
+		 )B,
+      	(
+		SELECT COUNT(*) C_CNT 
+		  FROM IM_DLIVY_BRCD DB
+		      ,IM_DLIVY_BRCD_DETAIL DBD
+		 WHERE DB.DLIVY_BRCD_SEQNO = DBD.DLIVY_BRCD_SEQNO
+		   AND DB.DLIVY_BRCD_SEQNO =  #{dlivyBrcdSeqno}
+		   AND DBD.DLIVY_BRCD_STTUS_CODE = 'IM16000003'
+		   AND DB.DELETE_AT = 'N'
+           AND DBD.DELETE_AT = 'N'
+		)C
+	</select>
+	
+	<!-- 출고 바코드 테이블 진행상태 수정 -->
+	<update id="updDlivyBrcdInfoSttusCode" parameterType="lims.dly.vo.DlivyMVo">
+		UPDATE IM_DLIVY_BRCD
+		   SET DLIVY_BRCD_STTUS_CODE = #{dlivyBrcdSttusCode}
+		 WHERE DLIVY_BRCD_SEQNO = #{dlivyBrcdSeqno} 
+	</update>
+	
+	<!-- 출고 바코드 상세 테이블 진행상태 수정 -->
+	<update id="updDlivyBrcdDetailSttusCode" parameterType="hashMap">
+		UPDATE IM_DLIVY_BRCD_DETAIL
+		   SET DLIVY_BRCD_STTUS_CODE = #{dlivyBrcdSttusCode}
+		   	  
+		   <if test="dlivyBrcdSttusCode != null and dlivyBrcdSttusCode != '' ">
+		   		<!-- 합격일때만 -->
+		   		<if test="dlivyBrcdSttusCode == 'IM16000002'.toString() ">
+		   			,VRIFY_DT = SYSDATE
+		   			,SHIPMNT_LC_CODE = #{shipmntLcCode}
+		   			,DLIVY_DTE = #{dlivyDte}
+		   		</if>
+		   </if>
+		      
+		   <if test="vrifyCnt != null and vrifyCnt != '' ">
+		      ,VRIFY_CNT = #{vrifyCnt}
+		   </if>
+		 WHERE DLIVY_BRCD_SEQNO = #{dlivyBrcdSeqno}
+		 <if test="ordr != null and ordr != '' ">
+		   AND ORDR = #{ordr}
+		 </if>
+	</update>
+	
+	<select id="getTopReprCnt" parameterType="lims.dly.vo.DlivyMVo" resultType="int">
+		SELECT COUNT(*) TOP_REPR_CNT
+		  FROM IM_DLIVY_BRCD_DETAIL
+		 WHERE DLIVY_BRCD_SEQNO = #{dlivyBrcdSeqno}
+		  AND DLIVY_BRCD_STTUS_CODE = 'IM16000002'
+		  AND DELETE_AT = 'N'
+	</select>
+
+	
+</mapper>

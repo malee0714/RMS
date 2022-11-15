@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.src.dao.IssueSearchMDao">
+
+	<select id="getIssueSearchList" parameterType="lims.test.vo.IssueMVo" resultType="lims.test.vo.IssueMVo">
+		SELECT * FROM 
+		(SELECT 
+		    TO_CHAR(ISSUE_REGIST_DT,'YYYY-MM-DD') ISSUE_REGIST_DT,
+		    SUM(CASE WHEN ISSUE_SE_CODE = 'IM12000001' AND (ISSUE_PROGRS_SITTN_CODE = 'IM11000001' OR 
+			    ISSUE_PROGRS_SITTN_CODE = 'IM11000002' OR ISSUE_PROGRS_SITTN_CODE = 'IM11000003') THEN '1' ELSE '0' END) 
+			    OVER(PARTITION BY TO_CHAR(ISSUE_REGIST_DT,'YYYY-MM-DD')) REGIST_EA,
+		    SUM(CASE WHEN ISSUE_SE_CODE = 'IM12000001' AND (ISSUE_PROGRS_SITTN_CODE = 'IM11000002' OR 
+		    	ISSUE_PROGRS_SITTN_CODE = 'IM11000003') THEN '1' ELSE '0' END) OVER(PARTITION BY TO_CHAR(ISSUE_REGIST_DT,'YYYY-MM-DD')) 
+		    	PROCESS_EA,
+		    SUM(CASE WHEN ISSUE_SE_CODE = 'IM12000001' AND (ISSUE_PROGRS_SITTN_CODE = 'IM11000003') THEN '1' ELSE '0' END) 
+		    	OVER(PARTITION BY TO_CHAR(ISSUE_REGIST_DT,'YYYY-MM-DD')) ACCEPT_EA,
+		    SUM(CASE WHEN ISSUE_SE_CODE = 'IM12000002'THEN '1' ELSE '0' END) 
+		    	OVER(PARTITION BY TO_CHAR(ISSUE_REGIST_DT,'YYYY-MM-DD')) INNER_ISSUE,
+		    SUM(CASE WHEN ISSUE_SE_CODE = 'IM12000003'THEN '1' ELSE '0' END) 
+		   		OVER(PARTITION BY TO_CHAR(ISSUE_REGIST_DT,'YYYY-MM-DD')) OUTER_ISSUE
+		FROM IM_ISSUE II
+		JOIN IM_REQEST IR ON II.REQEST_SEQNO = IR.REQEST_SEQNO
+		JOIN SY_PRDUCT SP ON IR.PRDUCT_SEQNO = SP.PRDUCT_SEQNO 
+		WHERE 1=1
+		<if test="deptCodeSch != null and deptCodeSch != ''">
+			AND IR.REQEST_DEPT_CODE = #{deptCodeSch}
+		</if>
+		<if test="shrProcessTyCode != null and shrProcessTyCode != ''">
+			AND IR.PROCESS_TY_CODE = #{shrProcessTyCode}
+		</if>
+		<if test="prductSeqnoSch != null and prductSeqnoSch != ''">
+			AND SP.PRDUCT_SEQNO = #{prductSeqnoSch}
+		</if>
+		<if test="issueStDte != null and issueStDte != ''">
+			<if test="issueEnDte != null and issueEnDte != ''">
+				AND II.ISSUE_REGIST_DT BETWEEN #{issueStDte} AND #{issueEnDte}
+			</if>
+			
+			<if test="issueEnDte == null or issueEnDte == ''">
+				AND II.ISSUE_REGIST_DT <![CDATA[ > ]]> #{issueStDte}
+			</if>
+		</if>
+		<if test="issueStDte == null and issueStDte == ''">
+			<if test="issueEnDte != null and issueEnDte != ''">
+				AND II.ISSUE_REGIST_DT <![CDATA[ < ]]> #{issueEnDte}
+			</if>
+		</if> 
+		)
+		GROUP BY ISSUE_REGIST_DT, REGIST_EA, PROCESS_EA, ACCEPT_EA, INNER_ISSUE, OUTER_ISSUE
+		ORDER BY ISSUE_REGIST_DT
+	</select>
+</mapper>

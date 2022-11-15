@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.sys.dao.PlnatMDao">
+
+	<!-- 사업장 조회 -->
+	<select id="getPlnatMList" parameterType="lims.sys.vo.PlnatMVo" resultType="lims.sys.vo.PlnatMVo">
+		SELECT
+			A.INSPCT_INSTT_CODE
+		  , A.INSPCT_INSTT_NM
+		  , A.ENG_ADRES
+		  , A.KOREAN_ADRES
+		  , A.OUTNATN_TELNO
+		  , A.DMSTC_TELNO
+		  , A.RDMS_SERVER_IP
+		  , A.DC
+		  , A.USE_AT
+		  , A.DELETE_AT
+		FROM
+			SY_INSPCT_INSTT A
+		WHERE
+			A.DELETE_AT = 'N'
+		AND
+			A.UPPER_INSPCT_INSTT_CODE IS NULL
+		<if test='useAt != "all"'>
+			AND USE_AT = #{useAt}
+		</if>
+		<if test='inspctInsttNm != null and inspctInsttNm != ""'>
+			AND
+				A.INSPCT_INSTT_NM LIKE '%' || #{inspctInsttNm} || '%'
+		</if>
+
+	</select>
+
+	<!-- 사업장 수 초과 체크 -->
+	<select id="bplcCoCheck" parameterType="Integer" resultType="Integer">
+		SELECT
+			CASE WHEN #{sumBplcCo} > (SELECT XA.BPLC_CO FROM SY_SYS_MANAGE XA)
+				THEN '99'
+				ELSE '1'
+			END
+		FROM
+			DUAL
+	</select>
+
+	<!-- 사업장 등록 -->
+	<insert id="insPlnat" parameterType="lims.sys.vo.PlnatMVo">
+		<selectKey resultType="string" keyProperty="bestInspctInsttCode" order="BEFORE">
+	        SELECT SQ_SY_INSPCT_INSTT.NEXTVAL FROM DUAL
+	    </selectKey>
+		MERGE INTO
+			SY_INSPCT_INSTT
+	  			USING DUAL ON (
+	    			INSPCT_INSTT_CODE = #{inspctInsttCode}
+				)
+	        		WHEN MATCHED THEN
+	        			UPDATE SET
+	           				INSPCT_INSTT_NM = #{inspctInsttNm}
+							, ENG_ADRES =#{engAdres}
+		 					, KOREAN_ADRES =#{koreanAdres}
+		 					, OUTNATN_TELNO = #{outnatnTelNo}
+		 					, DMSTC_TELNO =#{dmstcTelno}
+							, DC = #{dc}
+							, RDMS_SERVER_IP = #{rdmsServerIp}
+							, USE_AT = #{useAt}
+							, LAST_CHANGER_ID ='${@lims.util.GetUserSession@getUserId()}'
+	             			, LAST_CHANGE_DT = SYSDATE
+	        		WHEN NOT MATCHED THEN
+	        			INSERT(
+				 			INSPCT_INSTT_CODE
+				 			, BEST_INSPCT_INSTT_CODE
+				            , INSPCT_INSTT_NM
+				            , RDMS_SERVER_IP
+				            , DC
+				            , USE_AT
+				            , ENG_ADRES
+		 					, KOREAN_ADRES
+		 					, OUTNATN_TELNO
+		  					, DMSTC_TELNO
+				            , LAST_CHANGER_ID
+				            , LAST_CHANGE_DT
+						) VALUES (
+							#{bestInspctInsttCode}
+							, #{bestInspctInsttCode}
+				            , #{inspctInsttNm}
+				            , #{rdmsServerIp}
+				            , #{dc}
+				            , #{useAt}
+				            , #{engAdres}
+							, #{koreanAdres}
+							, #{outnatnTelNo}
+							, #{dmstcTelno}
+				            , '${@lims.util.GetUserSession@getUserId()}'
+				            , SYSDATE
+						)
+	</insert>
+	
+		<select id="getlbcstList" parameterType="lims.sys.vo.PlnatMVo" resultType="lims.sys.vo.PlnatMVo">
+		SELECT
+		A.INSPCT_INSTT_LBCST_SEQNO,
+      	A.INSPCT_INSTT_CODE,
+      	A.YY,
+      	A.LBCST_AM,
+      	A.DELETE_AT,
+      	A.LAST_CHANGER_ID,
+      	A.LAST_CHANGE_DT
+		FROM
+			SY_INSPCT_INSTT_LBCST A
+		WHERE
+			A.INSPCT_INSTT_CODE = #{inspctInsttCode}
+		AND A.YY=#{yy}
+		AND
+			A.DELETE_AT = 'N'
+	</select>
+
+	<!-- 품질비 조회 -->
+	<select id="getPlnatQlityCtAmMList" parameterType="lims.sys.vo.PlnatMVo" resultType="lims.sys.vo.PlnatMVo">
+		SELECT
+		A.INSPCT_INSTT_LBCST_SEQNO,
+      	A.INSPCT_INSTT_CODE,
+      	A.YY,
+      	A.LBCST_AM,
+      	A.DELETE_AT,
+      	A.LAST_CHANGER_ID,
+      	A.LAST_CHANGE_DT,
+        B.INSPCT_INSTT_LBCST_SEQNO,
+        B.EQPMN_CL_CODE,
+        ( SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE = B.EQPMN_CL_CODE) as EQPMN_CL_CODE_NM,
+        B.ANALSCT_AM,
+        B.CMPDS_ANALSCT_AM,
+        B.MNTNC_MENDNG_CNTRCT_AM,
+        B.RPAIRS_MNTNC_MENDNG_AM,
+        B.LBCST_RATE,
+        B.DAIL_ANALS_POSBL_TIME,
+        B.ANALS_REQRE_TIME,
+        B.LAST_CHANGER_ID,
+        B.LAST_CHANGE_DT
+		FROM
+			SY_INSPCT_INSTT_LBCST A
+      	RIGHT JOIN  SY_INSPCT_INSTT_QLITY_CT B ON A.INSPCT_INSTT_LBCST_SEQNO= B.INSPCT_INSTT_LBCST_SEQNO
+		WHERE
+			A.INSPCT_INSTT_CODE = #{inspctInsttCode}
+		AND A.YY=#{yy}
+		AND
+			A.DELETE_AT = 'N'
+	</select>
+
+<insert id="insLbcst" parameterType="lims.sys.vo.PlnatMVo">
+		<selectKey resultType="string" keyProperty="inspctInsttLbcstSeqno" order="BEFORE">
+	        SELECT SQ_SY_INSPCT_INSTT_LBCST.NEXTVAL AS SQ_SY_INSPCT_INSTT_LBCST_SEQNO FROM DUAL
+	    </selectKey>
+		INSERT INTO SY_INSPCT_INSTT_LBCST (
+			INSPCT_INSTT_LBCST_SEQNO
+		     , INSPCT_INSTT_CODE
+		     , YY
+		     , LBCST_AM
+		     , DELETE_AT
+		     , LAST_CHANGER_ID
+		     , LAST_CHANGE_DT
+		) VALUES (
+			#{inspctInsttLbcstSeqno}
+			, #{inspctInsttCode}
+			, #{yy}
+			, #{lbcstAm}
+			, 'N'
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+		)
+	</insert>
+	
+	<update id="upLbcst" parameterType="lims.sys.vo.PlnatMVo">
+	UPDATE SY_INSPCT_INSTT_LBCST
+			SET
+		     INSPCT_INSTT_CODE = #{inspctInsttCode}
+		     , YY =#{yy}
+		     , LBCST_AM =#{lbcstAm}
+		     , LAST_CHANGER_ID ='${@lims.util.GetUserSession@getUserId()}'
+		     , LAST_CHANGE_DT = SYSDATE
+			WHERE 
+				INSPCT_INSTT_LBCST_SEQNO = #{inspctInsttLbcstSeqno}
+	</update>
+
+
+	<!-- 품질비 등록 -->
+	<insert id="insPlnatQlityCtAm" parameterType="lims.sys.vo.PlnatMVo">
+<!-- 		<selectKey resultType="string" keyProperty="inspctInsttQlityCtSeqno" order="BEFORE"> -->
+<!-- 	        SELECT SQ_SY_INSPCT_INSTT_QLITY_CT.NEXTVAL AS INSPCT_INSTT_QLITY_CT_SEQNO FROM DUAL -->
+<!-- 	    </selectKey> -->
+		INSERT INTO SY_INSPCT_INSTT_QLITY_CT (
+		     INSPCT_INSTT_LBCST_SEQNO,
+		     EQPMN_CL_CODE,
+		     ANALSCT_AM,
+		     CMPDS_ANALSCT_AM,
+		     MNTNC_MENDNG_CNTRCT_AM,
+		     RPAIRS_MNTNC_MENDNG_AM,
+		     LBCST_RATE,
+		     DAIL_ANALS_POSBL_TIME,
+		     ANALS_REQRE_TIME,
+		     LAST_CHANGER_ID,
+		     LAST_CHANGE_DT
+		) VALUES (
+			#{inspctInsttLbcstSeqno}
+			, #{eqpmnClCode}
+			, #{analsctAm}
+			, #{cmpdsAnalsctAm}
+			, #{mntncMendngCntrctAm}
+			, #{rpairsMntncMendngAm}
+			, #{lbcstRate}
+			, #{dailAnalsPosblTime}
+			, #{analsReqreTime}
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- 품질비 수정 -->
+	<update id="updPlnatQlityCtAm" parameterType="lims.sys.vo.PlnatMVo">
+     	UPDATE SY_INSPCT_INSTT_QLITY_CT
+			SET
+		     	ANALSCT_AM =#{analsctAm},
+		     	CMPDS_ANALSCT_AM =#{cmpdsAnalsctAm},
+		     	MNTNC_MENDNG_CNTRCT_AM =#{mntncMendngCntrctAm} ,
+		     	RPAIRS_MNTNC_MENDNG_AM =#{rpairsMntncMendngAm} ,
+		     	LBCST_RATE =#{lbcstRate} ,
+		     	DAIL_ANALS_POSBL_TIME =#{dailAnalsPosblTime},
+		     	ANALS_REQRE_TIME = #{analsReqreTime},
+		     	LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}',
+		     	LAST_CHANGE_DT = SYSDATE
+			WHERE
+				INSPCT_INSTT_LBCST_SEQNO = #{inspctInsttLbcstSeqno} AND  EQPMN_CL_CODE =#{eqpmnClCode}
+	</update>
+
+	<!-- 품질비 삭제여부 'Y' -->
+	<update id="delPlnatQlityCtAm" parameterType="lims.sys.vo.PlnatMVo">
+     DELETE FROM SY_INSPCT_INSTT_QLITY_CT
+	WHERE INSPCT_INSTT_LBCST_SEQNO = #{inspctInsttLbcstSeqno} AND  EQPMN_CL_CODE =#{eqpmnClCode}
+	</update>
+
+</mapper>

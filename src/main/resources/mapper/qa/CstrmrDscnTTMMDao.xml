@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.qa.dao.CstrmrDscnTTMMDao">
+
+
+
+    <select id="CstrmrDscnTTMList" parameterType="lims.qa.vo.CstrmrDscnTtmmVo" resultType="lims.qa.vo.CstrmrDscnTtmmVo">
+        SELECT
+            A.CSTMR_DSCNTT_SEQNO
+            ,A.CSTMR_DSCNTT_NO
+            ,A.ENTRPS_SEQNO
+            ,B.ENTRPS_NM
+            ,A.CSTMR_DSCNTT_SJ
+            ,A.MTRIL_SEQNO
+            ,C.MTRIL_NM AS MTRIL_NM
+            ,A.LOT_NO
+            ,A.OCCRRNC_DTE
+            ,A.OCCRRNC_QTT
+            ,A.REPRT_AT
+            ,A.REQUST_DTE
+            ,A.CHRG_DEPT_CODE
+            ,D.INSPCT_INSTT_NM AS CHRG_DEPT_CODE_NM
+            ,NVL(A.CHARGER_ID, '') AS CHARGER_ID
+            ,E.USER_NM AS CHARGER_ID_NM
+            ,A.CSTMR_DSCNTT_IPCR_CODE
+            ,G.CMMN_CODE_NM AS CSTMR_DSCNTT_IPCR_CODE_NM
+            ,A.OCAP_STTUS_CODE
+            ,F.CMMN_CODE_NM AS OCAP_STTUS_CODE_NM
+            ,A.M5E1_CODE
+            ,H.CMMN_CODE_NM AS M5E1_CODE_NM
+            ,A.DMGE_SCALE_CN
+            ,A.COMPT_DTE
+            ,A.CAUSE_ANALS_CN
+            ,A.IMPRVM_CNTRPLN_CN
+            ,A.DSCNTT_CN
+            ,A.ATCHMNFL_SEQNO
+            ,A.SANCTN_SEQNO
+            ,(
+                SELECT
+                LISTAGG(IB.USER_NM, ' > ') WITHIN GROUP ( ORDER BY IA.ORDR )
+                FROM CM_SANCTN_INFO IA
+                JOIN SY_USER IB ON IA.SANCTNER_ID = IB.USER_ID
+                WHERE IA.SANCTN_SEQNO = A.SANCTN_SEQNO AND IA.USE_AT = 'Y' AND IB.USE_AT = 'Y' AND IB.DELETE_AT = 'N'
+            ) SANCTNER_NM
+            ,(
+                SELECT
+                LISTAGG(IA.SANCTNER_ID, ' > ') WITHIN GROUP ( ORDER BY IA.ORDR )
+                FROM CM_SANCTN_INFO IA
+                WHERE IA.SANCTN_SEQNO = A.SANCTN_SEQNO  AND IA.USE_AT = 'Y'
+            ) SANCTNER_ID
+            ,A.WDTB_SEQNO
+            ,A.DELETE_AT
+            ,A.LAST_CHANGER_ID
+            ,A.LAST_CHANGE_DT
+            ,A.EXMNT_SEQNO
+            ,I.SANCTN_PROGRS_SITTN_CODE
+            ,J.CMMN_CODE_NM AS SANCTN_PROGRS_SITTN_CODE_NM
+        FROM RS_CSTMR_DSCNTT A
+        LEFT JOIN SY_ENTRPS B ON A.ENTRPS_SEQNO = B.ENTRPS_SEQNO AND B.DELETE_AT = 'N' AND B.USE_AT = 'Y'
+        LEFT JOIN SY_MTRIL C ON C.MTRIL_SEQNO = A.MTRIL_SEQNO AND C.DELETE_AT = 'N' AND C.USE_AT = 'Y'
+        LEFT JOIN SY_INSPCT_INSTT D ON D.INSPCT_INSTT_CODE = A.CHRG_DEPT_CODE AND D.USE_AT = 'Y' AND D.DELETE_AT = 'N'
+        LEFT JOIN SY_USER E ON E.USER_ID = A.CHARGER_ID AND E.USE_AT = 'Y' AND E.DELETE_AT = 'N'
+        LEFT JOIN SY_CMMN_CODE F ON F.CMMN_CODE = A.OCAP_STTUS_CODE AND F.USE_AT = 'Y'
+        LEFT JOIN SY_CMMN_CODE G ON G.CMMN_CODE = A.CSTMR_DSCNTT_IPCR_CODE AND G.USE_AT = 'Y'
+        LEFT JOIN SY_CMMN_CODE H ON H.CMMN_CODE = A.M5E1_CODE AND H.USE_AT = 'Y'
+        LEFT JOIN CM_SANCTN I ON I.SANCTN_SEQNO = A.SANCTN_SEQNO AND I.USE_AT = 'Y'
+        LEFT JOIN SY_CMMN_CODE J ON J.CMMN_CODE = I.SANCTN_PROGRS_SITTN_CODE AND J.USE_AT = 'Y'
+        WHERE 1 = 1 AND A.DELETE_AT = 'N'
+        <if test="reprtAt != null and reprtAt != ''">
+            AND REPRT_AT = #{reprtAt}
+        </if>
+        <if test="cstmrDscnttNo != null and cstmrDscnttNo != ''">
+            AND A.CSTMR_DSCNTT_NO LIKE '%' || TRIM(#{cstmrDscnttNo}) || '%'
+        </if>
+        <if test="entrpsNm != null and entrpsNm != ''">
+            AND B.ENTRPS_NM LIKE '%' || #{entrpsNm} || '%'
+        </if>
+        <if test="cstmrDscnttSj != null and cstmrDscnttSj != ''">
+
+            AND A.CSTMR_DSCNTT_SJ LIKE '%' || TRIM(#{cstmrDscnttSj}) || '%'
+        </if>
+        <if test="mtrilNm != null and mtrilNm != ''">
+            AND C.MTRIL_NM LIKE '%' || #{mtrilNm} || '%'
+        </if>
+        <if test="requstDteSt != null and requstDteSt != ''">
+            <if test="requstDteEn != null and requstDteEn != ''">
+                AND A.REQUST_DTE BETWEEN #{requstDteSt} AND #{requstDteEn}
+            </if>
+            <if test="requstDteEn == null or requstDteEn == ''">
+                AND A.REQUST_DTE <![CDATA[>]]> #{requstDteSt}
+            </if>
+        </if>
+        <if test="requstDteSt == null or requstDteSt == ''">
+            <if test="requstDteEn != null and requstDteEn != ''">
+                AND A.REQUST_DTE <![CDATA[<]]> #{requstDteEn}
+            </if>
+        </if>
+        <if test="chrgDeptCode != null and chrgDeptCode != ''">
+            AND A.CHRG_DEPT_CODE = #{chrgDeptCode}
+        </if>
+        <if test="chargerId != null and chargerId != ''">
+            AND A.CHARGER_ID = #{chargerId}
+        </if>
+        <if test="comptDteSt != null and comptDteSt != ''">
+            <if test="comptDteEn != null and comptDteEn != ''">
+                AND A.COMPT_DTE BETWEEN #{comptDteSt} AND #{comptDteEn}
+            </if>
+            <if test="comptDteEn == null or comptDteEn == ''">
+                AND A.COMPT_DTE <![CDATA[>]]> #{comptDteSt}
+            </if>
+        </if>
+        <if test="comptDteSt == null or comptDteSt == ''">
+            <if test="comptDteEn != null and comptDteEn != ''">
+                AND A.COMPT_DTE <![CDATA[<]]> #{comptDteEn}
+            </if>
+        </if>
+        <if test="sanctnProgrsSittnCode != null and sanctnProgrsSittnCode != ''">
+            AND I.SANCTN_PROGRS_SITTN_CODE = #{sanctnProgrsSittnCode}
+        </if>
+
+    </select>
+
+
+    <insert id="insCstrmrInfo" parameterType="lims.qa.vo.CstrmrDscnTtmmVo">
+        <selectKey keyProperty="cstmrDscnttSeqno,cstmrDscnttNo" resultType="lims.qa.vo.CstrmrDscnTtmmVo"  order="BEFORE">
+            SELECT
+                   SQ_RS_CSTMR_DSCNTT.NEXTVAL AS cstmrDscnttSeqno,
+                   'FCC-CS-'||TO_CHAR(SYSDATE,'YY-MM') || (
+                        SELECT
+                            LPAD(NVL(COUNT(IA.CSTMR_DSCNTT_SEQNO),0)+1, 3, 0)
+                        FROM RS_CSTMR_DSCNTT IA
+                        WHERE IA.CSTMR_DSCNTT_NO LIKE 'FCC-CS-' ||TO_CHAR(SYSDATE,'YY-MM') || '%'
+                    ) AS cstmrDscnttNo
+            FROM DUAL
+        </selectKey>
+        INSERT INTO RS_CSTMR_DSCNTT(
+            CSTMR_DSCNTT_SEQNO
+           ,CSTMR_DSCNTT_NO
+           ,ENTRPS_SEQNO
+           ,CSTMR_DSCNTT_SJ
+           ,MTRIL_SEQNO
+           ,LOT_NO
+           ,OCCRRNC_DTE
+           ,OCCRRNC_QTT
+           ,REPRT_AT
+           ,REQUST_DTE
+           ,CHRG_DEPT_CODE
+           ,CHARGER_ID
+           ,CSTMR_DSCNTT_IPCR_CODE
+           ,OCAP_STTUS_CODE
+           ,M5E1_CODE
+           ,DMGE_SCALE_CN
+           ,COMPT_DTE
+           ,CAUSE_ANALS_CN
+           ,IMPRVM_CNTRPLN_CN
+           ,DSCNTT_CN
+           ,ATCHMNFL_SEQNO
+           ,SANCTN_SEQNO
+           ,WDTB_SEQNO
+           ,DELETE_AT
+           ,LAST_CHANGER_ID
+           ,LAST_CHANGE_DT
+           ,EXMNT_SEQNO
+        )VALUES(
+           #{cstmrDscnttSeqno}
+           , #{cstmrDscnttNo}
+           , #{entrpsSeqno}
+           , #{cstmrDscnttSj}
+           , #{mtrilSeqno}
+           , #{lotNo}
+           , #{occrrncDte}
+           , #{occrrncQtt}
+           , NVL(#{reprtAt},'N')
+           , #{requstDte}
+           , #{chrgDeptCode}
+           , #{chargerId}
+           , #{cstmrDscnttIpcrCode}
+           , #{ocapSttusCode}
+           , #{m5e1Code}
+           , #{dmgeScaleCn}
+           , #{comptDte}
+           , #{causeAnalsCn}
+           , #{imprvmCntrplnCn}
+           , #{dscnttCn}
+           , #{atchmnflSeqno}
+           , #{sanctnSeqno}
+           , #{wdtbSeqno}
+           , 'N'
+           , '${@lims.util.GetUserSession@getUserId()}'
+           , SYSDATE
+           , #{exmntSeqno}
+        )
+
+    </insert>
+
+
+    <update id="updCstrmrInfo" parameterType="lims.qa.vo.CstrmrDscnTtmmVo">
+        UPDATE RS_CSTMR_DSCNTT SET
+            ENTRPS_SEQNO = #{entrpsSeqno}
+            , CSTMR_DSCNTT_SJ = #{cstmrDscnttSj}
+            , MTRIL_SEQNO = #{mtrilSeqno}
+            , LOT_NO = #{lotNo}
+            , OCCRRNC_DTE = #{occrrncDte}
+            , OCCRRNC_QTT = #{occrrncQtt}
+            , REPRT_AT = NVL(#{reprtAt},'N')
+            , REQUST_DTE = #{requstDte}
+            , CHRG_DEPT_CODE = #{chrgDeptCode}
+            , CHARGER_ID = #{chargerId}
+            , CSTMR_DSCNTT_IPCR_CODE = #{cstmrDscnttIpcrCode}
+            , OCAP_STTUS_CODE = #{ocapSttusCode}
+            , M5E1_CODE = #{m5e1Code}
+            , DMGE_SCALE_CN = #{dmgeScaleCn}
+            , COMPT_DTE = #{comptDte}
+            , CAUSE_ANALS_CN = #{causeAnalsCn}
+            , IMPRVM_CNTRPLN_CN = #{imprvmCntrplnCn}
+            , DSCNTT_CN = #{dscnttCn}
+            , ATCHMNFL_SEQNO = #{atchmnflSeqno}
+            , SANCTN_SEQNO = #{sanctnSeqno}
+            , WDTB_SEQNO = #{wdtbSeqno}
+            , DELETE_AT = NVL(#{deleteAt},'Y')
+            , LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+            , LAST_CHANGE_DT = SYSDATE
+            , EXMNT_SEQNO = #{exmntSeqno}
+        WHERE CSTMR_DSCNTT_SEQNO = #{cstmrDscnttSeqno}
+
+    </update>
+
+    <update id="updCstrmrUserInfo" parameterType="lims.qa.vo.CstrmrDscnTtmmVo">
+        UPDATE RS_CSTMR_DSCNTT_USER A
+        SET A.DELETE_AT = 'Y'
+        WHERE A.CSTMR_DSCNTT_SEQNO = #{cstmrDscnttSeqno} AND A.USER_ID = #{userId}
+    </update>
+
+    <update id="updateCstrmrSanctn" parameterType="lims.qa.vo.CstrmrDscnTtmmVo">
+        UPDATE RS_CSTMR_DSCNTT A
+        SET A.SANCTN_SEQNO = #{sanctnSeqno}
+        WHERE A.CSTMR_DSCNTT_SEQNO = #{cstmrDscnttSeqno}
+    </update>
+
+    <update id="updateExmntSeqno"  parameterType="lims.com.vo.CmExmntDto">
+        UPDATE RS_CSTMR_DSCNTT SET
+            EXMNT_SEQNO = #{exmntSeqno},
+            LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}',
+            LAST_CHANGE_DT = SYSDATE
+        WHERE CSTMR_DSCNTT_SEQNO = #{otherKey}
+    </update>
+
+    <insert id="insCstrmrUserInfo">
+        INSERT INTO RS_CSTMR_DSCNTT_USER(
+             CSTMR_DSCNTT_USER_SEQNO
+            ,CSTMR_DSCNTT_SEQNO
+            ,USER_ID
+            ,DEPT_NM
+            ,OFCPS_NM
+            ,MOBLPHON
+            ,DELETE_AT
+            ,LAST_CHANGER_ID
+            ,LAST_CHANGE_DT
+        ) VALUES(
+            SQ_RS_CSTMR_DSCNTT_USER.NEXTVAL
+            , #{cstmrDscnttSeqno}
+            , #{userId}
+            , #{deptNm}
+            , #{ofcpsNm}
+            , #{moblphon}
+            , 'N'
+            , '${@lims.util.GetUserSession@getUserId()}'
+            , SYSDATE
+        )
+    </insert>
+
+    <select id="getCstmrUserList" resultType="lims.qa.vo.CstrmrDscnTtmmVo">
+        SELECT
+            A.CSTMR_DSCNTT_SEQNO,
+            A.CSTMR_DSCNTT_USER_SEQNO,
+            A.DEPT_NM,
+            A.USER_ID,
+            B.USER_NM,
+            A.MOBLPHON,
+            A.OFCPS_NM
+        FROM RS_CSTMR_DSCNTT_USER A
+        JOIN SY_USER B ON A.USER_ID = B.USER_ID
+        WHERE A.CSTMR_DSCNTT_SEQNO = #{cstmrDscnttSeqno}
+        AND A.DELETE_AT = 'N' AND B.USE_AT = 'Y' AND B.DELETE_AT = 'N'
+    </select>
+</mapper>

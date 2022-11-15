@@ -1,0 +1,348 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.rsc.dao.EqpmnRlabltyEvlDao">
+	<!-- 장비 신뢰성평가 목록 조회 -->
+	<select id="searchEqpmnRlabltyEvlRegst" resultType="lims.rsc.vo.EqpmnRlabltyEvlVo" parameterType="lims.rsc.vo.EqpmnRlabltyEvlVo">
+		SELECT
+		A.EQPMN_RLABLTY_EVL_REGIST_SEQNO
+		,A.INSPCT_CRRCT_SE_CODE --ZRS24 검사 교정 구분 코드
+		,A.EVLER_ID  --평가자 ID
+		,A.EVL_DTE --평가일자
+		,A.ATCHMNFL_SEQNO
+		,A.RM --비교
+		,A.EQPMN_RLABLTY_EVL_REGIST_SEQNO --장비 신뢰성 평가 등록 일련번호
+		,A.ATCHMNFL_SEQNO --첨부파일
+		,A.BPLC_CODE -- 사업장코드
+		,(SELECT AX.CMMN_CODE_NM FROM SY_CMMN_CODE AX WHERE AX.CMMN_CODE = A.INSPCT_CRRCT_SE_CODE) AS INSPCT_CRRCT_SE_NM --검사교정구분명
+		,(SELECT AX.USER_NM FROM SY_USER AX WHERE AX.USER_ID = A.EVLER_ID) AS EVLER_NM --평가자 이름
+		,B.EQPMN_CL_CODE --장비분류코드
+		,(SELECT AX.CMMN_CODE_NM FROM SY_CMMN_CODE AX WHERE AX.CMMN_CODE = B.EQPMN_CL_CODE) AS EQPMN_CL_NM
+		,B.EQPMN_MANAGE_NO --장비관리번호
+		,B.EQPMN_NM --장비명
+		,B.EQPMN_SEQNO --장비 일련번호
+		,A.INSPCT_CRRCT_PLAN_DTE
+		,A.NEXT_INSPCT_CRRCT_DTE
+		,B.DETECT_LIMIT_APPLC_AT
+		,C.INSPCT_CRRCT_CYCLE
+		,C.CYCLE_CODE
+
+		FROM RS_EQPMN_RLABLTY_EVL_REGIST A
+		INNER JOIN RS_EQPMN B ON A.EQPMN_SEQNO = B.EQPMN_SEQNO
+		INNER JOIN RS_EQPMN_INSPCT_CRRCT_CYCLE C ON B.EQPMN_SEQNO = C.EQPMN_SEQNO AND A.INSPCT_CRRCT_SE_CODE = C.INSPCT_CRRCT_SE_CODE
+
+		WHERE A.DELETE_AT = 'N'
+		AND B.DELETE_AT = 'N'
+		AND B.USE_AT = 'Y'
+		AND A.INSPCT_CRRCT_SE_CODE NOT IN ('RS24000001','RS24000002')
+		<if test="bplcCodeSch != null and bplcCodeSch != '' ">
+			AND B.BPLC_CODE = #{bplcCodeSch}
+		</if>
+		<if test="eqpmnNmSch != null and eqpmnNmSch != '' ">
+			AND A.EQPMN_SEQNO = #{eqpmnNmSch}
+		</if>
+		<if test="evlerNmSch != null and evlerNmSch != '' ">
+			AND (SELECT AX.USER_NM FROM SY_USER AX WHERE AX.USER_ID = A.EVLER_ID) LIKE '%'||TRIM(#{evlerNmSch})||'%'
+		</if>
+		<if test="inspctCrrctSeCodeSch != null and inspctCrrctSeCodeSch != '' ">
+			AND  A.INSPCT_CRRCT_SE_CODE  = #{inspctCrrctSeCodeSch}
+		</if>
+		<if test="evlBeginDteSch != null and evlBeginDteSch != '' and evlEndDteSch != null and evlEndDteSch != ''">
+			AND TO_DATE(A.EVL_DTE,'YYYY-MM-DD')
+			BETWEEN TO_DATE(#{evlBeginDteSch},'YYYY-MM-DD')
+			AND TO_DATE(#{evlEndDteSch},'YYYY-MM-DD')
+		</if>
+		ORDER BY A.EQPMN_RLABLTY_EVL_REGIST_SEQNO DESC
+	</select>
+
+	<!-- 장비 신뢰성평가 시험항목 목록 조회 -->
+	<select id="searchEqpmnRlabltyEvlRegstSub" resultType="lims.rsc.vo.EqpmnRlabltyEvlVo" parameterType="lims.rsc.vo.EqpmnRlabltyEvlVo">
+
+		SELECT
+			A.EQPMN_RLABLTY_EVL_REGIST_SEQNO --장비 신뢰성 평가 등록 일련번호
+			 ,A.BPLC_CODE --사업장 코드
+			 ,A.EQPMN_SEQNO --장비 일련번호
+			 ,B.EQPMN_CL_CODE
+			 ,C.EXPRIEM_SEQNO --시험항목 일련번호
+			 ,(SELECT AX.EXPRIEM_NM FROM SY_EXPRIEM AX WHERE AX.EXPRIEM_SEQNO = C.EXPRIEM_SEQNO) AS EXPRIEM_NM --시험항목명
+			 ,C.SORT_ORDR
+			 ,D.RESULT_VALUE --결과 값
+			 ,E.DETECT_LIMIT_SEQNO
+
+		FROM RS_EQPMN_RLABLTY_EVL_REGIST A
+
+				 INNER JOIN RS_EQPMN B ON A.EQPMN_SEQNO = B.EQPMN_SEQNO
+				 INNER JOIN RS_EQPMN_RLABLTY_EVL_EXPRIEM C ON B.EQPMN_SEQNO = C.EQPMN_SEQNO
+				 LEFT OUTER JOIN RS_EQPMN_RLABLTY_EVL_RESULT D ON A.EQPMN_RLABLTY_EVL_REGIST_SEQNO = D.EQPMN_RLABLTY_EVL_REGIST_SEQNO AND C.EXPRIEM_SEQNO = D.EXPRIEM_SEQNO
+				 LEFT OUTER JOIN  RS_EQPMN_CL_DETECT_LIMIT E ON D.EQPMN_RLABLTY_EVL_REGIST_SEQNO = E.EQPMN_RLABLTY_EVL_REGIST_SEQNO AND A.EVL_DTE = E.APPLC_BEGIN_DTE AND C.EXPRIEM_SEQNO = E.EXPRIEM_SEQNO
+
+		WHERE A.EQPMN_RLABLTY_EVL_REGIST_SEQNO =  #{eqpmnRlabltyEvlRegistSeqno}
+		  AND A.DELETE_AT = 'N'
+		  AND B.USE_AT = 'Y'
+		  AND B.DELETE_AT = 'N'
+		  AND C.DELETE_AT = 'N'
+		ORDER BY C.SORT_ORDR
+
+	</select>
+	<!-- 실뢰성 평가 목록 저장 -->
+	<insert id="insEqpmnRlabltyEvlRegstDate" parameterType="lims.rsc.vo.EqpmnRlabltyEvlVo">
+		<selectKey keyProperty="eqpmnRlabltyEvlRegistSeqno" resultType="int" order="BEFORE">
+			SELECT SQ_RS_EQPMN_RLABLTY_EVL_REGIST.NEXTVAL FROM DUAL
+		</selectKey>
+
+
+		INSERT  INTO RS_EQPMN_RLABLTY_EVL_REGIST A
+		(
+		A.EQPMN_RLABLTY_EVL_REGIST_SEQNO
+		,A.BPLC_CODE
+		,A.INSPCT_CRRCT_SE_CODE
+		,A.EQPMN_SEQNO
+		,A.EVLER_ID
+		,A.EVL_DTE
+		,A.INSPCT_CRRCT_PLAN_DTE
+		,A.NEXT_INSPCT_CRRCT_DTE
+		,A.ATCHMNFL_SEQNO
+		,A.RM
+		,A.DELETE_AT
+		,A.LAST_CHANGER_ID
+		,A.LAST_CHANGE_DT
+		)
+		VALUES
+		(
+		#{eqpmnRlabltyEvlRegistSeqno}
+		,#{bplcCode}
+		,#{inspctCrrctSeCode}
+		,#{eqpmnSeqno}
+		,#{evlerId}
+		,#{evlDte}
+		,#{inspctCrrctPlanDte}
+		,#{nextInspctCrrctDte}
+		,#{atchmnflSeqno}
+		,#{rm}
+		,'N'
+		,'${@lims.util.GetUserSession@getUserId()}'
+		,SYSDATE
+		)
+	</insert>
+	<update id="updEqpmnRlabltyEvlRegstDate" parameterType="lims.rsc.vo.EqpmnRlabltyEvlVo">
+		UPDATE RS_EQPMN_RLABLTY_EVL_REGIST A SET
+			A.BPLC_CODE = #{bplcCode}
+											   ,A.INSPCT_CRRCT_SE_CODE = #{inspctCrrctSeCode}
+											   ,A.EQPMN_SEQNO = #{eqpmnSeqno}
+											   ,A.EVLER_ID =#{evlerId}
+											   ,A.EVL_DTE =#{evlDte}
+											   ,A.ATCHMNFL_SEQNO = #{atchmnflSeqno}
+											   ,A.RM = #{rm}
+											   ,A.INSPCT_CRRCT_PLAN_DTE = #{inspctCrrctPlanDte}
+											   ,A.NEXT_INSPCT_CRRCT_DTE = #{nextInspctCrrctDte}
+											   ,A.LAST_CHANGER_ID ='${@lims.util.GetUserSession@getUserId()}'
+											   ,A.LAST_CHANGE_DT = SYSDATE
+
+		WHERE A.EQPMN_RLABLTY_EVL_REGIST_SEQNO = #{eqpmnRlabltyEvlRegistSeqno}
+	</update>
+	<!-- 신뢰성 평가 결과 저장 -->
+	<update id="saveEqpmnRlabltyEvlRegstSubDate" parameterType="lims.rsc.vo.EqpmnRlabltyEvlVo">
+		MERGE INTO RS_EQPMN_RLABLTY_EVL_RESULT A
+			USING DUAL B
+			ON(A.EXPRIEM_SEQNO = #{expriemSeqno} AND A.EQPMN_RLABLTY_EVL_REGIST_SEQNO = #{eqpmnRlabltyEvlRegistSeqno})
+			WHEN MATCHED THEN
+				UPDATE SET
+					A.BPLC_CODE = #{bplcCode}
+					,A.RESULT_VALUE = #{resultValue}
+					,A.SORT_ORDR = #{sortOrdr}
+					,A.LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+					,A.LAST_CHANGE_DT = SYSDATE
+			WHEN NOT MATCHED THEN
+				INSERT
+					(
+					 A.EQPMN_RLABLTY_EVL_REGIST_SEQNO
+						,A.EXPRIEM_SEQNO
+						,A.BPLC_CODE
+						,A.RESULT_VALUE
+						,A.SORT_ORDR
+						,A.LAST_CHANGER_ID
+						,A.LAST_CHANGE_DT
+						)
+					VALUES
+						(
+							#{eqpmnRlabltyEvlRegistSeqno}
+						,#{expriemSeqno}
+						,#{bplcCode}
+						,#{resultValue}
+						,#{sortOrdr}
+						,'${@lims.util.GetUserSession@getUserId()}'
+						,SYSDATE
+						)
+	</update>
+
+	<!-- 장비분류검출 한계 저장 -->
+	<insert id="saveRsEqpmnClDetectLimitDate" parameterType="lims.rsc.vo.EqpmnRlabltyEvlVo">
+		<selectKey keyProperty="detectLimitSeqno" resultType="int" order="BEFORE">
+			SELECT SQ_RS_EQPMN_CL_DETECT_LIMIT.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO RS_EQPMN_CL_DETECT_LIMIT A
+		(
+		A.DETECT_LIMIT_SEQNO
+		,A.EXPRIEM_SEQNO
+		,A.BPLC_CODE
+		,A.EQPMN_CL_CODE
+		,A.EQPMN_RLABLTY_EVL_REGIST_SEQNO
+		,A.LAST_CHANGER_ID
+		,A.LAST_CHANGE_DT
+		,A.RM
+		,A.APPLC_BEGIN_DTE
+		,A.APPLC_END_DTE
+		,A.DETECT_LIMIT_BELO_VALUE
+		)
+		VALUES
+		(
+		${detectLimitSeqno}
+		,#{expriemSeqno}
+		,#{bplcCode}
+		,#{eqpmnClCode}
+		,#{eqpmnRlabltyEvlRegistSeqno}
+		,'${@lims.util.GetUserSession@getUserId()}'
+		,SYSDATE
+		,#{rm}
+		,#{evlDte}
+		,'9999-12-31'
+		,#{resultValue}
+		)
+	</insert>
+
+	<!-- 장비분류검출 한계 이전데이터 수정 -->
+	<update id="updateRsEqpmnClDetectLimitOldDate" parameterType="lims.rsc.vo.EqpmnRlabltyEvlVo">
+
+		UPDATE RS_EQPMN_CL_DETECT_LIMIT A SET
+			A.APPLC_END_DTE = TO_CHAR(SYSDATE -1,'YYYY-MM-DD')
+											,A.LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+											,A.LAST_CHANGE_DT = SYSDATE
+		WHERE A.eqpmn_cl_code = #{eqpmnClCode}
+
+		  and A.EXPRIEM_SEQNO = #{expriemSeqno}
+
+		  AND A.APPLC_END_DTE = '9999-12-31'
+	</update>
+
+	<!-- 장비 검출 한계 적용 여부 -->
+	<select id="getRsEqpmnDetectLimitApplcAt" resultType="String" parameterType="lims.rsc.vo.EqpmnRlabltyEvlVo">
+		SELECT
+			DETECT_LIMIT_APPLC_AT --검출 한계 적용 여부
+		FROM  RS_EQPMN A
+
+		WHERE A.EQPMN_SEQNO = #{eqpmnSeqno}
+	</select>
+
+
+
+	<!-- 신뢰성 평가 등록 삭제 -->
+	<update id="updateEqpmnRlabltyEvlRegstDel" parameterType="lims.rsc.vo.EqpmnRlabltyEvlVo">
+		UPDATE RS_EQPMN_RLABLTY_EVL_REGIST A SET
+			A.DELETE_AT = #{deleteAt}
+		WHERE A.EQPMN_RLABLTY_EVL_REGIST_SEQNO = #{eqpmnRlabltyEvlRegistSeqno}
+	</update>
+
+
+	<!-- 장비 신뢰성평가 시험항목 목록 조회 -->
+	<select id="getRsEqpmnRlabltyEvlExpriem" resultType="lims.rsc.vo.EqpmnRlabltyEvlVo" parameterType="lims.rsc.vo.EqpmnRlabltyEvlVo">
+		SELECT
+			B.EXPRIEM_SEQNO --시험항목 일련번호
+			 ,(SELECT AX.EXPRIEM_NM FROM SY_EXPRIEM AX WHERE AX.EXPRIEM_SEQNO = B.EXPRIEM_SEQNO) AS EXPRIEM_NM --시험항목명
+			 ,B.SORT_ORDR
+			 ,A.EQPMN_CL_CODE
+		FROM  RS_EQPMN A
+				  INNER JOIN RS_EQPMN_RLABLTY_EVL_EXPRIEM B ON A.EQPMN_SEQNO = B.EQPMN_SEQNO
+		WHERE A.EQPMN_SEQNO = #{eqpmnSeqno}
+		  AND A.USE_AT = 'Y'
+		  AND A.DELETE_AT = 'N'
+		  AND B.DELETE_AT = 'N'
+		ORDER BY B.SORT_ORDR
+	</select>
+
+	<!-- 장비 검사 교정  데이터 호출 -->
+	<select id="getCmmnInspctCode" resultType="lims.rsc.vo.EqpmnRlabltyEvlVo" parameterType="lims.rsc.vo.EqpmnRlabltyEvlVo">
+		SELECT
+			DISTINCT A.CMMN_CODE VALUE,
+		A.CMMN_CODE_NM KEY
+		FROM SY_CMMN_CODE A
+		WHERE A.CMMN_CODE IN ('RS24000003','RS24000004','RS24000005')
+	</select>
+
+	<!-- 장비 검사 교정  데이터 호출
+            장비관리번호로 조회 OR 장비 SELECTBOX로 조회
+     -->
+	<select id="getSelectEqpmnManageNo" resultType="lims.rsc.vo.EqpmnRlabltyEvlVo" parameterType="lims.rsc.vo.EqpmnRlabltyEvlVo">
+		SELECT
+		A.EQPMN_MANAGE_NO --장비관리번호
+		,A.EQPMN_CL_CODE --장비 분류 코드
+		,A.EQPMN_SEQNO    --장비SEQ
+		FROM RS_EQPMN A
+		WHERE A.DELETE_AT = 'N'
+		AND A.USE_AT = 'Y'
+		AND A.DSUSE_DTE IS NULL
+		AND A.DSUSE_RESN IS NULL
+		AND A.BPLC_CODE = #{bplcCode}
+		<if test="eqpmnSeqno != null and eqpmnSeqno != '' ">
+			AND A.EQPMN_SEQNO = #{eqpmnSeqno}
+		</if>
+		<if test="eqpmnManageNo != null and eqpmnManageNo != '' ">
+			AND A.EQPMN_MANAGE_NO = #{eqpmnManageNo}
+		</if>
+	</select>
+
+	<!-- 장비 검사 교정 주기 및 주기코드 조회-->
+	<select id="getInspctCrrctCycle" resultType="lims.rsc.vo.EqpmnManageDto" parameterType="lims.rsc.vo.EqpmnRlabltyEvlVo">
+		SELECT
+			A.INSPCT_CRRCT_SE_CODE --ZRS24 검사 교정 구분 코드
+			 ,A.EQPMN_SEQNO  --장비 일련번호
+			 ,A.CYCLE_CODE   --ZSY14 주기 코드
+			 ,A.INSPCT_CRRCT_CYCLE --검사 교정 주기
+		FROM
+			RS_EQPMN_INSPCT_CRRCT_CYCLE A
+		WHERE A.EQPMN_SEQNO = #{eqpmnSeqno}
+		  AND A.INSPCT_CRRCT_SE_CODE = #{inspctCrrctSeCode}
+	</select>
+
+	<!-- 장비 검사 교정 주기 업데이트 -->
+	<update id="updateInspctCrrctCycle" parameterType="lims.rsc.vo.EqpmnManageDto">
+		UPDATE
+			RS_EQPMN_INSPCT_CRRCT_CYCLE A SET
+			A.INSPCT_CRRCT_PREARNGE_DTE = #{inspctCrrctPrearngeDte}   --검사 교정 예정 일자
+											,A.RECENT_INSPCT_CRRCT_DTE = #{recentInspctCrrctDte}      --최근 검사 교정 일자
+											,A.LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+											,A.LAST_CHANGE_DT = SYSDATE
+		WHERE A.EQPMN_SEQNO = #{eqpmnSeqno}
+		  AND A.INSPCT_CRRCT_SE_CODE = #{inspctCrrctSeCode}
+	</update>
+
+	<!-- 장비분류검출 한계  수정 -->
+	<update id="updRsEqpmnClDetectLimitDate" parameterType="lims.rsc.vo.EqpmnRlabltyEvlVo">
+		UPDATE RS_EQPMN_CL_DETECT_LIMIT A SET
+			A.LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+											,A.LAST_CHANGE_DT = SYSDATE
+											,A.DETECT_LIMIT_BELO_VALUE = #{resultValue}
+
+		WHERE A.EQPMN_RLABLTY_EVL_REGIST_SEQNO = #{eqpmnRlabltyEvlRegistSeqno}
+		  AND A.DETECT_LIMIT_SEQNO = #{detectLimitSeqno}
+		  AND A.EXPRIEM_SEQNO = #{expriemSeqno}
+
+
+	</update>
+	<!-- 장비 검사 교정 주기 및 주기코드 조회-->
+	<select id="getChkRegistDate" resultType="int" parameterType="lims.rsc.vo.EqpmnRlabltyEvlVo">
+		SELECT
+		count(*)
+		FROM  RS_EQPMN_RLABLTY_EVL_REGIST A
+
+		WHERE A.EQPMN_SEQNO = #{eqpmnSeqno}
+		AND A.INSPCT_CRRCT_SE_CODE = #{inspctCrrctSeCode}
+		AND A.EVL_DTE = #{evlDte}
+		<if test="eqpmnRlabltyEvlRegistSeqno != 0 and eqpmnRlabltyEvlRegistSeqno != '' ">
+			AND A.EQPMN_RLABLTY_EVL_REGIST_SEQNO NOT IN (#{eqpmnRlabltyEvlRegistSeqno})
+		</if>
+
+	</select>
+
+
+
+
+</mapper>

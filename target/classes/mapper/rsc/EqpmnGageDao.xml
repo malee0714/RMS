@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.rsc.dao.EqpmnGageDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+
+	<!-- GageR&R 목록 조회 -->
+	<select id="getEqpmnGageList" parameterType="lims.rsc.vo.EqpmnGageDto" resultType="lims.rsc.vo.EqpmnGageDto">
+		SELECT
+			A.EQPMN_GAGE_REGIST_SEQNO
+			, FN_GET_CDDTLNM(B.EQPMN_CL_CODE) EQPMN_CL_NM
+			, B.EQPMN_MANAGE_NO
+			, B.EQPMN_SEQNO
+			, B.EQPMN_NM
+		 	, B.SERIAL_NO
+		 	, B.MODL_NM
+			, A.REGISTER_ID
+			, D.USER_NM REGISTER_NM
+			, A.REGIST_DTE
+			, A.DELETE_AT
+			, A.LAST_CHANGER_ID
+			, A.LAST_CHANGE_DT
+			, A.RM
+			, A.ATCHMNFL_SEQNO
+			, C.INSPCT_CRRCT_CYCLE
+    		, C.CYCLE_CODE
+		FROM RS_EQPMN_GAGE_REGIST A
+		LEFT JOIN RS_EQPMN B ON B.EQPMN_SEQNO = A.EQPMN_SEQNO
+		INNER JOIN RS_EQPMN_INSPCT_CRRCT_CYCLE C ON C.EQPMN_SEQNO = A.EQPMN_SEQNO AND C.INSPCT_CRRCT_SE_CODE = 'RS24000002'
+		JOIN SY_USER D ON D.USER_ID = A.REGISTER_ID
+		WHERE A.BPLC_CODE = <include refid="bplcCode"/>
+		  AND A.DELETE_AT = 'N'
+		<if test="schEqpmnClCode != null and schEqpmnClCode != ''">
+	  		AND B.EQPMN_CL_CODE = #{schEqpmnClCode}
+        </if>
+		<if test='schEqpmnManageNo != null and schEqpmnManageNo != ""'>
+	  		AND B.EQPMN_MANAGE_NO = #{schEqpmnManageNo}
+		</if>
+        <if test='schEqpmnNm != null and schEqpmnNm != ""'>
+	  		AND UPPER(B.EQPMN_NM) LIKE '%'|| UPPER(TRIM(#{schEqpmnNm})) ||'%'
+        </if>
+        <if test='schRegistBeginDte != null and schRegistBeginDte != ""'>
+			<if test='schRegistEndDte != null and schRegistEndDte != ""'>
+				AND A.REGIST_DTE BETWEEN #{schRegistBeginDte} AND #{schRegistEndDte}
+			</if>
+			
+			<if test='schRegistEndDte == null or schRegistEndDte == ""'>
+				AND A.REGIST_DTE <![CDATA[>=]]> #{schRegistBeginDte}
+			</if>
+		</if>
+		<if test='schRegistEndDte != null and schRegistEndDte != ""'>
+			<if test='schRegistBeginDte == null or schRegistBeginDte == ""'>
+				AND A.REGIST_DTE <![CDATA[<=]]> #{schRegistEndDte}
+			</if>
+		</if>
+		ORDER BY A.REGIST_DTE DESC
+	</select>
+	
+	<!-- GageR&R 등록 -->
+	<insert id="insEqpmnGage" parameterType="lims.rsc.vo.EqpmnGageDto">
+		<selectKey keyProperty="eqpmnGageRegistSeqno" resultType="lims.rsc.vo.EqpmnGageDto" order="BEFORE">
+			SELECT sq_RS_EQPMN_GAGE_REGIST.NEXTVAL AS eqpmnGageRegistSeqno FROM DUAL
+		</selectKey>
+
+		INSERT INTO RS_EQPMN_GAGE_REGIST (
+			EQPMN_GAGE_REGIST_SEQNO
+			, EQPMN_SEQNO
+			, BPLC_CODE
+			, REGISTER_ID
+			, REGIST_DTE
+			, RM
+			, ATCHMNFL_SEQNO
+			, DELETE_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{eqpmnGageRegistSeqno}
+			, #{eqpmnSeqno}
+			, <include refid="bplcCode"/>
+			, #{registerId}
+			, #{registDte}
+			, #{rm}
+			, #{atchmnflSeqno}
+			, 'N'
+			, <include refid="loginId"/>
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- GageR&R 수정 -->
+	<update id="updEqpmnGage" parameterType="lims.rsc.vo.EqpmnGageDto">
+		UPDATE RS_EQPMN_GAGE_REGIST
+		   SET EQPMN_SEQNO    = #{eqpmnSeqno}
+			 , REGISTER_ID     = #{registerId}
+			 , REGIST_DTE      = #{registDte}
+			 , RM              = #{rm}
+			 , ATCHMNFL_SEQNO  = #{atchmnflSeqno}
+			 , DELETE_AT       = #{deleteAt}
+			 , LAST_CHANGER_ID = <include refid="loginId"/>
+			 , LAST_CHANGE_DT  = SYSDATE
+		 WHERE EQPMN_GAGE_REGIST_SEQNO = #{eqpmnGageRegistSeqno}
+	</update>
+
+	<!-- 등록일자 중복 검증-->
+	<select id="chkDuplicateRegistDte" parameterType="lims.rsc.vo.EqpmnGageDto" resultType="int">
+		SELECT COUNT(*) FROM RS_EQPMN_GAGE_REGIST A
+		 WHERE A.DELETE_AT = 'N'
+		   AND A.EQPMN_SEQNO = #{eqpmnSeqno}
+		   AND A.REGIST_DTE = #{registDte}
+		<if test='eqpmnGageRegistSeqno != null and eqpmnGageRegistSeqno != ""'>
+	  		AND A.EQPMN_GAGE_REGIST_SEQNO != #{eqpmnGageRegistSeqno}
+		</if>
+	</select>
+
+	<!-- GageR&R 의뢰 조회 -->
+	<select id="getEqpGageReq" parameterType="lims.rsc.vo.EqpmnGageDto" resultType="lims.rsc.vo.EqpmnGageDto">
+		SELECT
+			A.EQPMN_GAGE_REQEST_SEQNO
+			, A.EQPMN_GAGE_REGIST_SEQNO
+			, A.REQEST_SEQNO
+			, B.REQEST_NO
+			, B.REQEST_DTE
+		FROM RS_EQPMN_GAGE_REQEST A
+	 	JOIN IM_REQEST B ON B.REQEST_SEQNO = A.REQEST_SEQNO
+		WHERE A.DELETE_AT = 'N'
+		  AND B.DELETE_AT = 'N'
+		  AND A.EQPMN_GAGE_REGIST_SEQNO = #{eqpmnGageRegistSeqno}
+	</select>
+
+	<!-- GageR&R 의뢰 등록 -->
+	<insert id="insEqpGageReq" parameterType="lims.rsc.vo.EqpmnGageDto">
+		<selectKey keyProperty="eqpmnGageReqestSeqno" resultType="lims.rsc.vo.EqpmnGageDto" order="BEFORE">
+			SELECT SQ_RS_EQPMN_GAGE_REQEST.NEXTVAL AS eqpmnGageReqestSeqno FROM DUAL
+		</selectKey>
+
+		INSERT INTO RS_EQPMN_GAGE_REQEST (
+			EQPMN_GAGE_REQEST_SEQNO
+			, BPLC_CODE
+			, EQPMN_GAGE_REGIST_SEQNO
+			, REQEST_SEQNO
+			, DELETE_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{eqpmnGageReqestSeqno}
+			, <include refid="bplcCode"/>
+			, #{eqpmnGageRegistSeqno}
+			, #{reqestSeqno}
+			, 'N'
+			, <include refid="loginId"/>
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- GageR&R 의뢰 삭제 -->
+	<update id="delEqpGageReq" parameterType="lims.rsc.vo.EqpmnGageDto">
+		UPDATE RS_EQPMN_GAGE_REQEST
+		   SET DELETE_AT       = 'Y'
+			 , LAST_CHANGER_ID = <include refid="loginId"/>
+			 , LAST_CHANGE_DT  = SYSDATE
+		 WHERE EQPMN_GAGE_REQEST_SEQNO = #{eqpmnGageReqestSeqno}
+	</update>
+
+	<!-- GageR&R 결과 조회 -->
+	<select id="getEqpGageResult" parameterType="lims.rsc.vo.EqpmnGageDto" resultType="lims.rsc.vo.EqpmnGageDto">
+		SELECT
+			A.EQPMN_GAGE_RESULT_SEQNO
+			, A.EQPMN_GAGE_REGIST_SEQNO
+			, A.EXPRIEM_SEQNO
+		 	, B.EXPRIEM_NM
+			, A.CNTRBTDG_VALUE
+			, A.RSRCH_CHNGE_VALUE
+			, A.GUACCTO_CTGRY_VALUE
+			, A.GAGE_JDGMNT_CODE
+		FROM RS_EQPMN_GAGE_RESULT A
+		JOIN SY_EXPRIEM B ON B.EXPRIEM_SEQNO = A.EXPRIEM_SEQNO
+		WHERE A.DELETE_AT = 'N'
+		  AND B.DELETE_AT = 'N'
+		  AND A.EQPMN_GAGE_REGIST_SEQNO = #{eqpmnGageRegistSeqno}
+	</select>
+
+	<!-- GageR&R 결과 등록 -->
+	<insert id="insEqpGageResult" parameterType="lims.rsc.vo.EqpmnGageDto">
+		<selectKey keyProperty="eqpmnGageResultSeqno" resultType="lims.rsc.vo.EqpmnGageDto" order="BEFORE">
+			SELECT SQ_RS_EQPMN_GAGE_RESULT.NEXTVAL AS eqpmnGageResultSeqno FROM DUAL
+		</selectKey>
+
+		INSERT INTO RS_EQPMN_GAGE_RESULT (
+			EQPMN_GAGE_RESULT_SEQNO
+			, BPLC_CODE
+			, EQPMN_GAGE_REGIST_SEQNO
+			, EXPRIEM_SEQNO
+			, CNTRBTDG_VALUE
+			, RSRCH_CHNGE_VALUE
+			, GUACCTO_CTGRY_VALUE
+			, GAGE_JDGMNT_CODE
+			, DELETE_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{eqpmnGageResultSeqno}
+			, <include refid="bplcCode"/>
+			, #{eqpmnGageRegistSeqno}
+			, #{expriemSeqno}
+			, #{cntrbtdgValue}
+			, #{rsrchChngeValue}
+			, #{guacctoCtgryValue}
+			, #{gageJdgmntCode}
+			, 'N'
+			, <include refid="loginId"/>
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- GageR&R 결과 수정 -->
+	<update id="updEqpGageResult" parameterType="lims.rsc.vo.EqpmnGageDto">
+		UPDATE RS_EQPMN_GAGE_RESULT
+		   SET CNTRBTDG_VALUE      = #{cntrbtdgValue}
+			 , RSRCH_CHNGE_VALUE   = #{rsrchChngeValue}
+			 , GUACCTO_CTGRY_VALUE = #{guacctoCtgryValue}
+			 , GAGE_JDGMNT_CODE    = #{gageJdgmntCode}
+			 , DELETE_AT           = #{deleteAt}
+			 , LAST_CHANGER_ID     = <include refid="loginId"/>
+			 , LAST_CHANGE_DT      = SYSDATE
+		 WHERE EQPMN_GAGE_RESULT_SEQNO = #{eqpmnGageResultSeqno}
+	</update>
+
+</mapper>

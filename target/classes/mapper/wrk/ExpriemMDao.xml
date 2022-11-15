@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.ExpriemMDao">
+	<!-- 조회 -->
+	<select id="getExpriemMList" parameterType="lims.wrk.vo.ExpriemMVo" resultType="lims.wrk.vo.ExpriemMVo">
+		SELECT
+			A.EXPRIEM_SEQNO,
+			A.EXPRIEM_CL_CODE,
+			SCC1.CMMN_CODE_NM EXPRIEM_CL_CODE_NM,
+			A.EXPRIEM_NM,
+			A.KOREAN_NM,
+			A.ENG_NM,
+			A.EXPRIEM_CL_CODE,
+			A.ABRV,
+			A.RM,
+			A.USE_AT,
+			A.RDMS_NM
+		FROM SY_EXPRIEM A
+				LEFT OUTER JOIN SY_CMMN_CODE SCC1 ON A.EXPRIEM_CL_CODE = SCC1.CMMN_CODE
+		WHERE A.DELETE_AT = 'N'
+		<if test="expriemClCodeSch != null and expriemClCodeSch != ''">
+		  AND A.EXPRIEM_CL_CODE = #{expriemClCodeSch}
+		</if>
+		<if test="expriemNmSearch != null and expriemNmSearch != ''">
+		  AND UPPER(A.EXPRIEM_NM) LIKE '%'|| UPPER(#{expriemNmSearch}) || '%'
+		</if>
+		<if test="useAtSearch != null and useAtSearch != ''">
+		  AND A.USE_AT = #{useAtSearch}
+		</if>
+		ORDER BY A.EXPRIEM_NM
+	</select>
+
+	<!-- 등록 -->
+	<insert id="insExpriem" parameterType="lims.wrk.vo.ExpriemMVo">
+		INSERT INTO SY_EXPRIEM(
+			EXPRIEM_SEQNO,
+			EXPRIEM_CL_CODE,
+			EXPRIEM_NM,
+			KOREAN_NM,
+			ENG_NM,
+			ABRV,
+			RM,
+			RDMS_NM,
+			USE_AT,
+			LAST_CHANGER_ID,
+			LAST_CHANGE_DT
+		) VALUES (
+			SQ_SY_EXPRIEM.NEXTVAL,
+			#{expriemClCode},
+			#{expriemNm},
+			#{koreanNm},
+			#{engNm},
+			#{abrv},
+			#{rm},
+			DECODE(INSTR(#{rdmsNm},'[' || #{expriemNm} || ']'),'1',#{rdmsNm}, #{rdmsNm} || '[' || #{expriemNm} || ']'),
+			#{useAt},
+			'${@lims.util.GetUserSession@getUserId()}',
+			SYSDATE
+		)
+	</insert>
+
+	<!-- 수정 -->
+	<update id="updExpriem" parameterType="lims.wrk.vo.ExpriemMVo">
+		UPDATE SY_EXPRIEM
+		SET
+			KOREAN_NM = #{koreanNm},
+			EXPRIEM_NM = #{expriemNm},
+			ENG_NM = #{engNm},
+			EXPRIEM_CL_CODE = #{expriemClCode},
+			ABRV = #{abrv},
+			RM = #{rm},
+			RDMS_NM = #{rdmsNm},
+			USE_AT = #{useAt},
+			LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}',
+			LAST_CHANGE_DT = SYSDATE
+		WHERE EXPRIEM_SEQNO = #{expriemSeqno}
+	</update>
+
+	<!-- 시험항목명 중복체크 -->
+	<select id="getExpriemNmCnt" resultType="int" parameterType="lims.wrk.vo.ExpriemMVo">
+		SELECT
+		    COUNT(A.EXPRIEM_NM) AS CNT
+		FROM SY_EXPRIEM A
+	    WHERE UPPER(A.EXPRIEM_NM) = UPPER(#{expriemNm})
+	      AND A.DELETE_AT = 'N'
+	    <if test="expriemSeqno != null and expriemSeqno != '' ">
+		  AND A.EXPRIEM_SEQNO <![CDATA[<>]]> #{expriemSeqno}
+		</if>
+		<if test="expriemClCode != null and expriemClCode != ''">
+		  AND A.EXPRIEM_CL_CODE = #{expriemClCode}
+		</if>
+	</select>
+
+	<!-- 시험항목 삭제여부 'Y' -->
+	<update id="deleteExpriem" parameterType="lims.wrk.vo.ExpriemMVo">
+		UPDATE SY_EXPRIEM
+		SET
+			DELETE_AT = 'Y',
+			LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}',
+			LAST_CHANGE_DT = SYSDATE
+		WHERE EXPRIEM_SEQNO = #{expriemSeqno}
+	</update>
+
+	<update id="updExpriemSortOrdr" parameterType="lims.wrk.vo.ExpriemMVo">
+		UPDATE SY_EXPRIEM
+		SET
+			SORT_ORDR = #{sortOrdr}
+		WHERE EXPRIEM_SEQNO = #{expriemSeqno}
+	</update>
+</mapper>

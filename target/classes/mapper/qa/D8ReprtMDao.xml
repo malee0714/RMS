@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.qa.dao.D8RerptMDao">
+    <select id="d8ReprtMList" parameterType="lims.qa.vo.D8ReprtMVo" resultType="lims.qa.vo.D8ReprtMVo">
+        SELECT
+            A.D8_REPRT_SEQNO
+            , A.CSTMR_DSCNTT_SEQNO
+            , A.WRITNG_DEPT_CODE
+            , SII.INSPCT_INSTT_NM AS WRITNG_DEPT_CODE_NM
+            , A.WRTER_ID
+            , SU.USER_NM          AS WRTER_ID_NM
+            , A.CAUSE_ANALS_CN
+            , A.COREC_MANAGT_CN
+            , A.COREC_MANAGT_COMPT_CN
+            , A.EFFECTFMNM_UNDSTN_CN
+            , A.RECR_PRVN_CNTRPLN_CN
+            ,(
+                SELECT
+                    LISTAGG(IB.USER_NM, ' > ') WITHIN GROUP ( ORDER BY IA.ORDR )
+                FROM CM_SANCTN_INFO IA
+                JOIN SY_USER IB ON IA.SANCTNER_ID = IB.USER_ID
+                WHERE IA.SANCTN_SEQNO = A.SANCTN_SEQNO AND IA.USE_AT = 'Y' AND IB.USE_AT = 'Y' AND IB.DELETE_AT = 'N'
+            ) SANCTNER_NM
+            , A.DELETE_AT
+            , A.WRITNG_DTE
+            , B.LOT_NO
+            , B.CSTMR_DSCNTT_NO
+            , B.CSTMR_DSCNTT_SJ
+            , SE.ENTRPS_SEQNO
+            , SE.ENTRPS_NM
+            , SM.MTRIL_NM
+            , SM.MTRIL_SEQNO
+            , A.SANCTN_SEQNO
+            , A.WDTB_SEQNO
+            , A.EXMNT_SEQNO
+            , CS.SANCTN_PROGRS_SITTN_CODE
+            , SCC1.CMMN_CODE_NM AS SANCTN_PROGRS_SITTN_CODE_NM
+        FROM RS_8D_REPRT A
+        JOIN RS_CSTMR_DSCNTT B ON A.CSTMR_DSCNTT_SEQNO = B.CSTMR_DSCNTT_SEQNO
+        LEFT JOIN SY_MTRIL SM ON SM.MTRIL_SEQNO = B.MTRIL_SEQNO AND SM.DELETE_AT = 'N' AND SM.USE_AT = 'Y'
+        LEFT JOIN SY_ENTRPS SE ON SE.ENTRPS_SEQNO = B.ENTRPS_SEQNO AND SE.DELETE_AT = 'N'
+        LEFT JOIN SY_INSPCT_INSTT SII on A.WRITNG_DEPT_CODE = SII.INSPCT_INSTT_CODE AND SII.USE_AT = 'Y' AND SII.DELETE_AT = 'N'
+        LEFT JOIN SY_USER SU on A.WRTER_ID = SU.USER_ID AND SU.USE_AT = 'Y' AND SU.DELETE_AT = 'N'
+        LEFT JOIN CM_SANCTN CS ON CS.SANCTN_sEQNO = A.SANCTN_SEQNO AND CS.USE_AT = 'Y'
+        LEFT JOIN SY_CMMN_CODE SCC1 ON SCC1.CMMN_CODE = CS.SANCTN_PROGRS_SITTN_CODE AND SCC1.USE_AT = 'Y'
+        WHERE 1 = 1
+        AND A.DELETE_AT = 'N'
+        AND B.DELETE_AT = 'N'
+        <if test="cstmrDscnttNo != null and cstmrDscnttNo != ''">
+            AND B.CSTMR_DSCNTT_NO LIKE '%' || TRIM(#{cstmrDscnttNo}) || '%'
+        </if>
+        <if test="entrpsNm != null and entrpsNm != ''">
+            AND SE.ENTRPS_NM LIKE '%' || #{entrpsNm} || '%'
+        </if>
+        <if test="cstmrDscnttSj != null and cstmrDscnttSj != ''">
+            AND B.CSTMR_DSCNTT_SJ LIKE '%' || TRIM(#{cstmrDscnttSj}) || '%'
+        </if>
+        <if test="mtrilNm != null and mtrilNm != ''">
+            AND SM.MTRIL_NM LIKE '%' || #{mtrilNm} || '%'
+        </if>
+        <if test="lotNo != null and lotNo != ''">
+            AND B.LOT_NO LIKE '%' || TRIM(#{lotNo}) || '%'
+        </if>
+        <if test="writngDteSt != null and writngDteSt != ''">
+            <if test="writngDteEn != null and writngDteEn != ''">
+                AND A.WRITNG_DTE BETWEEN #{writngDteSt} AND #{writngDteEn}
+            </if>
+            <if test="writngDteEn == null or writngDteEn == ''">
+                AND A.WRITNG_DTE <![CDATA[>]]> #{writngDteSt}
+            </if>
+        </if>
+        <if test="writngDteSt == null or writngDteSt == ''">
+            <if test="writngDteEn != null and writngDteEn != ''">
+                AND A.WRITNG_DTE <![CDATA[<]]> #{writngDteEn}
+            </if>
+        </if>
+        <if test="writngDeptCode != null and writngDeptCode != ''">
+            AND A.WRITNG_DEPT_CODE = #{writngDeptCode}
+        </if>
+        <if test="wrterId != null and wrterId != ''">
+            AND A.WRTER_ID = #{wrterId}
+        </if>
+        ORDER BY A.D8_REPRT_SEQNO DESC
+    </select>
+
+
+    <insert id="insD8ReprtInfo" parameterType="lims.qa.vo.D8ReprtMVo">
+        <selectKey keyProperty="d8ReprtSeqno" resultType="lims.qa.vo.D8ReprtMVo"  order="BEFORE">
+            SELECT
+                   SQ_RS_8D_REPRT.NEXTVAL AS d8ReprtSeqno
+            FROM DUAL
+        </selectKey>
+        INSERT INTO RS_8D_REPRT(
+            D8_REPRT_SEQNO
+            ,CSTMR_DSCNTT_SEQNO
+            ,WRITNG_DEPT_CODE
+            ,WRTER_ID
+            ,CAUSE_ANALS_CN
+            ,COREC_MANAGT_CN
+            ,COREC_MANAGT_COMPT_CN
+            ,EFFECTFMNM_UNDSTN_CN
+            ,RECR_PRVN_CNTRPLN_CN
+            ,LAST_CHANGER_ID
+            ,LAST_CHANGE_DT
+            ,WRITNG_DTE
+        )VALUES(
+            #{d8ReprtSeqno}
+            , #{cstmrDscnttSeqno}
+            , #{writngDeptCode}
+            , #{wrterId}
+            , #{causeAnalsCn}
+            , #{corecManagtCn}
+            , #{corecManagtComptCn}
+            , #{effectfmnmUndstnCn}
+            , #{recrPrvnCntrplnCn}
+            , '${@lims.util.GetUserSession@getUserId()}'
+            , SYSDATE
+            , #{writngDte}
+        )
+    </insert>
+
+    <update id="updD8ReprtInfo" parameterType="lims.qa.vo.D8ReprtMVo">
+        UPDATE RS_8D_REPRT SET
+             CSTMR_DSCNTT_SEQNO = #{cstmrDscnttSeqno}
+             , WRITNG_DEPT_CODE = #{writngDeptCode}
+             , WRTER_ID = #{wrterId}
+             , CAUSE_ANALS_CN = #{causeAnalsCn}
+             , COREC_MANAGT_CN = #{corecManagtCn}
+             , COREC_MANAGT_COMPT_CN = #{corecManagtComptCn}
+             , EFFECTFMNM_UNDSTN_CN = #{effectfmnmUndstnCn}
+             , RECR_PRVN_CNTRPLN_CN = #{recrPrvnCntrplnCn}
+             , DELETE_AT = NVL(#{deleteAt},'N')
+             , LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+             , LAST_CHANGE_DT = SYSDATE
+             , WRITNG_DTE = #{writngDte}
+        WHERE D8_REPRT_SEQNO = #{d8ReprtSeqno}
+
+    </update>
+
+    <update id="updateD8ReprtSanctn" parameterType="lims.qa.vo.D8ReprtMVo">
+        UPDATE RS_8D_REPRT A
+        SET A.SANCTN_SEQNO = #{sanctnSeqno},
+            LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}',
+            LAST_CHANGE_DT = SYSDATE
+        WHERE D8_REPRT_SEQNO = #{d8ReprtSeqno}
+    </update>
+
+    <update id="updateExmntSeqno"  parameterType="lims.com.vo.CmExmntDto">
+        UPDATE RS_8D_REPRT SET
+            EXMNT_SEQNO = #{exmntSeqno},
+            LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}',
+            LAST_CHANGE_DT = SYSDATE
+        WHERE D8_REPRT_SEQNO = #{otherKey}
+    </update>
+</mapper>

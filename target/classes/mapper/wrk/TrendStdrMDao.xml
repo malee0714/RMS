@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.TrendStdrMDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+	<select id="getSpcManageList" parameterType="lims.wrk.vo.TrendStdrMVO" resultType="lims.wrk.vo.TrendStdrMVO">
+		/* 기준 그룹 목록 */
+		SELECT  A.SPC_MANAGE_SEQNO
+		        ,A.BPLC_CODE
+		        ,A.MTRIL_SEQNO
+		        ,B.MTRIL_NM
+		        ,A.INSPCT_TY_CODE
+		        ,A.ENTRPS_SEQNO
+		        ,C.ENTRPS_NM
+		        ,A.STDR_NM
+		FROM SY_SPC_MANAGE A
+		INNER JOIN SY_MTRIL B ON A.MTRIL_SEQNO = B.MTRIL_SEQNO
+		LEFT JOIN SY_ENTRPS C ON A.ENTRPS_SEQNO = C.ENTRPS_SEQNO
+		WHERE A.MTRIL_SEQNO = #{mtrilSeqno}
+		ORDER BY A.SPC_MANAGE_SEQNO
+	</select>
+	<select id="getSpcRules" parameterType="lims.wrk.vo.TrendStdrMVO" resultType="lims.wrk.vo.TrendSpcRuleVO">
+		/* SPC rule 목록 */
+		SELECT  A.CMMN_CODE_NM AS SPC_RULE_CODE_NM
+		        ,A.CMMN_CODE AS SPC_RULE_CODE
+		        ,B.SPC_MANAGE_SEQNO
+		        ,B.ORDR
+		        ,B.N_VALUE
+		FROM SY_CMMN_CODE A
+		LEFT JOIN SY_SPC_RULE B ON A.CMMN_CODE = B.SPC_RULE_CODE AND B.SPC_MANAGE_SEQNO =  #{spcManageSeqno}
+		WHERE	A.USE_AT = 'Y'
+				AND A.UPPER_CMMN_CODE = 'SY04'
+	<choose>
+		<when test="spcManageSeqno != null and spcManageSeqno != '' ">
+		ORDER BY B.ORDR
+		</when>
+		<otherwise>
+		ORDER BY A.SORT_ORDR
+		</otherwise>
+	</choose>
+
+	</select>
+	
+	<select id="getExprIemsOfSpcGroup" parameterType="lims.wrk.vo.TrendStdrMVO" resultType="lims.wrk.vo.TrendSpcExprVO">
+        /* 기준 그룹별, 자재별 기준규격 목록 */
+        SELECT  A.SPC_MANAGE_SEQNO
+        		,B.MTRIL_SDSPC_SEQNO
+                ,B.SDSPC_NM
+                ,C.EXPRIEM_NM
+        FROM SY_SPC_MANAGE_EXPRIEM A
+        INNER JOIN SY_MTRIL_SDSPC B ON A.MTRIL_SDSPC_SEQNO = B.MTRIL_SDSPC_SEQNO
+        INNER JOIN SY_EXPRIEM C ON B.EXPRIEM_SEQNO = C.EXPRIEM_SEQNO
+		WHERE A.SPC_MANAGE_SEQNO = #{spcManageSeqno}
+	</select>
+	
+	<delete id="delSpcManage" parameterType="lims.wrk.vo.TrendStdrMVO">
+		/* SPC 관리, SPC 관리별 SPC, RULE, SPC 관리별 시험항목 DELETE*/
+		BEGIN
+			DELETE FROM SY_SPC_MANAGE_EXPRIEM A WHERE A.SPC_MANAGE_SEQNO = #{spcManageSeqno};
+			DELETE FROM SY_SPC_RULE A WHERE A.SPC_MANAGE_SEQNO = #{spcManageSeqno};
+			DELETE FROM SY_SPC_MANAGE A WHERE A.SPC_MANAGE_SEQNO = #{spcManageSeqno};
+		END;
+	</delete>
+	<delete id="delSpcGroup" parameterType="lims.wrk.vo.TrendStdrMVO">
+		DELETE FROM SY_SPC_MANAGE_EXPRIEM A WHERE SPC_MANAGE_SEQNO=#{spcManageSeqno} AND  MTRIL_SDSPC_SEQNO =#{mtrilSdspcSeqno}
+	</delete>
+	<insert id="insertSpcMnage" parameterType="lims.wrk.vo.TrendStdrMVO">
+		/* SPC 기준 관리 저장 */
+		<selectKey keyProperty="spcManageSeqno" resultType="lims.wrk.vo.TrendStdrMVO" order="AFTER">
+			SELECT SQ_SY_SPC_MANAGE.CURRVAL as spcManageSeqno FROM DUAL
+		</selectKey>
+		INSERT INTO SY_SPC_MANAGE(
+			SPC_MANAGE_SEQNO
+			,BPLC_CODE
+			,MTRIL_SEQNO
+			,INSPCT_TY_CODE
+			,ENTRPS_SEQNO
+			,STDR_NM
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) values (
+			SQ_SY_SPC_MANAGE.NEXTVAL
+			, <include refid="bplcCode" />
+			, #{mtrilSeqno}
+			, #{inspctTyCode}
+			, #{entrpsSeqno}
+			, #{stdrNm}
+			, <include refid="loginId" />
+			, SYSDATE
+		)
+	</insert>
+	
+	<update id="updateSpcMnage" parameterType="lims.wrk.vo.TrendStdrMVO">
+		/* SPC 기준 관리 수정 */
+		UPDATE SY_SPC_MANAGE SET 
+			INSPCT_TY_CODE 		= #{inspctTyCode}
+			, STDR_NM 			= #{stdrNm}
+		    , ENTRPS_SEQNO      = #{entrpsSeqno}
+			, LAST_CHANGER_ID 	= <include refid="loginId" />
+			, LAST_CHANGE_DT 	= SYSDATE
+		WHERE SPC_MANAGE_SEQNO = #{spcManageSeqno}
+	</update>
+	
+	<insert id="insertSpcRule" parameterType="lims.wrk.vo.TrendSpcRuleVO">
+		/* SPC 기준 관리 SPC rule 저장 */
+		INSERT INTO SY_SPC_RULE(
+			SPC_MANAGE_SEQNO
+			,ORDR
+			,SPC_RULE_CODE
+			,N_VALUE
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		)VALUES	(
+			#{spcManageSeqno}
+			, (
+				SELECT	NVL(MAX(ORDR),0) + 1 AS ORDR
+				FROM SY_SPC_RULE
+				WHERE SPC_MANAGE_SEQNO = #{spcManageSeqno}
+			)
+			, #{spcRuleCode}
+			, #{nvalue}
+			, <include refid="loginId" />
+			, SYSDATE
+		)
+	</insert>
+	
+	<delete id="deleteSpcRule" parameterType="lims.wrk.vo.TrendStdrMVO">
+		/* spc rule 삭제 */
+		DELETE FROM SY_SPC_RULE WHERE SPC_MANAGE_SEQNO = #{spcManageSeqno}
+	</delete>
+	
+	<update id="insertSpcExpr" parameterType="lims.wrk.vo.TrendSpcExprVO">
+		/* spc 기준별 시험항목 저장 */
+		INSERT INTO SY_SPC_MANAGE_EXPRIEM (
+			SPC_MANAGE_SEQNO
+			,MTRIL_SDSPC_SEQNO
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) VALUES (
+			#{spcManageSeqno}
+			, #{mtrilSdspcSeqno}
+			, <include refid="loginId" />
+			, SYSDATE
+		)
+	</update>
+	
+	<delete id="deleteSpcExpr" parameterType="lims.wrk.vo.TrendSpcExprVO">
+		/* 삭제된 시험항목 delete */
+		DELETE FROM SY_SPC_MANAGE_EXPRIEM WHERE SPC_MANAGE_SEQNO = #{spcManageSeqno} AND MTRIL_SDSPC_SEQNO = #{mtrilSdspcSeqno}
+	</delete>
+</mapper>

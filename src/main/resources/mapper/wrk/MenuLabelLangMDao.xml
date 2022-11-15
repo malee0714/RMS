@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.MenuLabelLangMDao">
+
+	<select id="getLablang" parameterType="lims.sys.vo.MenuMVo"
+		resultType="lims.sys.vo.MenuMVo">
+			WITH T AS(SELECT A.MENU_SEQNO, A.UPPER_MENU_SEQNO, A.MNL_CN, A.MENU_NM, A.MENU_DC, A.USE_AT, A.SORT_ORDR, A.MENU_URL ,level menu_Lv,
+			A.LAST_CHANGER_ID, A.LAST_CHANGE_DT,B.LANG_NM,B.LANG_MENU_SEQNO,(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE XA WHERE B.NATION_LANG_CODE = XA.CMMN_CODE)AS LANGCODENM
+            FROM SY_MENU A
+            LEFT OUTER JOIN SY_LANG_MENU B ON A.MENU_SEQNO = B.MENU_SEQNO
+            <if test="nationLangCodeSch != null and nationLangCodeSch != ''">
+			AND NATION_LANG_CODE = #{nationLangCodeSch}
+			</if>
+           WHERE 1=1
+        	<if test='useAtSch == "Y"'>
+				AND A.USE_AT = 'Y'
+			</if>
+            CONNECT BY PRIOR A.MENU_SEQNO = A.UPPER_MENU_SEQNO
+            START WITH A.UPPER_MENU_SEQNO IS NULL
+            ORDER SIBLINGS BY SORT_ORDR)
+			SELECT * FROM T, (SELECT A.MENU_SEQNO
+            FROM SY_MENU A
+            LEFT OUTER JOIN SY_LANG_MENU_LBL B ON A.MENU_SEQNO = B.MENU_SEQNO
+            START WITH 
+            	A.menu_seqno in (select A.menu_Seqno from sy_menu A LEFT JOIN SY_LANG_MENU_LBL B ON A.MENU_SEQNO = B.MENU_SEQNO where 1=1
+            	<if test="useAtSch != null and useAtSch != '' ">
+            		and A.use_At = #{useAtSch} 
+            	</if>
+            	<if test="menuSeqnoSch != null and menuSeqnoSch != '' ">
+	           		and A.MENU_NM LIKE '%' || #{menuSeqnoSch} || '%'
+	           	</if>
+	           	<if test="langNmSch != null and langNmSch != ''">
+	           		and B.LANG_NM LIKE '%' || #{langNmSch} || '%'
+	           	</if>
+            	)
+            
+            CONNECT BY PRIOR 
+            A.UPPER_MENU_SEQNO = A.MENU_SEQNO
+            GROUP BY A.MENU_SEQNO
+            UNION
+            SELECT A.MENU_SEQNO
+            FROM SY_MENU A
+            LEFT OUTER JOIN SY_LANG_MENU_LBL B ON A.MENU_SEQNO = B.MENU_SEQNO
+            WHERE 1=1
+            START WITH 
+            UPPER_MENU_SEQNO IS NULL
+            CONNECT BY PRIOR A.UPPER_MENU_SEQNO = A.MENU_SEQNO
+            GROUP BY A.MENU_SEQNO
+            ) M
+        	WHERE T.MENU_SEQNO = M.MENU_SEQNO
+	</select>
+	
+	<select id="getLabinfolang" parameterType="lims.wrk.vo.MenuLabelLangMVo" resultType="lims.wrk.vo.MenuLabelLangMVo">
+	SELECT LANG_MENU_LBL_SEQNO,
+	       MENU_SEQNO,
+	       NATION_LANG_CODE,
+	       LANG_NM,
+	       USE_AT,
+	       DELETE_AT,
+	       LAST_CHANGER_ID,
+	       LAST_CHANGE_DT
+	  FROM  SY_LANG_MENU_LBL 
+        WHERE DELETE_AT ='N'
+		AND MENU_SEQNO = #{menuSeqno}
+		AND NATION_LANG_CODE = #{nationLangCode}
+
+
+	</select> 
+	
+	<insert id="savelabellang" parameterType="lims.wrk.vo.MenuLabelLangMVo">
+		INSERT INTO SY_LANG_MENU_LBL(
+			LANG_MENU_LBL_SEQNO
+			,MENU_SEQNO
+			,NATION_LANG_CODE
+			,LANG_NM
+			,USE_AT
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) VALUES (
+			SQ_SY_LANG_MENU_LBL.NEXTVAL
+			, #{menuSeqno}
+			, #{nationLangCode}
+			, #{langNm}
+			, #{useAt}
+			, 'N'
+			, #{lastChangerId}
+			, SYSDATE
+			)
+	</insert>
+	
+	<update id="uplabellang" parameterType="lims.wrk.vo.MenuLabelLangMVo">
+		UPDATE SY_LANG_MENU_LBL SET
+			 MENU_SEQNO = #{menuSeqno}
+			, NATION_LANG_CODE = #{nationLangCode}
+			, LANG_NM = #{langNm}
+			, USE_AT = #{useAt}
+			, DELETE_AT = 'N'
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE LANG_MENU_LBL_SEQNO = #{langMenuLblSeqno}
+	</update> 	
+	
+	<update id="delLablang" parameterType="lims.wrk.vo.MenuLabelLangMVo">
+		UPDATE SY_LANG_MENU_LBL SET		
+			 MENU_SEQNO = #{menuSeqno}
+			, NATION_LANG_CODE = #{nationLangCode}
+			, LANG_NM = #{langNm}
+			, USE_AT = #{useAt}
+			, DELETE_AT = 'Y'
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE LANG_MENU_LBL_SEQNO = #{langMenuLblSeqno}
+		AND DELETE_AT = 'N'	
+	</update>
+	
+	
+</mapper>

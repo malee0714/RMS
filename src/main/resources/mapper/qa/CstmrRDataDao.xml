@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.qa.dao.CstmrRDataDao">
+
+	<!-- 문서 목록 조회 -->
+	<select id="getCstmrRDataList" parameterType="lims.qa.vo.CstmrRDataVo" resultType="lims.qa.vo.CstmrRDataVo">
+		SELECT 
+			A.DOC_SEQNO
+		     ,A.SJ
+		     ,A.DOC_NM
+		     ,A.DOC_SE_DETAIL_SEQNO
+		     ,(SELECT WDTB_ESTBS_AT FROM RS_DOC_SE_DETAIL WHERE A.DOC_SE_DETAIL_SEQNO = DOC_SE_DETAIL_SEQNO) AS WDTB_ESTBS_AT
+		     ,(SELECT ENTRPS_CHOISE_ESSNTL_AT FROM RS_DOC_SE_DETAIL WHERE A.DOC_SE_DETAIL_SEQNO = DOC_SE_DETAIL_SEQNO) AS ENTRPS_CHOISE_ESSNTL_AT
+		     ,(SELECT MTRIL_CHOISE_ESSNTL_AT FROM RS_DOC_SE_DETAIL WHERE A.DOC_SE_DETAIL_SEQNO = DOC_SE_DETAIL_SEQNO) AS MTRIL_CHOISE_ESSNTL_AT
+		     ,A.DOC_MANAGE_NO
+		     ,A.WRITNG_DTE
+		     ,A.WDTB_SEQNO
+		     ,A.WRTER_ID
+		     ,(SELECT USER_NM FROM SY_USER  WHERE USER_ID = A.WRTER_ID) AS WRTER_NM
+		     ,A.CTMMNY_SEQNO
+		     ,(SELECT ENTRPS_NM FROM SY_ENTRPS  WHERE A.CTMMNY_SEQNO = ENTRPS_SEQNO) AS CTMMNY_NM
+		     ,A.REFORM_NO
+		     ,NVL(A.REFORM_DTE,A.ESTBSH_DTE) AS REFORM_DTE
+		     ,A.REVN_RESN
+		     ,A.DSUSE_DTE
+		     ,A.DSUSE_RESN
+		     ,A.MTRIL_SEQNO
+		     ,(SELECT MTRIL_NM FROM SY_MTRIL WHERE MTRIL_SEQNO = A.MTRIL_SEQNO) AS MTRIL_NM
+		     ,A.DUSPSN_ID
+		     ,A.CYCLE
+		     ,A.CYCLE_CODE
+		     ,(SELECT USER_NM FROM SY_USER  WHERE USER_ID = A.DUSPSN_ID) AS DUSPSN_NM
+		     ,A.ATCHMNFL_SEQNO
+		     ,A.RM
+		     ,A.USE_AT
+		     ,A.DELETE_AT
+		     ,A.LAST_CHANGER_ID
+		     ,A.LAST_CHANGE_DT
+		     ,B.DOC_SE_DETAIL_NM
+		     ,C.DOC_SE_SEQNO
+		     ,C.DOC_SE_NM
+	     FROM RS_CTMMNY_DTA A
+	     LEFT JOIN RS_DOC_SE_DETAIL B ON A.DOC_SE_DETAIL_SEQNO = B.DOC_SE_DETAIL_SEQNO AND B.DELETE_AT = 'N' AND B.USE_AT = 'Y'
+	     LEFT JOIN RS_DOC_SE C ON B.DOC_SE_SEQNO = C.DOC_SE_SEQNO AND C.DELETE_AT = 'N' AND C.USE_AT = 'Y'
+		WHERE  A.DELETE_AT = 'N'
+		AND A.LAST_VER_AT = 'Y'
+		AND A.DOC_MANAGE_NO IN (SELECT DOC_MANAGE_NO FROM RS_CTMMNY_DTA XA  <!--고객 송부데이터만  -->
+    								WHERE SUBSTR(XA.DOC_MANAGE_NO,1,5) = 'RYYYY')  
+		<if test="docSeSeqnoSch != null and docSeSeqnoSch != '' ">
+		  AND C.DOC_SE_SEQNO = #{docSeSeqnoSch}
+		</if>
+		<if test="docSeDetailSeqnoSch != null and docSeDetailSeqnoSch != ''">
+		  AND A.DOC_SE_DETAIL_SEQNO = #{docSeDetailSeqnoSch}
+		</if>
+		<if test="sjSch != null and sjSch != '' ">
+		  AND UPPER(A.SJ) LIKE '%'||UPPER(TRIM(#{sjSch}))||'%'
+		</if>
+		<if test="docNmSch != null and docNmSch != '' ">
+		  AND UPPER(A.DOC_NM) LIKE '%'||UPPER(TRIM(#{docNmSch}))||'%'
+		</if>
+		<if test="ctmmnySeqnoSch != null and ctmmnySeqnoSch != '' ">
+		  AND A.CTMMNY_SEQNO = #{ctmmnySeqnoSch}
+		</if>
+		<if test="useAtSch != 'all'">
+		  AND A.USE_AT = #{useAtSch}
+		</if>
+		
+		ORDER BY A.DOC_MANAGE_NO
+	</select>
+
+	<!-- 문서이력조회 -->
+	<select id="getCstmrRDataHistList" parameterType="lims.qa.vo.CstmrRDataVo" resultType="lims.qa.vo.CstmrRDataVo">
+	SELECT 
+			A.DOC_SEQNO
+		     ,A.SJ
+		     ,A.DOC_NM
+		     ,A.DOC_SE_DETAIL_SEQNO
+		     ,(SELECT WDTB_ESTBS_AT FROM RS_DOC_SE_DETAIL WHERE A.DOC_SE_DETAIL_SEQNO = DOC_SE_DETAIL_SEQNO) AS WDTB_ESTBS_AT
+		     ,(SELECT ENTRPS_CHOISE_ESSNTL_AT FROM RS_DOC_SE_DETAIL WHERE A.DOC_SE_DETAIL_SEQNO = DOC_SE_DETAIL_SEQNO) AS ENTRPS_CHOISE_ESSNTL_AT
+		     ,(SELECT MTRIL_CHOISE_ESSNTL_AT FROM RS_DOC_SE_DETAIL WHERE A.DOC_SE_DETAIL_SEQNO = DOC_SE_DETAIL_SEQNO) AS MTRIL_CHOISE_ESSNTL_AT
+		     ,A.DOC_MANAGE_NO
+		     ,A.WRITNG_DTE
+		     ,A.WDTB_SEQNO
+		     ,A.WRTER_ID
+		     ,(SELECT USER_NM FROM SY_USER  WHERE USER_ID = A.WRTER_ID) AS WRTER_NM
+		     ,A.CTMMNY_SEQNO
+		     ,(SELECT ENTRPS_NM FROM SY_ENTRPS  WHERE A.CTMMNY_SEQNO = ENTRPS_SEQNO) AS CTMMNY_NM
+		     ,A.REFORM_NO
+		     ,NVL(A.REFORM_DTE,A.ESTBSH_DTE) AS REFORM_DTE
+		     ,A.REVN_RESN
+		     ,A.DSUSE_DTE
+		     ,A.DSUSE_RESN
+		     ,A.MTRIL_SEQNO
+		     ,A.DUSPSN_ID
+		     ,A.CYCLE
+		     ,A.CYCLE_CODE
+		     ,(SELECT USER_NM FROM SY_USER  WHERE USER_ID = A.DUSPSN_ID) AS DUSPSN_NM
+		     ,A.ATCHMNFL_SEQNO
+		     ,A.RM
+		     ,A.USE_AT
+		     ,A.DELETE_AT
+		     ,A.LAST_CHANGER_ID
+		     ,A.LAST_CHANGE_DT
+		     ,B.DOC_SE_DETAIL_NM
+		     ,C.DOC_SE_SEQNO
+		     ,C.DOC_SE_NM
+	     FROM RS_CTMMNY_DTA A
+	     LEFT JOIN RS_DOC_SE_DETAIL B ON A.DOC_SE_DETAIL_SEQNO = B.DOC_SE_DETAIL_SEQNO AND B.DELETE_AT = 'N' AND B.USE_AT = 'Y'
+	     LEFT JOIN RS_DOC_SE C ON B.DOC_SE_SEQNO = C.DOC_SE_SEQNO AND C.DELETE_AT = 'N' AND C.USE_AT = 'Y'
+	     WHERE DOC_MANAGE_NO = #{docManageNo}
+	     AND A.USE_AT ='Y'
+	     AND A.DELETE_AT = 'N'
+	     AND A.LAST_VER_AT = 'N'
+	     
+	     ORDER BY A.REFORM_DTE DESC
+
+	</select>
+
+	<!-- 문서 정보 신규, 수정 저장 -->
+	<insert id="insCstmrRData" parameterType="lims.qa.vo.CstmrRDataVo">
+		 <selectKey keyProperty="docSeqno" resultType="java.lang.String"	order="BEFORE">
+			SELECT SQ_RS_CTMMNY_DTA.NEXTVAL AS DOC_SEQNO FROM DUAL
+		</selectKey>
+        INSERT INTO RS_CTMMNY_DTA(
+			 DOC_SEQNO
+			,SJ
+			,DOC_NM
+     		,DOC_SE_DETAIL_SEQNO
+			,DOC_MANAGE_NO
+			,WRITNG_DTE
+			,WRTER_ID
+      		,CTMMNY_SEQNO
+      		,MTRIL_SEQNO
+			,REFORM_NO
+			,ESTBSH_DTE
+			,REFORM_DTE
+      		,DSUSE_DTE
+      		,DSUSE_RESN
+      		,DUSPSN_ID
+			,REVN_RESN
+			,ATCHMNFL_SEQNO
+			,RM
+			,USE_AT
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,LAST_VER_AT
+			,CYCLE
+			,CYCLE_CODE
+			
+		) VALUES(
+			#{docSeqno}
+			,#{sj}
+			,#{docNm}
+      		,#{docSeDetailSeqno}
+      		<if test = "docManageNo == null || docManageNo ==''">
+			,(		
+		      SELECT  'RYYYY-' || LPAD(NVL(MAX(SUBSTR(A.DOC_MANAGE_NO,7,3)),0)+1,3,0)
+         		 FROM 	RS_CTMMNY_DTA A
+		      WHERE SUBSTR(A.DOC_MANAGE_NO,1,6) = 'RYYYY-'
+    		 )
+    		</if>
+    		<if test = "docManageNo != null and docManageNo !=''">
+				,#{docManageNo}
+    		</if>
+			,#{writngDte}
+			,#{lastChangerId}
+      		,#{ctmmnySeqno}
+      		,#{mtrilSeqno}
+			,#{reformNo}
+			,#{estbshDte}
+			,#{reformDte}
+      		,#{dsuseDte}
+      		,#{dsuseResn}
+      		,#{duspsnId}
+		    ,#{revnResn}
+			,#{atchmnflSeqno}
+			,#{rm}
+			,'Y'
+			,'N'
+			,#{lastChangerId}
+			,SYSDATE
+			,'Y'
+			,#{cycle}
+			,#{cycleCode}
+		)
+	</insert>
+
+	<update id="updCstmrRData" parameterType="lims.qa.vo.CstmrRDataVo">
+		
+        
+        UPDATE RS_CTMMNY_DTA SET 
+			SJ				 		= #{sj}
+			,DOC_NM					= #{docNm}
+			,DOC_SE_DETAIL_SEQNO 	= #{docSeDetailSeqno}
+			,DOC_MANAGE_NO	 		= #{docManageNo}
+			,WRITNG_DTE		 		= #{writngDte}
+			,WRTER_ID		 		= #{lastChangerId}
+			,CTMMNY_SEQNO			= #{ctmmnySeqno}
+			,MTRIL_SEQNO 			= #{mtrilSeqno}
+			,REFORM_NO		 		= #{reformNo}
+			,ESTBSH_DTE		 		= #{estbshDte}
+			,REFORM_DTE		 		= #{reformDte}
+			,DSUSE_DTE				= #{dsuseDte}
+      		,DSUSE_RESN				= #{dsuseResn}
+      		,DUSPSN_ID				= #{duspsnId}
+			,REVN_RESN		 		= #{revnResn}
+			,ATCHMNFL_SEQNO	 		= #{atchmnflSeqno}
+			,RM				 		= #{rm}
+			,USE_AT			 		= #{useAt}
+			,DELETE_AT		 		= #{deleteAt}
+			,LAST_CHANGER_ID 		= #{lastChangerId}
+			,LAST_CHANGE_DT	 		= SYSDATE
+			,LAST_VER_AT			= 'Y'
+			,CYCLE					= #{cycle}
+			,CYCLE_CODE				= #{cycleCode}
+        where DOC_SEQNO = #{docSeqno}
+	</update>
+
+
+	<update id="updCtmrRDeleteAt" parameterType="lims.qa.vo.CstmrRDataVo">
+		UPDATE RS_CTMMNY_DTA SET
+			
+			DELETE_AT = 'Y'
+		WHERE DOC_SEQNO = #{docSeqno}
+	<selectKey keyProperty="docSeqno" resultType="java.lang.String"	order="AFTER">
+			SELECT MAX(DOC_SEQNO) AS DOC_SEQNO  FROM RS_CTMMNY_DTA 
+			WHERE DOC_MANAGE_NO = #{docManageNo}
+			AND DELETE_AT = 'N'
+			AND LAST_VER_AT = 'N'
+			AND USE_AT = 'Y'
+		      
+		</selectKey>
+	</update>
+	
+	<update id="updCtmrRLastAt" parameterType="lims.qa.vo.CstmrRDataVo">
+		UPDATE RS_CTMMNY_DTA SET
+			LAST_VER_AT = #{lastVerAt}
+		WHERE DOC_SEQNO = #{docSeqno}
+	</update>
+<!-- 	배포처일련번호 세팅  -->
+	<update id = "updWdtbSeqno" parameterType="lims.qa.vo.CstmrDDataVo">
+		UPDATE RS_CTMMNY_DTA SET
+			WDTB_SEQNO = #{wdtbSeqno}
+		WHERE DOC_SEQNO = #{docSeqno}
+	</update>
+
+</mapper>

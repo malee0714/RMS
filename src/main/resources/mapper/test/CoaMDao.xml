@@ -1,0 +1,523 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.test.dao.CoaMDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+
+	<!-- COA 발행목록 조회 -->
+	<select id="getCoaList" parameterType="lims.test.vo.CoaMVo" resultType="lims.test.vo.CoaMVo">
+		SELECT
+			DISTINCT
+			IC.COA_SEQNO
+			, IC.BPLC_CODE
+			, IC.ENTRPS_SEQNO
+			, IC.SHIPMNT_DTE
+			, IC.PBLSHR_ID
+			, IC.DETECT_LIMIT_APPLC_AT
+			, IC.DWLD_FILE_SE_CODE
+			, IC.COA_PBLICTE_ATCHMNFL_SEQNO
+			, SE.ENTRPS_NM
+			, SU.USER_NM
+			, SCC.CMMN_CODE_NM AS EXTENSION
+			, SP.PRINTNG_SEQNO
+			, SP.CTMMNY_MTRIL_CODE
+			, SP.AVRG_APPLC_AT
+			, SM.MTRIL_SEQNO
+			, (SELECT COUNT(*) FROM IM_COA_REQEST ICR WHERE ICR.COA_SEQNO = IC.COA_SEQNO) AS UPPER_CNT
+			, TO_CHAR(IC.LAST_CHANGE_DT, 'YYYY-MM-DD') AS LAST_CHANGE_DT
+		FROM IM_COA IC
+		INNER JOIN IM_COA_REQEST ICR ON IC.COA_SEQNO = ICR.COA_SEQNO
+		LEFT JOIN IM_COA_REQEST_UPPER ICRU ON ICR.COA_SEQNO = ICRU.COA_SEQNO AND ICR.REQEST_SEQNO = ICRU.REQEST_SEQNO AND ICR.ORDR = ICRU.ORDR
+		INNER JOIN IM_REQEST IR ON ICR.REQEST_SEQNO = IR.REQEST_SEQNO
+		LEFT JOIN IM_REQEST IRU ON ICRU.UPPER_REQEST_SEQNO = IRU.REQEST_SEQNO
+		LEFT JOIN IM_LOT_NO ILN ON IR.LOT_NO_SEQNO = ILN.LOT_NO_SEQNO
+		LEFT JOIN IM_LOT_NO ILNU ON IRU.LOT_NO_SEQNO = ILNU.LOT_NO_SEQNO
+		INNER JOIN SY_ENTRPS SE ON IC.ENTRPS_SEQNO = SE.ENTRPS_SEQNO
+		INNER JOIN SY_USER SU ON IC.PBLSHR_ID = SU.USER_ID
+		INNER JOIN SY_CMMN_CODE SCC ON IC.DWLD_FILE_SE_CODE = SCC.CMMN_CODE
+		INNER JOIN SY_PRINTNG SP ON IC.PRINTNG_SEQNO = SP.PRINTNG_SEQNO
+		INNER JOIN SY_MTRIL SM ON SP.MTRIL_SEQNO = SM.MTRIL_SEQNO
+		WHERE 1=1
+		  AND IC.DELETE_AT = 'N'
+		<if test="reqestNoSch != null and reqestNoSch != ''">
+			AND (IR.REQEST_NO = #{reqestNoSch} OR IRU.REQEST_NO = #{reqestNoSch})
+		</if>
+		<if test="lotNoSch != null and lotNoSch != ''">
+			AND (ILN.LOT_NO = #{lotNoSch} OR ILNU.LOT_NO = #{lotNoSch})
+		</if>
+		<if test="shipmntBeginDte != null and shipmntBeginDte != '' ">
+			AND (IC.SHIPMNT_DTE <![CDATA[>=]]> #{shipmntBeginDte} OR IC.SHIPMNT_DTE IS NULL)
+		</if>
+		<if test="shipmntEndDte != null and shipmntEndDte != '' ">
+			AND (IC.SHIPMNT_DTE <![CDATA[<=]]> #{shipmntEndDte} OR IC.SHIPMNT_DTE IS NULL)
+		</if>
+		<if test="entrpsSch != null and entrpsSch != ''">
+			AND UPPER(SE.ENTRPS_NM) LIKE '%'|| UPPER(TRIM(#{entrpsSch})) ||'%'
+		</if>
+		ORDER BY IC.COA_SEQNO DESC
+	</select>
+
+	<!-- 성적서정보 조회 -->
+	<select id="getCoaFileInfo" parameterType="lims.test.vo.CoaMVo" resultType="lims.com.vo.FileDetailMVo">
+		SELECT
+			PRINTNG_SEQNO
+			 , HIST_VER
+			 , PRINTNG_NM
+			 , PRINTNG_UPLOAD_FILE_NM
+			 , PRINTNG_ORGINL_FILE_NM
+			 , PRINTNG_COURS
+			 , USE_AT
+			 , LAST_CHANGER_ID
+			 , LAST_CHANGE_DT
+			 , ENTRPS_SEQNO
+			 , MAX(HIST_VER) OVER() AS HIST_VER
+		FROM SY_PRINTNG
+		WHERE PRINTNG_SEQNO = #{printngSeqno}
+	</select>
+
+	<!-- 의뢰정보 조회 (화면의 상위lot그리드 리스트 순서대로) -->
+	<select id="getReqestInfo" parameterType="lims.test.vo.CoaMVo" resultType="lims.test.vo.CoaMVo">
+		<foreach collection="lotList" item="item" separator="UNION ALL">
+			SELECT
+				A.MNFCTUR_DTE
+				, A.REQEST_NO
+				, B.MTRIL_CODE
+				, E.LOT_NO
+				, CASE WHEN A.REQEST_DTE >= A.MNFCTUR_DTE
+					   THEN A.REQEST_DTE
+					   ELSE A.MNFCTUR_DTE
+				  END AS REQEST_DTE
+				, A.REQEST_SEQNO
+				, D.VALVE_MTRQLT_VALUE
+				, D.VALVE_MNFCTURPROFS_NM
+				, #{item.upperSortOrdr} AS UPPER_SORT_ORDR
+				, #{item.lwprtSortOrdr} AS LWPRT_SORT_ORDR
+			FROM IM_REQEST A
+			INNER JOIN SY_MTRIL B ON A.MTRIL_SEQNO = B.MTRIL_SEQNO
+			LEFT JOIN SY_MTRIL_CYLNDR C ON A.MTRIL_CYLNDR_SEQNO = C.MTRIL_CYLNDR_SEQNO
+			LEFT JOIN SY_CYLNDR D ON C.SANCTN_SEQNO = D.SANCTN_SEQNO
+			LEFT JOIN IM_LOT_NO E ON A.LOT_NO_SEQNO = E.LOT_NO_SEQNO
+			WHERE A.DELETE_AT = 'N'
+			  AND A.REQEST_SEQNO = #{item.reqestSeqno}
+		</foreach>
+	</select>
+
+	<!-- 의뢰시험항목 결과 조회 -->
+	<select id="getExprResultList" parameterType="lims.test.vo.CoaMVo" resultType="lims.test.vo.CoaMVo">
+		SELECT
+			REQEST_SEQNO
+			, LOT_NO
+			, AVRG_APPLC_AT -- 평균 적용여부
+			, UPPER_SORT_ORDR -- 제품lot 정렬순서
+			, LWPRT_SORT_ORDR -- 상위lot 정렬순서
+			, EXPRIEM_SEQNO
+			, TRIM(EXPRIEM_NM) AS EXPRIEM_NM
+			, EXPRIEM_CL_CODE
+			, EXPRIEM_CL_NM
+			, CASE WHEN INSTR(TO_NUMBER(CASE WHEN UPPER(QC_RESULT_VALUE) = 'N.A.' THEN '0' ELSE QC_RESULT_VALUE END),'.') = 1
+				   THEN '0' || TO_CHAR(TO_NUMBER(CASE WHEN UPPER(QC_RESULT_VALUE) = 'N.A.' THEN '0' ELSE QC_RESULT_VALUE END))
+				   ELSE TO_CHAR(TO_NUMBER(CASE WHEN UPPER(QC_RESULT_VALUE) = 'N.A.' THEN '0' ELSE QC_RESULT_VALUE END))
+			  END AS QC_RESULT_VALUE
+			, CASE WHEN JDGMNT_FOM_CODE != 'IM06000003'
+				   THEN TO_CHAR(CASE WHEN MAX(MARK_CPHR) OVER(PARTITION BY LOT_NO, EXPRIEM_SEQNO) IS NOT NULL
+				  				 	 THEN ROUND(AVG(QC_RESULT_VALUE) OVER(PARTITION BY LOT_NO, EXPRIEM_SEQNO), MAX(MARK_CPHR) OVER(PARTITION BY LOT_NO, EXPRIEM_SEQNO))
+									 ELSE AVG(QC_RESULT_VALUE) OVER(PARTITION BY LOT_NO, EXPRIEM_SEQNO) END)
+				   ELSE QC_RESULT_VALUE
+			  END AS AVRG_RESULT_VALUE -- 평균값
+			, INSPCT_TY_CODE
+			, PROCESS_TY_NM
+			, LAST_EXPR_ODR
+			, EXPR_ODR
+			, DETECT_LIMIT_APPLC_AT
+		FROM (
+			SELECT
+				REQEST_SEQNO
+				, LOT_NO
+				, AVRG_APPLC_AT -- 평균 적용여부
+				, UPPER_SORT_ORDR -- 제품lot 정렬순서
+				, LWPRT_SORT_ORDR -- 상위lot 정렬순서
+				, EXPRIEM_SEQNO
+				, EXPRIEM_NM
+				, EXPRIEM_CL_CODE
+				, EXPRIEM_CL_NM
+				, QC_RESULT_VALUE
+				, MARK_CPHR -- 표기 자리수
+				, INSPCT_TY_CODE
+				, PROCESS_TY_NM
+				, LAST_EXPR_ODR
+				, EXPR_ODR
+				, DETECT_LIMIT_APPLC_AT
+				, UNIT_SEQNO
+				, JDGMNT_FOM_CODE
+			FROM (
+				SELECT
+					A.REQEST_SEQNO
+					, ILN.LOT_NO
+					, ILN.AVRG_APPLC_AT -- 평균 적용여부
+					, A.UPPER_SORT_ORDR -- 제품lot 정렬순서
+					, A.LWPRT_SORT_ORDR -- 상위lot 정렬순서
+					, EXPR.EXPRIEM_SEQNO
+					, IEM.EXPRIEM_NM
+					, IEM.EXPRIEM_CL_CODE
+					, FN_GET_CDDTLNM(IEM.EXPRIEM_CL_CODE) AS EXPRIEM_CL_NM
+					, EXPRR.QC_RESULT_VALUE
+					, EXPR.MARK_CPHR -- 표기 자리수
+					, REQ.INSPCT_TY_CODE
+					, FN_GET_CDDTLNM(REQ.INSPCT_TY_CODE) AS PROCESS_TY_NM
+					, (SELECT MAX(EXPR_ODR) FROM IM_REQEST_EXPRIEM_RESULT X WHERE EXPR.REQEST_EXPRIEM_SEQNO = X.REQEST_EXPRIEM_SEQNO) AS LAST_MAX
+					, EXPR.LAST_EXPR_ODR
+					, EXPRR.EXPR_ODR
+					, PRD.DETECT_LIMIT_APPLC_AT
+					, RSM.UNIT_SEQNO
+					, EXPR.JDGMNT_FOM_CODE
+				FROM (
+					<foreach collection="lotList" item="item" separator="UNION ALL">
+						SELECT
+							#{item.reqestSeqno} AS REQEST_SEQNO
+							, #{item.upperSortOrdr} AS UPPER_SORT_ORDR
+							, #{item.lwprtSortOrdr} AS LWPRT_SORT_ORDR
+						FROM DUAL
+					</foreach>
+				) A
+				JOIN IM_REQEST REQ ON A.REQEST_SEQNO = REQ.REQEST_SEQNO
+				JOIN IM_REQEST_EXPRIEM EXPR ON REQ.REQEST_SEQNO = EXPR.REQEST_SEQNO
+				JOIN SY_EXPRIEM IEM ON EXPR.EXPRIEM_SEQNO = IEM.EXPRIEM_SEQNO
+				JOIN IM_REQEST_EXPRIEM_RESULT EXPRR ON EXPR.REQEST_EXPRIEM_SEQNO = EXPRR.REQEST_EXPRIEM_SEQNO
+				JOIN SY_MTRIL PRD ON REQ.MTRIL_SEQNO = PRD.MTRIL_SEQNO
+				LEFT JOIN SY_MTRIL_SDSPC RSM ON EXPR.MTRIL_SDSPC_SEQNO = RSM.MTRIL_SDSPC_SEQNO AND RSM.DELETE_AT = 'N'
+				LEFT JOIN IM_LOT_NO ILN ON REQ.LOT_NO_SEQNO = ILN.LOT_NO_SEQNO AND ILN.DELETE_AT = 'N'
+				WHERE 1=1
+				  AND REQ.DELETE_AT = 'N'
+				  AND IEM.DELETE_AT = 'N' AND IEM.EXPRIEM_CL_CODE = 'SY05000001'
+				  AND PRD.DELETE_AT='N'
+				  AND EXPR.DELETE_AT = 'N'
+				ORDER BY EXPR.LAST_EXPR_ODR DESC
+			) A
+			WHERE LAST_MAX = LAST_EXPR_ODR
+		)
+		WHERE 1=1
+		ORDER BY UPPER_SORT_ORDR
+		       , LWPRT_SORT_ORDR
+			   , EXPRIEM_SEQNO
+			   , EXPR_ODR DESC
+	</select>
+
+	<!-- 첨부파일 등록 -->
+	<insert id="insAtchmnfl" parameterType="lims.com.vo.FileDetailMVo">
+		<selectKey keyProperty="atchmnflSeqno" resultType="lims.com.vo.FileDetailMVo" order="BEFORE">
+			SELECT SQ_SY_ATCHMNFL.NEXTVAL AS atchmnflSeqno FROM DUAL
+		</selectKey>
+
+		INSERT INTO SY_ATCHMNFL (
+			ATCHMNFL_SEQNO
+			, TOT_FILE_CNT
+			, TOT_FILE_MG
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{atchmnflSeqno}
+			, #{totFileCnt}
+			, #{totFileMg}
+			, <include refid="loginId"/>
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- 첨부파일상세 등록 -->
+	<insert id="insAtchmnflDetail" parameterType="lims.com.vo.FileDetailMVo">
+		<selectKey keyProperty="fileSeqno" resultType="lims.com.vo.FileDetailMVo" order="BEFORE">
+			SELECT NVL(MAX(FILE_SEQNO),0)+1 AS fileSeqno FROM SY_ATCHMNFL_DETAIL
+		</selectKey>
+
+		INSERT INTO SY_ATCHMNFL_DETAIL (
+			ATCHMNFL_SEQNO
+			, FILE_SEQNO
+			, STRE_FILE_NM
+			, ORGINL_FILE_NM
+			, FILE_DATA
+			, FILE_MG
+			, USE_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{atchmnflSeqno}
+			, #{fileSeqno}
+			, #{streFileNm}
+			, #{orginlFileNm}
+			, #{fileData}
+			, #{fileMg}
+			, 'Y'
+			, <include refid="loginId"/>
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- COA정보 저장 -->
+	<insert id="insCoaInfo" parameterType="lims.test.vo.CoaMVo">
+		<selectKey keyProperty="coaSeqno" resultType="lims.test.vo.CoaMVo" order="BEFORE">
+			SELECT SQ_IM_COA.NEXTVAL AS coaSeqno FROM DUAL
+		</selectKey>
+
+		INSERT INTO IM_COA (
+			COA_SEQNO
+			, BPLC_CODE
+			, ENTRPS_SEQNO
+			, PBLSHR_ID
+			, SHIPMNT_DTE
+			, DETECT_LIMIT_APPLC_AT
+			, PRINTNG_SEQNO
+			, COA_PBLICTE_ATCHMNFL_SEQNO
+			, DWLD_FILE_SE_CODE
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{coaSeqno}
+			, <include refid="bplcCode"/>
+			, #{entrpsSeqno}
+			, <include refid="loginId"/>
+			, #{shipmntDte}
+			, #{detectLimitApplcAt}
+			, #{printngSeqno}
+			, #{coaPblicteAtchmnflSeqno}
+			, #{extAt}
+			, <include refid="loginId"/>
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- 제품lot COA의뢰 등록 -->
+	<insert id="insCoaReqPrdct" parameterType="lims.test.vo.CoaMVo">
+		INSERT INTO IM_COA_REQEST (
+			COA_SEQNO
+			, REQEST_SEQNO
+			, ORDR
+			, PO
+			, SHIPMNT_QY
+			, SORT_ORDR
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{coaSeqno}
+			, #{reqestSeqno}
+			, #{upperSortOrdr}
+			, #{po}
+			, #{shipmntQy}
+			, #{upperSortOrdr}
+			, <include refid="loginId"/>
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- 상위lot COA의뢰 등록 -->
+	<insert id="insCoaReqUpper" parameterType="lims.test.vo.CoaMVo">
+		INSERT INTO IM_COA_REQEST_UPPER (
+			COA_SEQNO
+			, REQEST_SEQNO
+			, ORDR
+			, UPPER_REQEST_SEQNO
+			, SORT_ORDR
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{coaSeqno}
+			, #{upperReqestSeqno}
+			, #{upperSortOrdr}
+			, #{reqestSeqno}
+			, #{lwprtSortOrdr}
+			, <include refid="loginId"/>
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- 의뢰 진행상황 업데이트 -->
+	<update id="updProgrsSittnCode" parameterType="lims.test.vo.CoaMVo">
+		UPDATE IM_REQEST
+		   SET PROGRS_SITTN_CODE = 'IM03000006' -- COA완료
+			 , ROA_CREAT_AT      = #{roaCreatAt}
+			 , LAST_CHANGER_ID   = <include refid="loginId"/>
+			 , LAST_CHANGE_DT    = SYSDATE
+		WHERE REQEST_SEQNO = #{reqestSeqno}
+	</update>
+
+	<!-- 의뢰시험항목 진행상황 업데이트 -->
+	<update id="upperExiemProgrsSittnCode" parameterType="lims.test.vo.CoaMVo">
+		UPDATE IM_REQEST_EXPRIEM
+		   SET PROGRS_SITTN_CODE = 'IM03000006' -- COA완료
+			 , LAST_CHANGER_ID   = <include refid="loginId"/>
+			 , LAST_CHANGE_DT    = SYSDATE
+		WHERE REQEST_SEQNO IN (
+			<foreach collection="lotList" item="item" separator=",">#{item.reqestSeqno}</foreach>
+		)
+	</update>
+
+	<!-- 의뢰진행상황 조회 -->
+	<select id="getProgrsSittnCode" parameterType="lims.test.vo.CoaMVo" resultType="String">
+		SELECT PROGRS_SITTN_CODE FROM IM_REQEST WHERE REQEST_SEQNO = #{reqestSeqno}
+	</select>
+
+	<!-- COA 발행파일일렬번호 업데이트 -->
+	<update id="updCoaPblictAtchmnflSeqno" parameterType="lims.test.vo.CoaMVo">
+		UPDATE IM_COA
+		   SET COA_PBLICTE_ATCHMNFL_SEQNO = #{coaPblicteAtchmnflSeqno}
+		     , LAST_CHANGER_ID            = <include refid="loginId"/>
+		     , LAST_CHANGE_DT             = SYSDATE
+		WHERE COA_SEQNO = #{coaSeqno}
+	</update>
+
+	<!-- 상위lot 목록 조회 -->
+	<select id="getReqUpperLotList" parameterType="lims.test.vo.CoaMVo" resultType="lims.test.vo.CoaMVo">
+		WITH T AS (
+			SELECT
+				A.LWPRT_REQEST_SEQNO
+				, A.REQEST_SEQNO AS UPPER_REQEST_SEQNO
+				, A.SORT_ORDR
+				, B.REQEST_NO
+				, C.LOT_NO
+				, B.INSPCT_TY_CODE
+				, FN_GET_CDDTLNM(B.INSPCT_TY_CODE) AS INSPCT_TY_NM
+				, B.SPLORE_NM
+				, D.MTRIL_CODE
+				, D.MTRIL_NM
+				, D.MTRIL_SEQNO
+			FROM IM_LOT_NO_REQEST A
+			INNER JOIN IM_REQEST B ON A.LWPRT_REQEST_SEQNO = B.REQEST_SEQNO
+			LEFT JOIN IM_LOT_NO C ON B.LOT_NO_SEQNO = C.LOT_NO_SEQNO
+			INNER JOIN SY_MTRIL D ON B.MTRIL_SEQNO = D.MTRIL_SEQNO
+			WHERE A.DELETE_AT = 'N'
+			  AND A.REQEST_SEQNO IN (
+				  <foreach collection="list" item="item" separator=",">#{item.reqestSeqno}</foreach>
+			  )
+
+			UNION
+
+			SELECT
+				A.REQEST_SEQNO AS LWPRT_REQEST_SEQNO
+				, NULL AS UPPER_REQEST_SEQNO
+				, 0 AS SORT_ORDR
+				, A.REQEST_NO
+				, B.LOT_NO
+				, A.INSPCT_TY_CODE
+				, FN_GET_CDDTLNM(A.INSPCT_TY_CODE) AS INSPCT_TY_NM
+				, A.SPLORE_NM
+				, D.MTRIL_CODE
+				, D.MTRIL_NM
+				, D.MTRIL_SEQNO
+			FROM IM_REQEST A
+			LEFT JOIN IM_LOT_NO B ON A.LOT_NO_SEQNO = B.LOT_NO_SEQNO
+			LEFT JOIN IM_LOT_NO_REQEST C ON A.REQEST_SEQNO = C.REQEST_SEQNO
+			INNER JOIN SY_MTRIL D on A.MTRIL_SEQNO = D.MTRIL_SEQNO
+			WHERE A.DELETE_AT = 'N'
+			  AND A.REQEST_SEQNO IN (
+				  <foreach collection="list" item="item" separator=",">#{item.reqestSeqno}</foreach>
+			  )
+		)
+
+		SELECT * FROM T ORDER BY UPPER_REQEST_SEQNO NULLS FIRST, SORT_ORDR
+	</select>
+
+	<!-- COA 상위lot 목록 조회 -->
+	<select id="getCoaUpperList" parameterType="lims.test.vo.CoaMVo" resultType="lims.test.vo.CoaMVo">
+		WITH T AS (
+			SELECT
+				ICR.COA_SEQNO
+				, NULL AS UPPER_REQEST_SEQNO
+				, ICR.REQEST_SEQNO AS LWPRT_REQEST_SEQNO
+				, ICR.PO
+				, ICR.SHIPMNT_QY
+				, ICR.ORDR AS UPPER_SORT_ORDR
+				, 0 AS LWPRT_SORT_ORDR
+			FROM IM_COA_REQEST ICR
+			WHERE ICR.COA_SEQNO = #{coaSeqno}
+
+			UNION
+
+			SELECT
+				ICRU.COA_SEQNO
+				, ICR.REQEST_SEQNO AS UPPER_REQEST_SEQNO
+				, ICRU.UPPER_REQEST_SEQNO AS LWPRT_REQEST_SEQNO
+				, NULL AS PO
+				, NULL AS SHIPMNT_QY
+				, ICRU.ORDR AS UPPER_SORT_ORDR
+				, ICRU.SORT_ORDR AS LWPRT_SORT_ORDR
+			FROM IM_COA_REQEST ICR
+			INNER JOIN IM_COA_REQEST_UPPER ICRU ON ICR.COA_SEQNO = ICRU.COA_SEQNO
+											   AND ICR.REQEST_SEQNO = ICRU.REQEST_SEQNO AND ICR.ORDR = ICRU.ORDR
+			WHERE ICR.COA_SEQNO = #{coaSeqno}
+		)
+
+		SELECT
+			T.COA_SEQNO
+			, T.UPPER_REQEST_SEQNO
+			, T.LWPRT_REQEST_SEQNO
+			, T.UPPER_SORT_ORDR
+			, T.LWPRT_SORT_ORDR
+			, IR.REQEST_NO
+			, ILN.LOT_NO
+			, IR.INSPCT_TY_CODE
+			, SCC.CMMN_CODE_NM AS INSPCT_TY_NM
+			, SM.MTRIL_NM
+			, IR.SPLORE_NM
+			, T.PO
+			, T.SHIPMNT_QY
+		FROM T
+		INNER JOIN IM_REQEST IR ON T.LWPRT_REQEST_SEQNO = IR.REQEST_SEQNO
+		LEFT JOIN IM_LOT_NO ILN ON IR.LOT_NO_SEQNO = ILN.LOT_NO_SEQNO AND ILN.DELETE_AT = 'N'
+		INNER JOIN SY_CMMN_CODE SCC ON IR.INSPCT_TY_CODE = SCC.CMMN_CODE
+		INNER JOIN SY_MTRIL SM on IR.MTRIL_SEQNO = SM.MTRIL_SEQNO
+		ORDER BY T.UPPER_SORT_ORDR, T.LWPRT_SORT_ORDR
+	</select>
+
+	<!-- 성적서양식이 있는 업체 조회 -->
+	<select id="getEntrpsListHasPrint" parameterType="lims.test.vo.CoaMVo" resultType="lims.test.vo.CoaMVo">
+		SELECT
+			DISTINCT
+			A.ENTRPS_SEQNO
+		   	, B.ENTRPS_NM
+		FROM SY_PRINTNG A
+	 	INNER JOIN SY_ENTRPS B ON A.ENTRPS_SEQNO = B.ENTRPS_SEQNO
+		WHERE A.DELETE_AT = 'N' AND A.USE_AT = 'Y'
+		  AND B.DELETE_AT = 'N' AND B.USE_AT = 'Y'
+		  AND A.PRINTNG_SE_CODE = 'SY15000002'
+		  AND B.BPLC_CODE = <include refid="bplcCode"/>
+		<if test="entrpsNm != null and entrpsNm != '' ">
+			AND UPPER(A.ENTRPS_NM) LIKE UPPER('%'||#{entrpsNm}||'%')
+		</if>
+	</select>
+
+	<!-- 업체양식콤보 리스트 조회 -->
+	<select id="getEntrpsPrintCombo" parameterType="lims.test.vo.CoaMVo" resultType="lims.com.vo.ComboVo">
+		SELECT
+		    PRINTNG_NM AS KEY
+      	    , PRINTNG_SEQNO AS VALUE
+		FROM SY_PRINTNG
+		WHERE BPLC_CODE = <include refid="bplcCode"/>
+		  AND PRINTNG_SE_CODE = 'SY15000002'
+		  AND DELETE_AT = 'N'
+		  AND USE_AT = 'Y'
+		  AND ENTRPS_SEQNO = #{entrpsSeqno}
+		ORDER BY PRINTNG_NM
+	</select>
+
+	<!-- 업체양식 정보 조회 -->
+	<select id="getEntrpsPrintInfo" parameterType="lims.test.vo.CoaMVo" resultType="lims.test.vo.CoaMVo">
+		SELECT
+		    ENTRPS_SEQNO
+		 	, MTRIL_SEQNO
+			, DWLD_FILE_SE_CODE
+			, CTMMNY_MTRIL_CODE
+		FROM SY_PRINTNG
+		WHERE DELETE_AT = 'N'
+		  AND PRINTNG_SEQNO = #{printngSeqno}
+	</select>
+
+	<!-- COA 발행목록 삭제 -->
+	<update id="delCoaList" parameterType="lims.test.vo.CoaMVo">
+		UPDATE IM_COA
+		   SET DELETE_AT       = 'Y'
+			 , LAST_CHANGER_ID = <include refid="loginId"/>
+		     , LAST_CHANGE_DT  = SYSDATE
+		WHERE COA_SEQNO = #{coaSeqno}
+	</update>
+
+</mapper>

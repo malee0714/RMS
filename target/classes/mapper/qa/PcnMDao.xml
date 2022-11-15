@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.qa.dao.PcnMDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+	
+	
+	<!-- PCN SEQ 조회 -->
+	<select id="getPcnSeq" resultType="int">
+		SELECT
+		SQ_RS_PCN.NEXTVAL AS pcnSeqno
+		FROM DUAL
+	</select>
+	
+	<!-- 변경점 CODE 조회 -->
+	<select id="getChangePointApplcCode" resultType="String">
+		SELECT CMMN_CODE FROM SY_CMMN_CODE
+		WHERE UPPER_CMMN_CODE = 'RS22'
+		AND CMMN_CODE_NM = #{changePointApplcCn}
+	</select>
+	
+	<!-- PCN 목록 조회 -->
+	<select id="getPcnList" parameterType="lims.qa.vo.PcnMVo" resultType="lims.qa.vo.PcnMVo">
+		SELECT
+			RP.PCN_SEQNO,
+			RP.PCN_NM,
+			RP.PCN_NO,
+			RP.CHANGEPOINT_APPLC_CN,
+			RP.CTMMNY_SEQNO,
+			RP.CHANGEPOINT_SE_CN,
+			RP.MTRIL_SEQNO,
+			RP.CHANGEPOINT_STTUS_CODE,
+			RP.PREARNGE_DTE,
+			RP.PCN_GRAD_CODE,
+			RP.M5E1_CODE,
+			RP.CHRG_DEPT_CODE,
+			RP.CHARGER_ID,
+			RP.PCN_CN,
+			RP.PCN_BFE_CN,
+			RP.PCN_AFTER_CN,
+			RP.PCN_RESULT_CODE,
+			RP.PBLICTE_DTE,
+			RP.COMPT_DTE,
+			RP.ATCHMNFL_SEQNO,
+			RP.SANCTN_SEQNO,
+			RP.WDTB_SEQNO,
+			RP.DELETE_AT,
+			RP.LAST_CHANGER_ID,
+			RP.LAST_CHANGE_DT,
+			RP.EXMNT_SEQNO,
+			A.ENTRPS_NM AS ctmmnySeqnoNm,
+			B.MTRIL_NM AS mtrilSeqnoNm,
+			C.INSPCT_INSTT_NM AS chrgDeptNm,
+			D.USER_NM AS chargerNm,
+			E.CMMN_CODE_NM AS changePointSttusNm,
+			F.CMMN_CODE_NM AS m5e1Nm,
+			G.CMMN_CODE_NM AS pcnGradNm,
+			H.SANCTN_PROGRS_SITTN_CODE AS sanctnProgrsSittnCode,
+			I.CMMN_CODE_NM AS sanctnProgrsSittnCodeNm,
+			J.SANCTNER_NM AS sanctnerNm,
+			K.CMMN_CODE_NM pcnResultNm
+		FROM RS_PCN RP
+		LEFT JOIN SY_ENTRPS A ON RP.CTMMNY_SEQNO = A.ENTRPS_SEQNO
+		LEFT JOIN SY_MTRIL B ON RP.MTRIL_SEQNO = B.MTRIL_SEQNO
+		LEFT JOIN SY_INSPCT_INSTT C ON RP.CHRG_DEPT_CODE = C.INSPCT_INSTT_CODE
+		LEFT JOIN SY_USER D ON RP.CHARGER_ID = D.USER_ID
+		LEFT JOIN (
+			SELECT * FROM SY_CMMN_CODE
+			WHERE UPPER_CMMN_CODE = 'RS23'
+	    ) E ON RP.CHANGEPOINT_STTUS_CODE = E.CMMN_CODE
+        LEFT JOIN (
+			SELECT * FROM SY_CMMN_CODE
+			WHERE UPPER_CMMN_CODE = 'RS27'
+  		) F ON RP.M5E1_CODE = F.CMMN_CODE
+  		LEFT JOIN (
+			SELECT * FROM SY_CMMN_CODE
+			WHERE UPPER_CMMN_CODE = 'RS29'
+  		) G ON RP.PCN_GRAD_CODE = G.CMMN_CODE
+  		LEFT JOIN CM_SANCTN H ON RP.SANCTN_SEQNO = H.SANCTN_SEQNO
+  		LEFT JOIN SY_CMMN_CODE I ON H.SANCTN_PROGRS_SITTN_CODE = I.CMMN_CODE AND I.USE_AT = 'Y'
+		LEFT JOIN (
+		    SELECT  IA.SANCTN_SEQNO
+		            , LISTAGG(IB.USER_NM, ' > ') WITHIN GROUP(ORDER BY IA.SANCTN_ORDR) AS SANCTNER_NM 
+		    FROM CM_SANCTN_INFO IA 
+		    INNER JOIN SY_USER IB ON IA.SANCTNER_ID = IB.USER_ID
+		    WHERE IA.USE_AT = 'Y'
+		    GROUP BY IA.SANCTN_SEQNO
+		) J ON H.SANCTN_SEQNO = J.SANCTN_SEQNO
+		LEFT JOIN SY_CMMN_CODE K ON RP.PCN_RESULT_CODE = K.CMMN_CODE
+		WHERE RP.DELETE_AT = 'N'
+		<if test="changePointSeCn != null and changePointSeCn != ''">  <!-- 변경점 구분 -->
+			AND
+				RP.CHANGEPOINT_SE_CN like '%' || #{changePointSeCn} || '%'
+		</if>
+		
+		<if test="pcnNm != null and pcnNm != ''">  <!-- PCN 이름 -->
+			AND
+				RP.PCN_NM like '%' || #{pcnNm} || '%'
+		</if>
+		
+		<if test="ctmmnySeqnoNm != null and ctmmnySeqnoNm != ''">  <!-- 고객사 이름  -->
+			AND
+				A.ENTRPS_NM like '%' || #{ctmmnySeqnoNm} || '%'
+		</if>
+		
+		<if test="mtrilSeqnoNm != null and mtrilSeqnoNm != ''">  <!-- 자재 일련번호 -->
+			AND
+				B.MTRIL_NM like '%' || #{mtrilSeqnoNm} || '%'
+		</if>
+		
+		<if test="changePointSttusCode != null and changePointSttusCode != ''">  <!-- 변경점 상태 코드 -->
+			AND
+				RP.CHANGEPOINT_STTUS_CODE = #{changePointSttusCode}
+		</if>
+		
+		<if test="prearngeBeginDte != null and prearngeBeginDte != ''">  <!-- 예정 일자 -->
+			<if test="prearngeEndDte != null and prearngeEndDte != ''">
+				AND (RP.PREARNGE_DTE BETWEEN #{prearngeBeginDte} AND #{prearngeEndDte} OR RP.PREARNGE_DTE IS NULL)
+			</if>
+			<if test="prearngeEndDte == null or prearngeEndDte == ''">
+				AND (RP.PREARNGE_DTE <![CDATA[ >= ]]> #{prearngeBeginDte} OR RP.PREARNGE_DTE IS NULL)
+			</if>
+		</if>
+		<if test="prearngeEndDte != null and prearngeEndDte != ''">
+			<if test="prearngeBeginDte == null or prearngeBeginDte == ''"> 
+				AND (RP.PREARNGE_DTE <![CDATA[ <= ]]> #{prearngeEndDte} OR RP.PREARNGE_DTE IS NULL)
+			</if>
+		</if>
+		
+		<if test="comptBeginDte != null and comptBeginDte != ''">  <!-- 완료 일자 -->
+			<if test="comptEndDte != null and comptEndDte != ''">
+				AND (RP.COMPT_DTE BETWEEN #{comptBeginDte} AND #{comptEndDte} OR RP.COMPT_DTE IS NULL)
+			</if>
+			<if test="comptEndDte == null or comptEndDte == ''">
+				AND (RP.COMPT_DTE <![CDATA[ >= ]]> #{comptBeginDte} OR RP.COMPT_DTE IS NULL)
+			</if>
+		</if>
+		<if test="comptEndDte != null and comptEndDte != ''">
+			<if test="comptBeginDte == null or comptBeginDte == ''"> 
+				AND (RP.COMPT_DTE <![CDATA[ <= ]]> #{comptEndDte} OR RP.COMPT_DTE IS NULL)
+			</if>
+		</if>
+		ORDER BY RP.PCN_NO
+
+	</select>
+	
+
+	<!-- PCN 저장 -->
+	<insert id="insPcnInfo" parameterType="lims.qa.vo.PcnMVo">
+		INSERT INTO RS_PCN (
+			  PCN_SEQNO,
+			  PCN_NM,
+			  PCN_NO,
+			  CHANGEPOINT_APPLC_CN,
+			  CTMMNY_SEQNO,
+			  CHANGEPOINT_SE_CN,
+			  MTRIL_SEQNO,
+			  CHANGEPOINT_STTUS_CODE,
+			  PREARNGE_DTE,
+			  PCN_GRAD_CODE,
+			  M5E1_CODE,
+			  CHRG_DEPT_CODE,
+			  CHARGER_ID,
+			  PCN_CN,
+			  PCN_BFE_CN,
+			  PCN_AFTER_CN,
+			  PCN_RESULT_CODE,
+			  PBLICTE_DTE,
+			  COMPT_DTE,
+			  ATCHMNFL_SEQNO,
+			  SANCTN_SEQNO,
+			  WDTB_SEQNO,
+			  EXMNT_SEQNO,
+			  DELETE_AT,
+			  LAST_CHANGER_ID,
+			  LAST_CHANGE_DT,
+			  BPLC_CODE
+		)VALUES (
+			  <!-- TO_NUMBER(#{pcnSeqno}), -->
+			  #{pcnSeqno},
+		  	  #{pcnNm},
+		  	  #{pcnNo},
+		  	  #{changePointApplcCn},
+		  	  <!-- NUMBER FK -->
+		  	  #{ctmmnySeqno},
+		  	  #{changePointSeCn},
+		  	  <!-- NUMBER FK -->
+		  	  #{mtrilSeqno},
+		  	  #{changePointSttusCode},
+		  	  #{prearngeDte},
+		  	  #{pcnGradCode},
+		  	  #{m5e1Code},
+		  	  <!-- NUMBER FK -->
+		  	  #{chrgDeptCode},
+		  	  <!-- NUMBER FK -->
+		  	  #{chargerId},
+		  	  #{pcnCn},
+		  	  #{pcnBfeCn},
+		  	  #{pcnAfterCn},
+		  	  #{pcnResultCode},
+		  	  #{pblicteDte},
+		  	  #{comptDte},
+		  	  #{atchmnflSeqno},
+		  	  #{sanctnSeqno},
+		  	  #{wdtbSeqno},
+		  	  #{exmntSeqno},
+		  	  'N',
+		  	  1,
+		  	  SYSDATE,
+		  	  <include refid="bplcCode" />
+		)
+	</insert>
+	
+	
+	<!-- PCN 변경점 저장  -->
+	<insert id="insChangePoint" parameterType="lims.qa.vo.PcnChangePointVo">
+		INSERT INTO RS_PCN_CHANGEPOINT (
+			PCN_CHANGEPOINT_SEQNO,
+			PCN_SEQNO,
+			CHANGEPOINT_APPLC_CODE,
+			LAST_CHANGER_ID,
+			LAST_CHANGE_DT,
+			BPLC_CODE
+		) VALUES (
+			SQ_RS_PCN_CHANGEPOINT.NEXTVAL,
+			#{pcnSeqno},
+			#{changePointApplcCode},
+			<include refid="loginId"/>,
+			SYSDATE,
+			<include refid="bplcCode" />
+		)
+	</insert>
+	
+	<!-- PCN 변경점 삭제 -->
+	<delete id="delChangePoint" parameterType="lims.qa.vo.PcnChangePointVo">
+		DELETE FROM RS_PCN_CHANGEPOINT WHERE PCN_SEQNO = #{pcnSeqno}
+	</delete>
+	
+	
+	<!-- PCN 정보 수정 -->
+	<update id="updPcnInfo" parameterType="lims.qa.vo.PcnMVo">
+		UPDATE RS_PCN SET
+			PCN_NM = #{pcnNm},
+			PCN_NO = #{pcnNo},
+			CHANGEPOINT_APPLC_CN = #{changePointApplcCn},
+			CTMMNY_SEQNO = #{ctmmnySeqno},
+			CHANGEPOINT_SE_CN = #{changePointSeCn},
+			MTRIL_SEQNO = #{mtrilSeqno},
+			CHANGEPOINT_STTUS_CODE = #{changePointSttusCode},
+			PREARNGE_DTE = #{prearngeDte},
+			PCN_GRAD_CODE = #{pcnGradCode},
+			M5E1_CODE = #{m5e1Code},
+			CHRG_DEPT_CODE = #{chrgDeptCode},
+			CHARGER_ID = #{chargerId},
+			PCN_CN = #{pcnCn},
+			PCN_BFE_CN = #{pcnBfeCn},
+			PCN_AFTER_CN = #{pcnAfterCn},
+			PCN_RESULT_CODE = #{pcnResultCode},
+			PBLICTE_DTE = #{pblicteDte},
+			COMPT_DTE = #{comptDte},
+			ATCHMNFL_SEQNO = #{atchmnflSeqno},
+			WDTB_SEQNO = #{wdtbSeqno},
+			LAST_CHANGER_ID = <include refid="loginId"/>,
+			LAST_CHANGE_DT = SYSDATE,
+			EXMNT_SEQNO = #{exmntSeqno},
+			BPLC_CODE = <include refid="bplcCode" />
+		WHERE PCN_SEQNO = #{pcnSeqno}
+	</update>
+
+	<!-- PCN 정보 삭제 -->
+	<update id="deletePcnInfo" parameterType="lims.qa.vo.PcnMVo">
+		UPDATE RS_PCN SET
+			DELETE_AT = 'Y',
+			LAST_CHANGER_ID= <include refid="loginId"/>,
+			LAST_CHANGE_DT = SYSDATE
+		WHERE PCN_SEQNO = #{pcnSeqno}
+	</update>
+
+
+	<!-- 고객사 이름 조회 -->
+	<select id="getEntrpsNameList" resultType="lims.com.vo.ComboVo">
+		SELECT ENTRPS_SEQNO AS VALUE, ENTRPS_NM AS KEY FROM SY_ENTRPS
+	</select>
+	
+
+	<!-- 해당 제품 이름 조회  -->
+	<select id="getMtrilNameList" resultType="lims.com.vo.ComboVo">
+		SELECT MTRIL_SEQNO AS VALUE, MTRIL_NM AS KEY FROM SY_MTRIL
+	</select>
+	
+	
+	<!-- 담당자 이름 조회  -->
+	<select id="getUserNameList" resultType="lims.com.vo.ComboVo">
+		SELECT USER_ID AS VALUE, USER_NM AS KEY FROM SY_USER
+	</select>
+	
+	<!-- PCN No 생성 -->
+	<select id="getMaxPcnNo" parameterType="String" resultType="String">
+		SELECT LPAD(NVL(MAX(TO_NUMBER(SUBSTR(PCN_NO,-3))),0)+1, 3, 0) FROM RS_PCN
+		 WHERE SUBSTR(PCN_NO,-9,5) = #{pblicteDate}
+	</select>
+	
+	<!-- 검토 업데이트  -->
+	<update id="updateExmntSeqno" parameterType="lims.com.vo.CmExmntDto">
+		UPDATE RS_PCN SET
+			EXMNT_SEQNO = #{exmntSeqno},
+			LAST_CHANGER_ID = <include refid="loginId"/>,
+			LAST_CHANGE_DT = SYSDATE
+		WHERE PCN_SEQNO = #{otherKey}
+	</update>
+	
+	<!-- 결제 업데이트 -->
+	<update id="updatePcnSanctn" parameterType="lims.qa.vo.AuditManageDto">
+		/* 결재 SEQNO UPDATE */
+		UPDATE RS_PCN SET SANCTN_SEQNO = #{sanctnSeqno} WHERE PCN_SEQNO = #{pcnSeqno}
+	</update>
+
+	
+</mapper>

@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.src.dao.QCostMDao">
+	
+	<!-- 부서별 의뢰건수 조회 -->
+	<select id="getQCostList" resultType="lims.src.vo.QCostMVo"
+		parameterType="lims.src.vo.QCostMVo">
+		  
+      SELECT  
+      SIIQC.ANALSCT_AM,														<!-- 분석비 액 -->
+      SIIQC.CMPDS_ANALSCT_AM,												<!-- 소모품 분석비 액 -->
+      SIIQC.MNTNC_MENDNG_CNTRCT_AM,											<!-- 유지 보수 계약 액 -->
+      SIIQC.RPAIRS_MNTNC_MENDNG_AM,											<!-- 수선 유지 보수 액 -->
+      SIIQC.LBCST_RATE,														<!-- 인건비 비율 -->
+      SIIQC.DAIL_ANALS_POSBL_TIME,											<!-- 일이 분석 가능 시간 -->
+      SIIQC.ANALS_REQRE_TIME,												<!-- 분석 소요 시간 -->
+      SIIL.LBCST_AM,														<!-- 인건비 액 -->
+      SIIQC.EQPMN_CL_CODE,
+      (SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE=SIIQC.EQPMN_CL_CODE) AS EQPMN_CL_CODE_NM ,
+      SIIL.YY,
+      SIIQC.LAST_CHANGER_ID,												<!-- 최종 변경자 -->
+      SIIQC.LAST_CHANGE_DT,											<!-- 최종 변경 일시 -->
+            (SELECT
+			COUNT (DISTINCT LOT_NO)
+			FROM IM_REQEST IR
+			JOIN IM_REQEST_EXPRIEM IRE ON IRE.REQEST_SEQNO = IR.REQEST_SEQNO
+			JOIN IM_REQEST_EXPRIEM_RESULT IRER ON IRER.REQEST_EXPRIEM_SEQNO = IRE.REQEST_EXPRIEM_SEQNO
+			WHERE
+			IR.REQEST_DTE BETWEEN SIIL.YY || '-01-01' AND SIIL.YY || '-12-31'
+			AND
+			IRER.RESULT_VALUE IS NOT NULL
+			AND
+			IRER.DELETE_AT = 'N'
+			 			AND EQPMN_CL_CODE = SIIQC.EQPMN_CL_CODE /**P*/
+				AND IR.BPLC_CODE= SIIL.INSPCT_INSTT_CODE /**P*/
+        										)AS CAPA
+      FROM SY_INSPCT_INSTT_QLITY_CT SIIQC
+      JOIN SY_INSPCT_INSTT_LBCST SIIL ON SIIL.INSPCT_INSTT_LBCST_SEQNO= SIIQC.INSPCT_INSTT_LBCST_SEQNO
+      WHERE 1=1
+      <if test="eqpmnClCodeSch != null and eqpmnClCodeSch != '' ">
+			AND SIIQC.EQPMN_CL_CODE=#{eqpmnClCodeSch}
+		</if>
+		<if test="yy != null and yy != '' ">
+			 AND SIIL.YY=#{yy}
+		</if>
+		<if test="bplcCodeSch != null and bplcCodeSch != '' ">
+			AND SIIL.INSPCT_INSTT_CODE=#{bplcCodeSch}
+		</if>
+	   AND SIIL.DELETE_AT = 'N'
+	</select>
+	<select id="getCost" resultType="lims.src.vo.QCostMVo"
+		parameterType="lims.src.vo.QCostMVo">
+		SELECT
+		EQPMN_CL_CODE,
+		(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE=EQPMN_CL_CODE) AS EQPMN_CL_CODE_NM,
+		EQPMN_NM,
+		ACQS_AMOUNT,
+		WRHOUSNG_DTE,
+		NVL(RDC_DPRT_MATTER,0) as DEPRECIATION,
+		NVL(ACQS_AMOUNT /RDC_DPRT_MATTER,0)  as COST_TOTAl
+		FROM RS_EQPMN
+		WHERE 1=1 
+		  <if test="eqpmnClCode != null and eqpmnClCode != '' ">
+			AND EQPMN_CL_CODE=#{eqpmnClCode}
+		</if>
+		<if test="bplcCodeSch != null and bplcCodeSch != '' ">
+			AND BPLC_CODE=#{bplcCodeSch}
+		</if>
+
+		  AND  USE_AT= 'Y'
+	</select>
+		<select id="getCostYear" resultType="lims.src.vo.QCostMVo"
+		parameterType="lims.src.vo.QCostMVo">
+		SELECT 
+		SIIQC.EQPMN_CL_CODE,
+		(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE=EQPMN_CL_CODE) AS EQPMN_CL_CODE_NM,
+		SIIL.LBCST_AM,
+		SIIQC.LBCST_RATE,
+		(SIIL.LBCST_AM*SIIQC.LBCST_RATE)/100 AS LBCST_TOTAL
+		FROM SY_INSPCT_INSTT_QLITY_CT SIIQC
+		JOIN SY_INSPCT_INSTT_LBCST SIIL ON SIIL.INSPCT_INSTT_LBCST_SEQNO = SIIQC.INSPCT_INSTT_LBCST_SEQNO
+		WHERE 1=1 
+		  <if test="eqpmnClCodeSch != null and eqpmnClCodeSch != '' ">
+			AND SIIQC.EQPMN_CL_CODE=#{eqpmnClCodeSch}
+		</if>
+				<if test="yy != null and yy != '' ">
+			 AND SIIL.YY=#{yy}
+		</if>
+		<if test="bplcCodeSch != null and bplcCodeSch != '' ">
+			AND SIIL.INSPCT_INSTT_CODE=#{bplcCodeSch}
+		</if>
+		AND SIIL.DELETE_AT = 'N'
+		
+		UNION ALL
+   		SELECT
+   		NULL AS EQPMN_CL_CODE,
+    	'TOTAL' AS EQPMN_CL_CODE_NM,
+    	NULL AS LBCST_AM,
+		SUM(SIIQC.LBCST_RATE),
+		SUM((SIIL.LBCST_AM*SIIQC.LBCST_RATE)/100)AS LBCST_TOTAL
+	 	FROM SY_INSPCT_INSTT_QLITY_CT SIIQC
+		JOIN SY_INSPCT_INSTT_LBCST SIIL ON SIIL.INSPCT_INSTT_LBCST_SEQNO = SIIQC.INSPCT_INSTT_LBCST_SEQNO
+    			WHERE 1=1 
+		  <if test="eqpmnClCode != null and eqpmnClCode != '' ">
+			AND SIIQC.EQPMN_CL_CODE=#{eqpmnClCode}
+		</if>
+				<if test="yy != null and yy != '' ">
+			 AND SIIL.YY=#{yy}
+		</if>
+		<if test="bplcCodeSch != null and bplcCodeSch != '' ">
+			AND SIIL.INSPCT_INSTT_CODE=#{bplcCodeSch}
+		</if>
+	</select>
+	
+	
+		<select id="getCapa" resultType="lims.src.vo.QCostMVo"
+		parameterType="lims.src.vo.QCostMVo">
+		 SELECT 
+		SIIQC.EQPMN_CL_CODE,
+		(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE=EQPMN_CL_CODE) AS EQPMN_CL_CODE_NM,
+    	SIIQC.DAIL_ANALS_POSBL_TIME,
+    	SIIQC.ANALS_REQRE_TIME,
+    	(DAIL_ANALS_POSBL_TIME/ANALS_REQRE_TIME) AS DAY_MAX_ANALYSIS,
+    	(DAIL_ANALS_POSBL_TIME/ANALS_REQRE_TIME)*365 AS YEAR_MAX_ANALYSIS,
+    	(SELECT COUNT(*)FROM RS_EQPMN WHERE EQPMN_CL_CODE = #{eqpmnClCode}AND OPR_AT='Y'
+    	<if test="bplcCodeSch != null and bplcCodeSch != '' ">
+			AND BPLC_CODE=#{bplcCodeSch}
+		</if>
+		) AS EQPMN_NUMBER,
+		((DAIL_ANALS_POSBL_TIME/ANALS_REQRE_TIME)*365) * (SELECT COUNT(*)FROM RS_EQPMN WHERE EQPMN_CL_CODE = #{eqpmnClCode}AND OPR_AT='Y'
+		    	<if test="bplcCodeSch != null and bplcCodeSch != '' ">
+			AND BPLC_CODE=#{bplcCodeSch}
+		</if>
+		) AS CAPA_TOTAL
+		FROM SY_INSPCT_INSTT_QLITY_CT SIIQC
+		JOIN SY_INSPCT_INSTT_LBCST SIIL ON SIIL.INSPCT_INSTT_LBCST_SEQNO = SIIQC.INSPCT_INSTT_LBCST_SEQNO
+		WHERE 1=1 
+		  <if test="eqpmnClCode != null and eqpmnClCode != '' ">
+			AND SIIQC.EQPMN_CL_CODE=#{eqpmnClCode}
+		</if>
+				<if test="yy != null and yy !=''">
+			 AND SIIL.YY=#{yy}
+		</if>
+		<if test="bplcCodeSch != null and bplcCodeSch != '' ">
+			AND SIIL.INSPCT_INSTT_CODE=#{bplcCodeSch}
+		</if>
+		AND SIIL.DELETE_AT = 'N'
+	</select>
+</mapper>

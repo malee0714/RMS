@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.qa.dao.AuditManageDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+	
+	<select id="getAudit" resultType="lims.qa.vo.AuditManageDto" parameterType="lims.qa.vo.AuditManageDto">
+		SELECT  A.AUDIT_SEQNO
+		        ,A.AUDIT_SE_CODE
+		        ,E.CMMN_CODE_NM AS AUDIT_SE_CODE_NM 
+		        ,A.AUDIT_DETAIL_SE_CODE
+		        ,F.CMMN_CODE_NM AS AUDIT_DETAIL_SE_CODE_NM
+		        ,A.AUDIT_NO
+		        ,A.AUDIT_DTE
+		        ,SUBSTR(A.AUDIT_DTE, 0, 4) AS AUDIT_YEAR
+		        ,A.AUDIT_SJ
+		        ,A.AUDIT_TRGET_DEPT_NM
+		        ,A.AUDIT_TRGTER_NM
+		        ,A.ENTRPS_SEQNO
+		        ,A.ENTRPS_NM
+		        ,A.AUDITMAN_NM
+		        ,A.AUDIT_BEGIN_DTE
+		        ,A.AUDIT_END_DTE
+		        ,A.ATCHMNFL_SEQNO
+		        ,A.SANCTN_SEQNO
+		        ,A.WDTB_SEQNO
+		        ,A.DELETE_AT
+		        ,A.LAST_CHANGER_ID
+		        ,A.LAST_CHANGE_DT
+		        ,A.EXMNT_SEQNO
+		        ,A.RM
+		        ,B.SANCTN_PROGRS_SITTN_CODE
+		        ,D.CMMN_CODE_NM AS SANCTN_PROGRS_SITTN_CODE_NM
+		        ,C.SANCTNER_NM
+				,NVL(CAR.CAR_COUNT, 0) AS CAR_COUNT
+		FROM RS_AUDIT A
+		LEFT JOIN (
+			SELECT  COUNT(IA.AUDIT_CAR_SEQNO) AS CAR_COUNT,
+			      IA.AUDIT_SEQNO
+			FROM RS_AUDIT_CAR IA
+			WHERE IA.DELETE_AT = 'N'
+			GROUP BY IA.AUDIT_SEQNO
+		) CAR ON A.AUDIT_SEQNO = CAR.AUDIT_SEQNO
+		LEFT JOIN CM_SANCTN B ON A.SANCTN_SEQNO = B.SANCTN_SEQNO 
+		LEFT JOIN (
+		    SELECT  IA.SANCTN_SEQNO
+		            , LISTAGG(IB.USER_NM, ' > ') WITHIN GROUP(ORDER BY IA.SANCTN_ORDR) AS SANCTNER_NM 
+		    FROM CM_SANCTN_INFO IA 
+		    INNER JOIN SY_USER IB ON IA.SANCTNER_ID = IB.USER_ID
+		    WHERE IA.USE_AT = 'Y'
+		    GROUP BY IA.SANCTN_SEQNO
+		) C ON B.SANCTN_SEQNO = C.SANCTN_SEQNO
+		LEFT JOIN SY_CMMN_CODE D ON B.SANCTN_PROGRS_SITTN_CODE = D.CMMN_CODE AND D.USE_AT = 'Y'
+		LEFT JOIN SY_CMMN_CODE E ON A.AUDIT_SE_CODE = E.CMMN_CODE AND E.USE_AT = 'Y'
+		LEFT JOIN SY_CMMN_CODE F ON A.AUDIT_DETAIL_SE_CODE = F.CMMN_CODE AND F.USE_AT = 'Y'
+		WHERE A.DELETE_AT = 'N'
+		<if test="auditSeqno != null and auditSeqno != '' ">
+		  AND A.AUDIT_SEQNO = #{auditSeqno}
+		</if>
+		<if test="auditSeCode != null and auditSeCode != '' ">
+		  AND A.AUDIT_SE_CODE = #{auditSeCode}
+		</if>
+		<if test="auditDetailSeCode != null and auditDetailSeCode != '' ">
+		  AND A.AUDIT_DETAIL_SE_CODE = #{auditDetailSeCode}
+		</if>
+		<if test="auditYear != null and auditYear != '' ">
+		  AND SUBSTR(A.AUDIT_DTE, 0, 4) = #{auditYear}
+		</if>
+		<if test="auditBeginDte != null and auditBeginDte != '' ">
+		  AND A.AUDIT_DTE <![CDATA[>=]]> #{auditBeginDte}
+		</if>
+		<if test="auditEndDte != null and auditEndDte != '' ">
+			AND A.AUDIT_DTE <![CDATA[<=]]> #{auditEndDte}
+		</if>
+		ORDER BY A.AUDIT_DTE DESC
+	</select>
+	
+	<insert id="insertAuditManage" parameterType="lims.qa.vo.AuditManageDto">
+		<selectKey keyProperty="auditSeqno,auditNo" resultType="lims.qa.vo.AuditManageDto" order="BEFORE">
+			SELECT  SQ_RS_AUDIT.NEXTVAL as auditSeqno,
+					(
+					    SELECT 
+					    'FCC-AD-' || SUBSTR(#{auditDte}, 3, 2) || '-' || SUBSTR(#{auditDte}, 6, 2) || '-' || LPAD(NVL(SUBSTR(MAX(A.AUDIT_NO), 14), 0) + 1, 3, 0) AS auditNo
+						FROM RS_AUDIT A
+						WHERE SUBSTR(A.AUDIT_NO, 0, 12) = 'FCC-AD-' || SUBSTR(TO_CHAR(SYSDATE, 'YYYY-MM-DD'),3,2) || '-' || SUBSTR(TO_CHAR(SYSDATE, 'YYYY-MM-DD'),6,2)
+						  AND A.DELETE_AT = 'N'
+					) AS auditNo
+			FROM DUAL
+		</selectKey>
+		
+		INSERT INTO RS_AUDIT(
+			AUDIT_SEQNO
+			, AUDIT_SE_CODE
+			, AUDIT_DETAIL_SE_CODE
+			, AUDIT_NO
+			, AUDIT_DTE
+			, AUDIT_SJ
+			, AUDIT_TRGET_DEPT_NM
+			, AUDIT_TRGTER_NM
+			, ENTRPS_SEQNO
+			, ENTRPS_NM
+			, AUDITMAN_NM
+			, AUDIT_BEGIN_DTE
+			, AUDIT_END_DTE
+			, ATCHMNFL_SEQNO
+			, SANCTN_SEQNO
+			, WDTB_SEQNO
+			, DELETE_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+			, EXMNT_SEQNO
+			, RM
+		) VALUES (
+			#{auditSeqno}
+			, #{auditSeCode}
+			, #{auditDetailSeCode}
+			, #{auditNo} 
+			, #{auditDte}
+			, #{auditSj}
+			, #{auditTrgetDeptNm}
+			, #{auditTrgterNm}
+			, #{entrpsSeqno}
+			, #{entrpsNm}
+			, #{auditmanNm}
+			, #{auditBeginDte}
+			, #{auditEndDte}
+			, #{atchmnflSeqno}
+			, #{sanctnSeqno}
+			, #{wdtbSeqno}
+			, 'N'
+			, <include refid="loginId"/>
+			, SYSDATE
+			, #{exmntSeqno}
+			, #{rm}
+		)
+	</insert>
+	
+	<update id="updateAuditManage">
+		UPDATE RS_AUDIT SET
+			AUDIT_SEQNO = #{auditSeqno}
+			, AUDIT_SE_CODE = #{auditSeCode}
+			, AUDIT_DETAIL_SE_CODE = #{auditDetailSeCode}
+			, AUDIT_DTE = #{auditDte}
+			, AUDIT_SJ = #{auditSj}
+			, AUDIT_TRGET_DEPT_NM = #{auditTrgetDeptNm}
+			, AUDIT_TRGTER_NM = #{auditTrgterNm}
+			, ENTRPS_SEQNO = #{entrpsSeqno}
+			, ENTRPS_NM = #{entrpsNm}
+			, AUDITMAN_NM = #{auditmanNm}
+			, AUDIT_BEGIN_DTE = #{auditBeginDte}
+			, AUDIT_END_DTE = #{auditEndDte}
+			, ATCHMNFL_SEQNO = #{atchmnflSeqno}
+			, WDTB_SEQNO = #{wdtbSeqno}
+			, RM = #{rm}
+			, LAST_CHANGER_ID = <include refid="loginId"/>
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE AUDIT_SEQNO = #{auditSeqno}
+	</update>
+	
+	<update id="updateAuditManageSanctn" parameterType="lims.qa.vo.AuditManageDto">
+		/* 결재 SEQNO UPDATE */
+		UPDATE RS_AUDIT SET SANCTN_SEQNO = #{sanctnSeqno} WHERE AUDIT_SEQNO = #{auditSeqno}
+	</update>
+	
+	<update id="deleteAuditManage" parameterType="lims.qa.vo.AuditManageDto">
+		UPDATE RS_AUDIT SET
+			DELETE_AT = 'Y',
+			LAST_CHANGER_ID = <include refid="loginId"/>,
+			LAST_CHANGE_DT = SYSDATE
+		WHERE AUDIT_SEQNO = #{auditSeqno}
+	</update>
+	
+	<update id="updateExmntSeqno" parameterType="lims.com.vo.CmExmntDto">
+		/* 검토 seqno update */
+		UPDATE RS_AUDIT SET
+			EXMNT_SEQNO = #{exmntSeqno},
+			LAST_CHANGER_ID = <include refid="loginId"/>,
+			LAST_CHANGE_DT = SYSDATE
+		WHERE AUDIT_SEQNO = #{otherKey}
+	</update>
+</mapper>

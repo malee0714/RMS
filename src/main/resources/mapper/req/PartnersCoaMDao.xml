@@ -1,0 +1,525 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.req.dao.PartnersCoaMDao">
+
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+
+	<!-- 협력업체 의뢰목록 조회 -->
+	<select id="getPartnersCoaList" resultType="lims.req.vo.PartnersCoaMVo" parameterType="lims.req.vo.PartnersCoaMVo">
+		SELECT
+			IR.REQEST_SEQNO <!-- 의뢰일련번호 -->
+			, IR.BPLC_CODE <!-- 사업장코드 -->
+			, (SELECT XA.INSPCT_INSTT_NM FROM SY_INSPCT_INSTT XA WHERE XA.INSPCT_INSTT_CODE = IR.BPLC_CODE) AS BPLC_NM
+			, IR.CUSTLAB_SEQNO  <!-- 분석실 코드-->
+			, IR.REQEST_NO <!-- 의뢰번호 -->
+			, IR.MTRIL_SEQNO <!-- 자재일련번호 -->
+			, SP.MTRIL_NM <!-- 자재명 -->
+			, SP.PRDUCT_SE_CODE
+			, IR.SPLORE_NM <!-- 시료명 -->
+			, SP.LBL_DC_OUTPT_AT <!-- 라벨 설명 출력 여부 -->
+			, IR.INSPCT_TY_CODE <!-- 검사유형코드 -->
+			, (SELECT XA.CMMN_CODE_NM FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = IR.INSPCT_TY_CODE) AS INSPCT_TY_CODE_NM
+			, IR.REQEST_DTE <!-- 의뢰일자 -->
+			, IR.MNFCTUR_DTE <!-- 제조일자 -->
+			, IR.MTRIL_CYLNDR_SEQNO <!--자재 실린더 일련번호 -->
+			, IR.MTRIL_ITM_SEQNO  <!--자재 아이템 일련번호 -->
+			, IR.ELCTC_QY <!-- 충전량-->
+			, IR.ELCTC_CN <!-- 충전내용-->
+			, IR.ENTRPS_SEQNO <!--업체 일련번호 -->
+			, (SELECT ENTRPS_NM FROM SY_ENTRPS WHERE ENTRPS_SEQNO =IR.ENTRPS_SEQNO) ENTRPS_NM
+			, IR.PRDUCT_DC <!--제품 설명-->
+			, IR.EQPMN_SEQNO <!-- 장비 일련번호 -->
+			, IR.EQPMN_SEQNO
+			, IR.RCEPTER_ID
+			, IR.RCEPT_DT
+			, IR.VENDOR_REQEST_AT
+			, IR.VENDOR_COA_REQEST_SEQNO <!-- 벤더 의뢰 일련번호 -->
+			, IR.REQEST_DEPT_CODE <!-- 의뢰부서코드 -->
+			, DEPT.INSPCT_INSTT_NM AS REQEST_DEPT_NM <!-- 의뢰부서명 -->
+			, IR.CLIENT_ID <!-- 의뢰자ID -->
+			, SU.USER_NM AS CLIENT_NM <!-- 의뢰자명 -->
+			, IR.EXPRIEM_CO <!-- 시험항목수 -->
+			, IR.RM <!-- 비고 -->
+			, IR.JDGMNT_WORD_CODE <!-- 판정용어코드 -->
+			, IR.PROGRS_SITTN_CODE <!-- 진행상황코드 -->
+			, (SELECT XA.CMMN_CODE_NM FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = IR.PROGRS_SITTN_CODE) AS PROGRS_SITTN_CODE_NM
+			, IR.LAST_ANALS_DT <!-- 최종분석일시 -->
+			, IR.REREQEST_NUM <!-- 재의뢰건수 -->
+			, IR.ROA_CREAT_AT <!-- ROA생성여부 -->
+			, IR.CTMMNY_OTHBC_AT <!-- 고객사공개여부 -->
+			, IR.LOCK_AT <!-- 잠금여부 -->
+			, IR.DELETE_AT <!-- 삭제여부 -->
+			, IR.LAST_CHANGER_ID <!-- 최종변경자ID -->
+			, IR.LAST_CHANGE_DT <!-- 최종변경일시 -->
+			, SP.MTRIL_TY_CODE <!-- 자재 프로세스 코드 -->
+			, SP.EQPMN_CL_CODE
+			, IR.VENDOR_LOT_NO <!-- 벤더 LotNo -->
+		FROM IM_REQEST IR
+		LEFT JOIN SY_MTRIL SP ON SP.MTRIL_SEQNO = IR.MTRIL_SEQNO
+		LEFT JOIN SY_INSPCT_INSTT DEPT ON IR.REQEST_DEPT_CODE = DEPT.INSPCT_INSTT_CODE
+		LEFT JOIN SY_USER SU ON SU.USER_ID = IR.CLIENT_ID
+		WHERE IR.BPLC_CODE = <include refid="bplcCode"/>
+		  AND IR.DELETE_AT = 'N'
+		  AND IR.VENDOR_REQEST_AT ='Y'
+		<if test="reqestSeqno != null and reqestSeqno != ''">
+			AND IR.REQEST_SEQNO = #{reqestSeqno}
+		</if>
+		<if test="mtrilNmSch != null and mtrilNmSch != ''">
+			AND UPPER(SP.MTRIL_NM) LIKE '%' || TRIM(UPPER(#{mtrilNmSch})) || '%'
+		</if>
+		<if test="reqestNoSch != null and reqestNoSch != ''">
+			AND UPPER(IR.REQEST_NO) LIKE '%' || TRIM(UPPER(#{reqestNoSch})) || '%'
+		</if>
+		<!--
+                사업장코드가 4000(본사)인 경우 임시필드3번이 'Y' 인 검사유형만 조회 가능
+                검사유형값 = null => 임시필드3번이 'Y' 인 검사유형 모두 조회
+                검사유형값 != null => 검사유형 값으로 조회
+        -->
+		<if test="inspctTyCodeSch != null and inspctTyCodeSch != ''">
+			AND	IR.INSPCT_TY_CODE = #{inspctTyCodeSch}
+		</if>
+		<if test="stReqestDteSch != null and stReqestDteSch != ''">
+			<if test="enReqestDteSch != null and enReqestDteSch != ''">
+				AND	IR.REQEST_DTE BETWEEN #{stReqestDteSch} AND #{enReqestDteSch}
+			</if>
+			<if test="enReqestDteSch == null or enReqestDteSch == ''">
+				AND	IR.REQEST_DTE <![CDATA[ > ]]> #{stReqestDteSch}
+			</if>
+		</if>
+		<if test="enReqestDteSch != null and enReqestDteSch != ''">
+			<if test="stReqestDteSch == null or stReqestDteSch == ''">
+				AND	IR.REQEST_DTE <![CDATA[ < ]]> #{enReqestDteSch}
+			</if>
+		</if>
+		<if test="stMnfcturDteSch != null and stMnfcturDteSch != ''">
+			<if test="enMnfcturDteSch != null and enMnfcturDteSch != ''">
+				AND	IR.MNFCTUR_DTE BETWEEN #{stMnfcturDteSch} AND #{enMnfcturDteSch}
+			</if>
+			<if test="enMnfcturDteSch == null or enMnfcturDteSch == ''">
+				AND	IR.MNFCTUR_DTE <![CDATA[ > ]]> #{stMnfcturDteSch}
+			</if>
+		</if>
+		<if test="enMnfcturDteSch != null and enMnfcturDteSch != ''">
+			<if test="stMnfcturDteSch == null or stMnfcturDteSch == ''">
+				AND	IR.MNFCTUR_DTE <![CDATA[ < ]]> #{enMnfcturDteSch}
+			</if>
+		</if>
+		<if test="reqestDeptCodeSch != null and reqestDeptCodeSch !=''">
+			AND	IR.REQEST_DEPT_CODE = #{reqestDeptCodeSch}
+		</if>
+		<if test="@lims.util.GetUserSession@getAuthorSeCode() == 'SY09000004'">
+			AND	IR.CTMMNY_OTHBC_AT = 'Y'
+		</if>
+		ORDER BY IR.REQEST_SEQNO DESC
+	</select>
+
+	<select id="getMtrilCode" resultType="String" parameterType="lims.req.vo.PartnersCoaMVo">
+		SELECT MTRIL_CODE FROM SY_PRDUCT WHERE PRDUCT_SEQNO = #{prductSeqno}
+	</select>
+
+	<select id="getExpriemCoaList" parameterType="lims.req.vo.PartnersCoaMVo" resultType="lims.req.vo.PartnersCoaMVo">
+		SELECT
+			A.REQEST_SEQNO
+			, A.REQEST_EXPRIEM_SEQNO
+		  	, A.EXPRIEM_SEQNO
+		  	, B.EXPRIEM_NM
+			, A.JDGMNT_FOM_CODE
+		    , A.LCL_VALUE
+		    , A.UCL_VALUE
+			, A.LCL_VALUE_SE_CODE
+			, A.UCL_VALUE_SE_CODE
+		    , A.TEXT_STDR
+			, A.JDGMNT_FOM_CODE
+		    , (A.LCL_VALUE ||'~'|| A.UCL_VALUE) as RANGE_VALUE
+			,(SELECT RESULT_VALUE FROM IM_REQEST_EXPRIEM_RESULT  WHERE  REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno}) AS RESULT_VALUE
+		    , A.DELETE_AT
+        	,A.REQEST_EXPRIEM_SEQNO
+		FROM IM_REQEST_EXPRIEM A
+		LEFT JOIN SY_EXPRIEM B ON B.EXPRIEM_SEQNO = A.EXPRIEM_SEQNO
+		WHERE A.REQEST_SEQNO = #{reqestSeqno}
+      	  AND A.REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno}
+		  AND A.DELETE_AT = 'N'
+		ORDER BY A.SORT_ORDR
+	</select>
+
+	<select id="getReqestExpriemSeqno" parameterType="lims.req.vo.PartnersCoaMVo" resultType="lims.req.vo.PartnersCoaMVo">
+		SELECT REQEST_EXPRIEM_SEQNO, REQEST_SEQNO FROM IM_REQEST_EXPRIEM WHERE REQEST_SEQNO =#{reqestSeqno}
+	</select>
+
+	<!-- 시험항목 정보 조회 -->
+	<select id="getImReqestExpriem" resultType="lims.req.vo.PartnersCoaMVo" parameterType="lims.req.vo.PartnersCoaMVo">
+		SELECT REX.REQEST_EXPRIEM_SEQNO
+		,REX.EXPRIEM_SEQNO
+		,(SELECT expriem_Nm FROM SY_EXPRIEM X WHERE X.EXPRIEM_SEQNO =
+		REX.EXPRIEM_SEQNO ) AS expriem_Nm
+		,REX.REQEST_SEQNO
+		,REX.PRDUCT_SDSPC_SEQNO
+		,REX.PROCESS_DT
+		,REX.JDGMNT_FOM_CODE
+		,REX.FIRST_MUMM_VALUE
+		,REX.FIRST_MUMM_VALUE_SE_CODE
+		,REX.FIRST_MXMM_VALUE
+		,REX.FIRST_MXMM_VALUE_SE_CODE
+		,REX.SCD_MUMM_VALUE
+		,REX.SCD_MUMM_VALUE_SE_CODE
+		,REX.SCD_MXMM_VALUE
+		,REX.SCD_MXMM_VALUE_SE_CODE
+		,REX.INNER_MUMM_VALUE
+		,REX.INNER_MUMM_VALUE_SE_CODE
+		,REX.INNER_MXMM_VALUE
+		,REX.INNER_MXMM_VALUE_SE_CODE
+		,REX.CTMMNY_MUMM_VALUE
+		,REX.CTMMNY_MUMM_VALUE_SE_CODE
+		,REX.CTMMNY_MXMM_VALUE
+		,REX.CTMMNY_MXMM_VALUE_SE_CODE
+		,REX.TEXT_STDR
+		,REX.MARK_CPHR
+		,REX.UNIT_SEQNO
+		,REX.JDGMNT_WORD_CODE
+		,REX.RM
+		,REX.ANALS_OPINION
+		,REX.MHRLS_SEQNO
+		,REX.CHRG_TEAM_SEQNO
+		,REX.RESULT_REGISTER_ID
+		,REX.RESULT_REGIST_DTE
+		,REX.RESULT_INPUT_COMPT_AT
+		,REX.COA_OUTPT_AT
+		,REX.EXPR_NUMOT
+		,REX.SORT_ORDR
+		,REX.PROGRS_SITTN_CODE
+		,REX.DELETE_AT
+		,REX.LAST_CHANGER_ID
+		,REX.LAST_CHANGE_DT
+		,REX.QC_RESULT_REGISTER_ID
+		,REX.QC_RESULT_REGIST_DTE
+		,REX.EMAIL_SNDNG_AT
+		,REX.PROCESS_TIME
+		,REX.CHRCTR_SNDNG_AT
+		,REX.LAST_EXPR_ODR
+		,REX.CAN_NO_ORDR
+		,REX.EROR_SCOPE
+		,REX.MNFCTUR_ANALS_AT
+		,REX.COA_UPDT_POSBL_AT
+		,REX.SDSPC_NM
+		,RER.RESULT_VALUE
+		FROM IM_REQEST_EXPRIEM REX
+		,IM_REQEST_EXPRIEM_RESULT RER
+		WHERE REX.REQEST_EXPRIEM_SEQNO = RER.REQEST_EXPRIEM_SEQNO
+		AND REX.REQEST_SEQNO = #{reqestSeqno}
+		AND REX.DELETE_AT = 'N'
+		ORDER BY REX.REQEST_EXPRIEM_SEQNO ASC
+	</select>
+
+
+	<!-- 의뢰 정보 저장 -->
+	<insert id="insImRequest" parameterType="lims.req.vo.PartnersCoaMVo">
+		<selectKey keyProperty="reqestSeqno" order="BEFORE" resultType="String">
+			SELECT SQ_IM_REQEST.NEXTVAL AS reqestSeqno FROM DUAL
+		</selectKey>
+
+		INSERT INTO IM_REQEST (
+			REQEST_SEQNO
+			,BPLC_CODE
+			,REQEST_DEPT_CODE
+			,ENTRPS_SEQNO
+			,REQEST_NO
+			,MTRIL_SEQNO
+			,INSPCT_TY_CODE
+			,MNFCTUR_DTE
+			,VENDOR_REQEST_AT
+			,PROGRS_SITTN_CODE
+			,RM
+			,VENDOR_LOT_NO
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) VALUES (
+			#{reqestSeqno}
+			,<include refid="bplcCode"/>
+		  	,#{reqestDeptCode}
+			,#{entrpsSeqno}
+			,(SELECT XA.TMPR_FIELD1_VALUE FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = #{inspctTyCode}) || 'C'
+				|| TO_CHAR(TO_DATE(#{mnfcturDte},'YYYY-MM-DD'),'YYMMDD')
+				|| LPAD((SELECT NVL(MAX(SUBSTR(XA.REQEST_NO, LENGTH(XA.REQEST_NO) - 1, 2)), 0) + 1 FROM IM_REQEST XA WHERE XA.REQEST_DTE = TO_CHAR(SYSDATE, 'YYYY-MM-DD') AND XA.DELETE_AT = 'N'), 3, 0)
+			,#{mtrilSeqno}
+			,#{inspctTyCode}
+			,#{mnfcturDte}
+			,'Y'
+			,'IM03000006'
+			,#{rm}
+		    ,#{vendorLotNo}
+			,'${@lims.util.GetUserSession@getUserId()}'
+			,SYSDATE
+		)
+	</insert>
+
+	<!-- 시험항목 정보 저장 -->
+	<insert id="insImReqestExpriem" parameterType="lims.req.vo.PartnersCoaMVo">
+		<selectKey keyProperty="reqestExpriemSeqno" order="BEFORE"
+			resultType="String">
+			SELECT SQ_IM_REQEST_EXPRIEM.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO IM_REQEST_EXPRIEM (
+		REQEST_EXPRIEM_SEQNO,
+		BPLC_CODE,
+		REQEST_SEQNO,
+		EXPRIEM_SEQNO,
+		MTRIL_SDSPC_SEQNO,
+		SDSPC_NM,
+		JDGMNT_FOM_CODE,
+		LCL_VALUE,
+		LCL_VALUE_SE_CODE,
+		UCL_VALUE,
+		UCL_VALUE_SE_CODE,
+		LSL_VALUE,
+		LSL_VALUE_SE_CODE,
+		USL_VALUE,
+		USL_VALUE_SE_CODE,
+		MARK_CPHR,
+		TEXT_STDR,
+		UNIT_SEQNO,
+		LAST_RESULT_REGISTER_ID,
+		LAST_RESULT_REGIST_DTE,
+		LAST_QC_RESULT_REGISTER_ID,
+		LAST_QC_RESULT_REGIST_DTE,
+		JDGMNT_WORD_CODE,
+		EQPMN_CL_CODE,
+		EQPMN_SEQNO,
+		ANALS_OPINION,
+		COA_UPDT_POSBL_AT,
+		COA_USE_AT,
+		LAST_EXPR_ODR,
+		PROGRS_SITTN_CODE,
+		SORT_ORDR,
+		RM,
+		DELETE_AT,
+		LAST_CHANGER_ID,
+		LAST_CHANGE_DT
+		) VALUES (
+		#{reqestExpriemSeqno},
+		<include refid="bplcCode"/>,
+		#{reqestSeqno},
+		#{expriemSeqno},
+		#{mtrilSdspcSeqno},
+		#{sdspcNm},
+		NVL(#{jdgMntFomCode},'IM06000004'),
+		#{lclValue},
+		#{lclValueSeCode},
+		#{uclValue},
+		#{uclValueSeCode},
+		#{lslValue},
+		#{lslValueSeCode},
+		#{uslValue},
+		#{uslValueSeCode},
+		#{markCphr},
+		#{textStdr},
+		#{unitSeqno},
+		#{lastResultRegisterId},
+		#{lastResultRegistDte},
+		#{lastQcResultRegisterId},
+		#{lastQcResultRegistDte},
+		#{jdgmntWordCode},
+		#{eqpmnClCode},
+		#{eqpmnSeqno},
+		#{analsOpinion},
+		NVL(#{coaUpdtPosblAt}, 'N'),
+		NVL(#{coaUseAt}, 'N'),
+		NVL(#{lastExprOdr}, '0'),
+		'IM03000006', <!-- 진행상황코드 : COA 완료 -->
+		(SELECT NVL(MAX(XA.SORT_ORDR) + 1, 1) FROM IM_REQEST_EXPRIEM XA WHERE XA.REQEST_SEQNO = #{reqestSeqno}), <!-- 순번 -->
+		#{rm},
+		NVL(#{deleteAt}, 'N'),
+		'${@lims.util.GetUserSession@getUserId()}',
+		SYSDATE
+		)
+	</insert>
+
+	<!-- 시험항목 결과정보 저장 -->
+	<insert id="insImReqestExpriemResult" parameterType="lims.req.vo.PartnersCoaMVo">
+		INSERT INTO IM_REQEST_EXPRIEM_RESULT (
+		REQEST_EXPRIEM_SEQNO,
+		EXPR_ODR,
+		BPLC_CODE,
+		RESULT_VALUE,
+		MARK_VALUE,
+		LAS_REGIST_AT,
+		REAL_ANALS_AT,
+		LAST_RESULT_INPUT_AT,
+		DELETE_AT,
+		LAST_CHANGER_ID,
+		LAST_CHANGE_DT )
+		VALUES (
+		#{reqestExpriemSeqno}, -- 의뢰 시험항목 일련번호
+		#{exprOdr}, -- 시험 차수 (1고정)
+		<include refid="bplcCode"/>, -- 사업장코드
+		#{resultValue}, -- 결과 값
+		#{markValue}, -- 표기 값
+		'N', --LAS 등록 여부 'N'
+		'N', --실제 분석 여부 'N'
+		'N', --최종 결과 입력 여부
+		'N', --삭제 여부
+		'${@lims.util.GetUserSession@getUserId()}',
+		SYSDATE)
+	</insert>
+
+	<!-- 시험항목 결과 평균 저장 -->
+	<insert id="insImReqestExpriemResultAvrg" parameterType="lims.req.vo.PartnersCoaMVo">
+
+		INSERT INTO IM_REQEST_EXPRIEM_RESULT_AVRG (
+		REQEST_EXPRIEM_SEQNO,
+		EXPR_ODR,
+		BPLC_CODE,
+		RESULT_VALUE,
+		MARK_VALUE,
+		JDGMNT_WORD_CODE,
+		LAST_CHANGER_ID,
+		LAST_CHANGE_DT )
+		VALUES (
+		#{reqestExpriemSeqno},
+		#{exprOdr},
+		#{bplcCode},
+		#{resultValue},
+		#{markValue},
+		'IM05000003',
+		'${@lims.util.GetUserSession@getUserId()}',
+		SYSDATE
+		)
+	</insert>
+	<select id="getExpriem" parameterType="lims.req.vo.PartnersCoaMVo"
+		resultType="lims.req.vo.PartnersCoaMVo">
+		SELECT
+		A.MTRIL_SEQNO,
+		E.MTRIL_SDSPC_SEQNO,
+		E.EXPRIEM_SEQNO,
+		D.EXPRIEM_NM,
+		E.JDGMNT_FOM_CODE,
+		FN_GET_CDDTLNM(E.JDGMNT_FOM_CODE) JDGMNT_FOM_NM,
+		(E.LCL_VALUE ||'~'|| E.UCL_VALUE) as RANGE_VALUE,
+		E.LCL_VALUE_SE_CODE,
+		FN_GET_CDDTLNM(E.LCL_VALUE_SE_CODE) FIRST_MUMM_VALUE_SE,
+		E.LCL_VALUE,
+		E.UCL_VALUE_SE_CODE,
+		FN_GET_CDDTLNM(E.UCL_VALUE_SE_CODE) FIRST_MXMM_VALUE_SE,
+		E.UCL_VALUE,
+		E.LSL_VALUE_SE_CODE,
+		FN_GET_CDDTLNM(E.LSL_VALUE_SE_CODE) SCD_MUMM_VALUE_SE,
+		E.LSL_VALUE,
+		E.USL_VALUE_SE_CODE,
+		FN_GET_CDDTLNM(E.USL_VALUE_SE_CODE) SCD_MXMM_VALUE_SE,
+		E.USL_VALUE,
+		E.MARK_CPHR,
+		E.TEXT_STDR,
+		E.UNIT_SEQNO,
+		F.UNIT_NM,
+		E.EQPMN_CL_CODE,
+		FN_GET_CDDTLNM(E.EQPMN_CL_CODE) REAL_MHRLS_NM,
+		FN_GET_CDDTLNM(E.EQPMN_CL_CODE) REAL_MESURE_MHRLS_CL,
+		E.UPDT_RESN,
+		E.USE_AT,
+		E.LAST_CHANGER_ID,
+		E.LAST_CHANGE_DT,
+		D.EXPRIEM_CL_CODE,
+		E.SORT_ORDR,
+		A.MTRIL_CODE,
+		E.FRST_ANALS_AT,
+		E.MIDDLE_ANALS_AT,
+		E.LAST_ANALS_AT,
+		E.COA_UPDT_POSBL_AT,
+		E.COA_USE_AT,
+		E.SDSPC_NM,
+		E.FRST_ANALS_AT,
+		E.MIDDLE_ANALS_AT,
+		E.LAST_ANALS_AT
+		FROM SY_MTRIL A
+		INNER JOIN SY_MTRIL_SDSPC E ON A.MTRIL_SEQNO = E.MTRIL_SEQNO
+		LEFT JOIN SY_EXPRIEM D ON E.EXPRIEM_SEQNO = D.EXPRIEM_SEQNO
+		LEFT JOIN SY_UNIT F ON E.UNIT_SEQNO = F.UNIT_SEQNO
+		LEFT JOIN SY_CMMN_CODE G ON D.EXPRIEM_CL_CODE = G.CMMN_CODE
+		WHERE 1=1
+		<if test="prductMtrilSeqno != null and prductMtrilSeqno != '' ">
+			AND A.MTRIL_SEQNO = #{prductMtrilSeqno}
+		</if>
+		and E.DELETE_AT = 'N'
+		and E.USE_AT ='Y'
+		AND D.EXPRIEM_CL_CODE ='SY05000001'
+		ORDER BY E.SORT_ORDR
+	</select>
+
+	<!-- 의뢰정보 수정 -->
+	<update id="updImRequest" parameterType="lims.req.vo.PartnersCoaMVo">
+		UPDATE IM_REQEST SET
+			REQEST_DEPT_CODE  = #{reqestDeptCode}
+			, BPLC_CODE       = <include refid="bplcCode"/>
+			, REQEST_NO       = #{reqestNo}
+			, MTRIL_SEQNO     = #{mtrilSeqno}
+			, INSPCT_TY_CODE  = #{inspctTyCode}
+			, MNFCTUR_DTE     = #{mnfcturDte}
+			, RM              = #{rm}
+			, VENDOR_LOT_NO   = #{vendorLotNo}
+			, LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			, LAST_CHANGE_DT  = SYSDATE
+		WHERE REQEST_SEQNO = #{reqestSeqno}
+	</update>
+	
+	<!-- 시험항목 결과 수정 -->
+	<update id="updImReqestExpriemResult" parameterType="lims.req.vo.PartnersCoaMVo">
+		UPDATE
+		IM_REQEST_EXPRIEM_RESULT
+		SET RESULT_VALUE = #{resultValue}
+		,MARK_VALUE = #{resultValue}
+		,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+		,LAST_CHANGE_DT = SYSDATE
+		WHERE REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno}
+	</update>
+
+	<!-- 시험항목 결과 평균 수정 -->
+	<update id="updImReqestExpriemResultAvrg" parameterType="lims.req.vo.PartnersCoaMVo">
+		UPDATE
+		IM_REQEST_EXPRIEM_RESULT_AVRG
+		SET RESULT_VALUE = #{resultValue}
+		,MARK_VALUE = #{resultValue}
+		,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+		,LAST_CHANGE_DT = SYSDATE
+		WHERE REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno}
+	</update>
+
+	<!-- 의뢰정보 삭제 -->
+	<update id="delImRequest" parameterType="lims.req.vo.PartnersCoaMVo">
+		UPDATE IM_REQEST
+		SET DELETE_AT = 'Y'
+		,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+		,LAST_CHANGE_DT = SYSDATE
+		WHERE REQEST_SEQNO = #{reqestSeqno}
+	</update>
+	<!-- 시험항목 결과 삭제 -->
+	<update id="delImReqestExpriemResult" parameterType="lims.req.vo.PartnersCoaMVo">
+		UPDATE
+		IM_REQEST_EXPRIEM_RESULT
+		SET DELETE_AT = 'Y'
+		,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+		,LAST_CHANGE_DT = SYSDATE
+		WHERE REQEST_EXPRIEM_SEQNO IN (SELECT REQEST_EXPRIEM_SEQNO FROM IM_REQEST_EXPRIEM WHERE REQEST_SEQNO = #{reqestSeqno})
+	</update>
+	<!-- 시험항목 정보 삭제 -->
+	<update id="delImReqestExpriem" parameterType="lims.req.vo.PartnersCoaMVo">
+		UPDATE
+		IM_REQEST_EXPRIEM
+		SET DELETE_AT = 'Y'
+		,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+		,LAST_CHANGE_DT = SYSDATE
+		WHERE REQEST_SEQNO = #{reqestSeqno}
+	</update>
+	<update id="delLotno" parameterType="lims.req.vo.PartnersCoaMVo">
+	UPDATE IM_REQEST
+	SET VENDOR_LOT_NO = NULL
+	WHERE VENDOR_LOT_NO =#{vendorLotNo} AND VENDOR_COA_AT = 'Y' AND DELETE_AT = 'N'
+	</update>
+	
+
+	<select id="getVenderLotNo" parameterType="lims.req.vo.PartnersCoaMVo" resultType="int">
+	SELECT COUNT(*) FROM IM_REQEST A WHERE A.VENDOR_LOT_NO = TRIM(UPPER(#{vendorLotNo}))
+	AND DELETE_AT ='N' 
+	<if test="reqestSeqno !=null and reqestSeqno !=''">
+	AND A.REQEST_SEQNO  NOT IN (TRIM(UPPER(#{reqestSeqno})))
+	</if>
+	</select>
+</mapper>

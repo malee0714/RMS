@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.sys.dao.CanisterNoMDao">
+
+	<select id="getCan" parameterType="lims.sys.vo.CanisterNoMVo" resultType="lims.sys.vo.CanisterNoMVo">
+		SELECT
+			CAN_NO_SEQNO
+			,DEPT_CODE
+			,CAN_NO
+			,USE_AT
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		FROM IF_CAN_NO
+		WHERE DELETE_AT ='N'
+		<if test=" deptCodeSch != null and deptCodeSch != '' ">
+			AND DEPT_CODE = #{deptCodeSch}
+		</if>
+		
+		<if test=" canNoSch != null and canNoSch != '' ">
+			AND UPPER(CAN_NO) LIKE '%'||UPPER(#{canNoSch})||'%'
+		</if>
+		
+		<if test=" useAtSch != null and useAtSch != '' ">
+			AND USE_AT = #{useAtSch}
+		</if>	
+		
+	</select>
+	
+	<!-- 중복체크  -->
+	<select id="chkNo" parameterType="lims.sys.vo.CanisterNoMVo" resultType="int">
+		SELECT COUNT(CAN_NO) AS canNoChk FROM IF_CAN_NO WHERE DELETE_AT ='N' AND CAN_NO = #{canNo}
+	</select>
+	
+	
+	<insert id="saveCan" parameterType="lims.sys.vo.CanisterNoMVo">
+		INSERT INTO IF_CAN_NO(
+			CAN_NO_SEQNO
+			,DEPT_CODE
+			,CAN_NO
+			,USE_AT
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			) VALUES (
+			SQ_IF_CAN_NO.NEXTVAL
+			, #{deptCode}
+			, #{canNo}
+			, #{useAt}
+			, 'N'
+			, #{lastChangerId}
+			, SYSDATE
+			)
+	</insert> 	
+
+	
+	
+	<update id="upCan" parameterType="lims.sys.vo.CanisterNoMVo">
+		UPDATE IF_CAN_NO SET
+			 DEPT_CODE = #{deptCode}
+			, CAN_NO = #{canNo}
+			, USE_AT = #{useAt}
+			, DELETE_AT = 'N'
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE CAN_NO_SEQNO = #{canNoSeqno}
+	</update>
+	
+	
+	<update id="delCan" parameterType="lims.sys.vo.CanisterNoMVo">
+		UPDATE IF_CAN_NO SET		
+			DEPT_CODE = #{deptCode}
+			, CAN_NO = #{canNo}
+			, USE_AT = #{useAt}
+			, DELETE_AT = 'Y'
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE CAN_NO_SEQNO = #{canNoSeqno}
+		AND DELETE_AT = 'N'	
+	</update>
+
+</mapper>

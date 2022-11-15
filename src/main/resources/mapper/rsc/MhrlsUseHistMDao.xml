@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.rsc.dao.MhrlsUseHistMDao">
+	<select id="getMhrlsUseHistM" parameterType="lims.rsc.vo.MhrlsUseHistMVo" resultType="lims.rsc.vo.MhrlsUseHistMVo">
+		SELECT 
+			A.MHRLS_OPR_SPLORE_SEQNO
+			, A.MHRLS_SEQNO
+			, B.MHRLS_NM 
+			, A.BRCD
+			, A.OPR_DTE
+			, A.EXPRIEM_NM
+			, CASE WHEN A.BRCD IS NULL THEN 'N' ELSE 'Y' END CHK_STAT
+		FROM RS_MHRLS_OPR_SPLORE A
+		LEFT JOIN RS_MHRLS B ON A.MHRLS_SEQNO = B.MHRLS_SEQNO
+		WHERE 1 = 1  
+		<if test="shrUseBeginDte != null and shrUseBeginDte != ''">
+			AND A.OPR_DTE <![CDATA[>=]]> #{shrUseBeginDte}			
+		</if>   
+		<if test="shrUseEndDte != null and shrUseEndDte != ''">
+			AND A.OPR_DTE <![CDATA[<=]]> #{shrUseEndDte}			
+		</if>
+		<if test="shrMhrlsSeqno != null and shrMhrlsSeqno != ''">
+			AND A.MHRLS_SEQNO = #{shrMhrlsSeqno}			
+		</if>
+		<if test="schChrgTeamSeCode != null and schChrgTeamSeCode != ''">
+			AND B.CHRG_TEAM_SE_CODE = #{schChrgTeamSeCode}
+		</if>
+	</select>
+	
+	<insert id="insMhrlsUseHistM" parameterType="lims.rsc.vo.MhrlsUseHistMVo" >
+		INSERT INTO RS_MHRLS_OPR_SPLORE(
+			MHRLS_OPR_SPLORE_SEQNO
+			,MHRLS_SEQNO
+			,EXPRIEM_NM
+			,OPR_DTE
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		)
+		SELECT 
+			SQ_RS_MHRLS_OPR_SPLORE.NEXTVAL
+			, #{mhrlsSeqno}
+			, '-'
+			, #{oprDte}
+			, '${@lims.util.GetUserSession@getAuthorSeCode()}'
+			, SYSDATE
+		FROM DUAL A
+		, (SELECT * FROM DUAL CONNECT BY LEVEL <![CDATA[<=]]> #{useCnt})
+	</insert>
+	
+	<delete id="updMhrlsUseHistDel" parameterType="lims.rsc.vo.MhrlsUseHistMVo">
+		DELETE FROM RS_MHRLS_OPR_SPLORE
+		WHERE 1 = 1 AND BRCD IS NULL
+		<!-- 전체삭제 버튼 클릭시 --> 
+		<if test="type != null and type != ''">
+			<if test="schChrgTeamSeCode != null and schChrgTeamSeCode != ''">
+				AND MHRLS_SEQNO IN (SELECT MHRLS_SEQNO FROM RS_MHRLS WHERE CHRG_TEAM_SE_CODE = #{schChrgTeamSeCode})
+			</if>
+			<if test="shrMhrlsSeqno != null and shrMhrlsSeqno != ''">
+				AND MHRLS_SEQNO = #{shrMhrlsSeqno}
+			</if>
+			<if test="shrUseBeginDte != null and shrUseBeginDte != ''">
+				<if test="shrUseEndDte != null and shrUseEndDte != ''">
+					AND OPR_DTE BETWEEN  #{shrUseBeginDte} AND #{shrUseEndDte}
+				</if>
+				<if test="shrUseEndDte == null and shrUseEndDte == ''">
+					AND OPR_DTE <![CDATA[>=]]> #{shrUseBeginDte}
+				</if>
+			</if>
+			<if test="shrUseBeginDte == null and shrUseBeginDte == ''">
+				<if test="shrUseEndDte != null and shrUseEndDte != ''">
+					AND OPR_DTE <![CDATA[<=]]> #{shrUseEndDte}
+				</if>
+			</if>
+		</if>
+		
+		<!-- 삭제 버튼 클릭시 -->
+		<if test="type == null or type == ''">
+			AND MHRLS_OPR_SPLORE_SEQNO IN
+			<foreach collection="list" item="mhrlsOprSploreSeqno" open="("
+					close=")" separator=",">
+				#{mhrlsOprSploreSeqno}
+			</foreach>
+		</if>
+	</delete>
+</mapper>

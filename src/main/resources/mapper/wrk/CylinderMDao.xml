@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.CylinderMDao">
+
+    <sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+
+    <select id="getcylinderList" parameterType="lims.wrk.vo.CylinderMVo" resultType="lims.wrk.vo.CylinderMVo">
+        SELECT
+            SANCTN_SEQNO
+            ,CYLNDR_NO
+            ,CYLNDR_MG_VALUE
+            ,ELCTC_DTE
+            ,USE_AT
+            ,MTRQLT_VALUE
+            ,MNFCTURPROFS_NM
+            ,VALVE_MG_VALUE
+            ,VALVE_MTRQLT_VALUE
+            ,VALVE_MNFCTURPROFS_NM
+            ,VALVE_STLE_VALUE
+            ,CN
+            ,PRESSR_VALUE
+            ,RM
+            ,BPLC_CODE
+            ,BEFORE_VALVE_MNFCTURPROFS_NM
+        FROM SY_CYLNDR
+        WHERE 1=1
+        <if test="cylinderNoSch != null and cylinderNoSch !=''">
+            AND UPPER(CYLNDR_NO) LIKE '%'||UPPER(#{cylinderNoSch})||'%'
+        </if>
+        <if test="mnfcturprofsNmSch != null and mnfcturprofsNmSch !=''">
+            AND UPPER(MNFCTURPROFS_NM) LIKE '%'||UPPER(#{mnfcturprofsNmSch})||'%'
+        </if>
+        <if test="mtrqltValueSch != null and mtrqltValueSch !=''">
+            AND UPPER(MTRQLT_VALUE) LIKE '%'||UPPER(#{mtrqltValueSch})||'%'
+        </if>
+        <if test="useAt != null and useAt !=''">
+            AND USE_AT = #{useAt}
+        </if>
+    </select>
+
+    <insert id="savecylinder" parameterType="lims.wrk.vo.CylinderMVo">
+        MERGE INTO SY_CYLNDR
+            USING DUAL ON (SANCTN_SEQNO = #{sanctnSeqno} AND BPLC_CODE = <include refid="bplcCode"/>)
+            WHEN MATCHED THEN
+                UPDATE SET
+                    CYLNDR_NO = #{cylndrNo}
+                    ,CYLNDR_MG_VALUE = #{cylndrMgValue}
+                    ,ELCTC_DTE = #{elctcDte}
+                    ,USE_AT = #{useAt}
+                    ,MTRQLT_VALUE = #{mtrqltValue}
+                    ,MNFCTURPROFS_NM = #{mnfcturprofsNm}
+                    ,VALVE_MG_VALUE = #{valveMgValue}
+                    ,VALVE_MTRQLT_VALUE = #{valveMtrqltValue}
+                    ,VALVE_MNFCTURPROFS_NM = #{valveMnfcturprofsNm}
+                    ,VALVE_STLE_VALUE = #{valveStleValue}
+                    ,CN = #{cn}
+                    ,PRESSR_VALUE= #{pressrValue}
+                    ,RM = #{rm}
+                    ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+                    ,LAST_CHANGE_DT = SYSDATE
+                    <if test="beforeValveMnfcturprofsNm != null and beforeValveMnfcturprofsNm != ''">
+                        ,BEFORE_VALVE_MNFCTURPROFS_NM = #{beforeValveMnfcturprofsNm}
+                    </if>
+            WHEN NOT MATCHED THEN
+                INSERT (
+                    SANCTN_SEQNO
+                    ,BPLC_CODE
+                    ,CYLNDR_NO
+                    ,CYLNDR_MG_VALUE
+                    ,ELCTC_DTE
+                    ,USE_AT
+                    ,MTRQLT_VALUE
+                    ,MNFCTURPROFS_NM
+                    ,VALVE_MG_VALUE
+                    ,VALVE_MTRQLT_VALUE
+                    ,VALVE_MNFCTURPROFS_NM
+                    ,VALVE_STLE_VALUE
+                    ,CN
+                    ,PRESSR_VALUE
+                    ,RM
+                    ,LAST_CHANGER_ID
+                    ,LAST_CHANGE_DT
+                ) VALUES (
+                    SQ_SY_CYLNDR.NEXTVAL
+                    ,<include refid="bplcCode"/>
+                    ,#{cylndrNo}
+                    ,#{cylndrMgValue}
+                    ,#{elctcDte}
+                    ,#{useAt}
+                    ,#{mtrqltValue}
+                    ,#{mnfcturprofsNm}
+                    ,#{valveMgValue}
+                    ,#{valveMtrqltValue}
+                    ,#{valveMnfcturprofsNm}
+                    ,#{valveStleValue}
+                    ,#{cn}
+                    ,#{pressrValue}
+                    ,#{rm}
+                    ,'${@lims.util.GetUserSession@getUserId()}'
+                    ,SYSDATE
+                )
+    </insert>
+
+    <update id="deletecylinder" parameterType="lims.wrk.vo.CylinderMVo">
+        UPDATE SY_CYLNDR SET
+            USE_AT ='N'
+            ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+            ,LAST_CHANGE_DT = SYSDATE
+        WHERE SANCTN_SEQNO = #{sanctnSeqno} AND BPLC_CODE =<include refid="bplcCode"/>
+    </update>
+
+</mapper>

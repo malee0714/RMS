@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.sys.dao.DvyfgEntrpsMDao">
+
+	<!-- 납품업체 정보 조죟 -->
+	<select id="getDvyfgEntrpsM" resultType="lims.sys.vo.DvyfgEntrpsMVo" parameterType="lims.sys.vo.DvyfgEntrpsMVo">
+		SELECT   DLIVY_DVYFG_ENTRPS_SEQNO
+				,DVYFG_ENTRPS_CODE
+				,DVYFG_ENTRPS_SE_CODE
+				,FN_GET_CDDTLNM(DVYFG_ENTRPS_SE_CODE) AS DVYFG_ENTRPS_SE_NM
+				,DVYFG_ENTRPS_NM
+				,DELETE_AT
+  		  FROM IM_DLIVY_DVYFG_ENTRPS
+  		 WHERE DELETE_AT = 'N'
+      	 <if test="shrDvyfgEntrpsCode != null and shrDvyfgEntrpsCode != ''">
+      	 	AND DVYFG_ENTRPS_CODE = #{shrDvyfgEntrpsCode}
+      	 </if>
+      	 <if test="shrDvyfgEntrpsNm != null and shrDvyfgEntrpsNm != ''">
+      	 	AND DVYFG_ENTRPS_NM = #{shrDvyfgEntrpsNm}
+      	 </if>
+		 ORDER BY DVYFG_ENTRPS_SE_CODE, DVYFG_ENTRPS_CODE
+	</select>
+	
+	
+	<!-- 제품 고객사 저장 -->
+	<insert id="saveDvyfgEntrpsM" parameterType="lims.sys.vo.DvyfgEntrpsMVo">		
+		INSERT INTO IM_DLIVY_DVYFG_ENTRPS(
+			 DLIVY_DVYFG_ENTRPS_SEQNO
+			,DVYFG_ENTRPS_CODE
+			,DVYFG_ENTRPS_NM
+			,DVYFG_ENTRPS_SE_CODE
+			,DELETE_AT
+		)VALUES(
+			 (SELECT NVL(MAX(DLIVY_DVYFG_ENTRPS_SEQNO), 0) + 1 FROM IM_DLIVY_DVYFG_ENTRPS)
+			,#{dvyfgEntrpsCode}
+			,#{dvyfgEntrpsNm}
+			,#{dvyfgEntrpsSeCode}
+			,'N'
+		)
+																		
+	</insert>
+	
+	<!-- 제품 고객사 결재정보 업데이트 -->
+	<update id="updDvyfgEntrpsM" parameterType="lims.sys.vo.DvyfgEntrpsMVo">
+		UPDATE IM_DLIVY_DVYFG_ENTRPS
+		   SET DVYFG_ENTRPS_CODE = #{dvyfgEntrpsCode}
+			  ,DVYFG_ENTRPS_NM = #{dvyfgEntrpsNm}
+			  ,DVYFG_ENTRPS_SE_CODE = #{dvyfgEntrpsSeCode}
+		 WHERE DLIVY_DVYFG_ENTRPS_SEQNO = #{dlivyDvyfgEntrpsSeqno}
+	</update>
+	
+	<!-- 제품 고객사 결재정보 사용여부 업데이트 -->
+	<update id="delDvyfgEntrpsM" parameterType="lims.sys.vo.DvyfgEntrpsMVo">
+		UPDATE IM_DLIVY_DVYFG_ENTRPS
+		   SET DELETE_AT = 'Y'
+		 WHERE DLIVY_DVYFG_ENTRPS_SEQNO = #{dlivyDvyfgEntrpsSeqno}
+	</update>
+	
+</mapper>

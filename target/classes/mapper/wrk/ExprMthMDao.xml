@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.ExprMthMDao">
+
+	<!-- 시험방법 조회 -->
+	<select id="getExprMthMList" parameterType="lims.wrk.vo.ExprMthMVo" resultType="lims.wrk.vo.ExprMthMVo">
+		SELECT
+		    SEM.EXPR_MTH_SEQNO
+		    , SEM.EXPR_MTH_NM
+		    , SEM.RM
+		    , SEM.ATCHMNFL_SEQNO
+		    , SEM.USE_AT
+		FROM
+			SY_EXPR_MTH SEM
+		WHERE
+			SEM.DELETE_AT = 'N'
+		<if test="useAtSearch != null and useAtSearch != ''">
+			AND
+				SEM.USE_AT = #{useAtSearch}
+		</if>
+		<if test="exprMthNmSearch != null and exprMthNmSearch != ''">
+			AND
+				UPPER(SEM.EXPR_MTH_NM) LIKE '%' || UPPER(#{exprMthNmSearch}) || '%'
+		</if>
+		ORDER BY
+			SEM.EXPR_MTH_NM
+	</select>
+
+	<!-- 시험방법 저장 -->
+	<insert id="insExprMthM" parameterType="lims.wrk.vo.ExprMthMVo">
+		<selectKey keyProperty="exprMthSeqno" resultType="java.lang.String" order="BEFORE">
+			SELECT SQ_SY_EXPR_MTH.NEXTVAL AS exprMthSeqno FROM DUAL
+        </selectKey>
+		INSERT INTO SY_EXPR_MTH(
+			EXPR_MTH_SEQNO
+			, EXPR_MTH_NM
+			, RM
+			, USE_AT
+			, ATCHMNFL_SEQNO
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{exprMthSeqno}
+			, #{exprMthNm}
+			, #{rm}
+			, #{useAt}
+			, #{atchmnflSeqno}
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- 시험방법 수정 -->
+	<update id="updExprMthM" parameterType="lims.wrk.vo.ExprMthMVo">
+		UPDATE SY_EXPR_MTH
+			SET
+				EXPR_MTH_NM = #{exprMthNm}
+				, RM = #{rm}
+				, ATCHMNFL_SEQNO = #{atchmnflSeqno}
+				, USE_AT = #{useAt}
+				, LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+				, LAST_CHANGE_DT = SYSDATE
+			WHERE
+				EXPR_MTH_SEQNO = #{exprMthSeqno}
+	</update>
+</mapper>

@@ -1,0 +1,511 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.test.dao.IssueMDao">
+
+	<!-- 이슈관리 리스트 조회 -->
+	<select id="getIssueMList" parameterType="lims.test.vo.IssueMVo" resultType="lims.test.vo.IssueMVo">
+		SELECT ISU.ISSUE_SEQNO
+		      ,ISU.ISSUE_SJ
+		      ,REQ.REQEST_SEQNO
+		      ,REQ.REQEST_DEPT_CODE
+		      ,FN_GET_INSPCT_INSTT(REQ.REQEST_DEPT_CODE) AS REQEST_DEPT_NM
+		      ,REPLACE(ISU.ISSUE_CN, '\n', chr(13)||chr(10)) AS ISSUE_CN_HIS
+		      ,REQ.PROCESS_TY_CODE
+		      ,FN_GET_CDDTLNM(REQ.PROCESS_TY_CODE) AS PROCESS_TY_NM
+		      ,REQ.PRDUCT_SEQNO
+		      ,REQ.PRDLST_NM AS PRDUCT_NM
+		      ,ISU.ISSUE_PROGRS_SITTN_CODE
+		      ,FN_GET_CDDTLNM(ISU.ISSUE_PROGRS_SITTN_CODE) AS ISSUE_PROGRS_SITTN_NM
+		      ,ISU.EXPRIEM_CN		      
+		      ,REQ.LOT_ID
+		      ,REQ.LOT_ID AS LOT_ID_TEXT
+		      ,ISU.ISSUE_REGISTER_ID
+		      ,FN_GET_USERNM(ISU.ISSUE_REGISTER_ID) AS ISSUE_REGISTER_NM
+		      ,ISU.SANCTN_SEQNO
+		      ,REQ.JDGMNT_WORD_CODE
+		      ,FN_GET_CDDTLNM('IM05000002') AS JDGMNT_WORD_NM
+		      ,ISU.LAST_CHANGER_ID
+			  ,FN_GET_USERNM(ISU.LAST_CHANGER_ID) AS LAST_CHANGER_NM
+			  ,ISU.ISSUE_REGIST_DT
+			  ,ISU.IMPROPT_TY_CODE
+			  ,ISU.INNER_ISSUE_AT
+			  ,ISU.ISSUE_SE_CODE
+			  ,FN_GET_CDDTLNM(ISU.IMPROPT_TY_CODE) AS IMPROPT_TY_NM			  
+			  ,CASE WHEN ISU.INNER_ISSUE_AT = 'Y' THEN '예'
+			        WHEN ISU.INNER_ISSUE_AT = 'N' THEN '아니오'
+			        ELSE ''
+			    END INNER_ISSUE_NM
+			  ,FN_GET_CDDTLNM(ISU.ISSUE_SE_CODE) AS ISSUE_SE_NM
+			  ,ISU.LOCK_AT
+			  ,SPM.PRDUCT_UPPER_NM
+			  ,ISU.ISSUE_CONFMER_ID
+			  ,FN_GET_USERNM(ISU.ISSUE_CONFMER_ID) AS ISSUE_CONFMER_NM
+			  ,CASE WHEN TO_CHAR(ISU.ISSUE_CONFMER_ID) = '${@lims.util.GetUserSession@getUserId()}' THEN 'Y'
+			        ELSE 'N'
+			    END APP_CNT
+		  FROM IM_REQEST REQ
+		      ,IM_ISSUE  ISU
+		      ,(
+					SELECT 
+						SP.PRDUCT_SEQNO, 
+						SP.PRDUCT_NM, 
+						SPU.PRDUCT_UPPER_SEQNO, 
+						SPU.PRDUCT_NM PRDUCT_UPPER_NM 
+					FROM SY_PRDUCT_UPPER SPU 
+					JOIN SY_PRDUCT SP ON SPU.PRDUCT_UPPER_SEQNO = SP.PRDUCT_UPPER_SEQNO
+				) SPM
+		 WHERE REQ.REQEST_SEQNO = ISU.REQEST_SEQNO AND ISU.DELETE_AT = 'N' 
+		   AND REQ.PRDUCT_SEQNO = SPM.PRDUCT_SEQNO
+		   AND REQ.DELETE_AT= 'N'
+		 <if test="authorSeCode == 'SY09000004'">
+		 	AND REQ.CTMMNY_OTHBC_AT = 'Y'
+		 </if>
+		 <if test="shrReqestDeptCode != null and shrReqestDeptCode != '' ">
+		   AND REQ.REQEST_DEPT_CODE = #{shrReqestDeptCode}
+		 </if>
+		 <if test="shrProcessTyCode != null and shrProcessTyCode != '' ">
+		   AND REQ.PROCESS_TY_CODE = #{shrProcessTyCode}
+		 </if>
+		 <if test="shrPrductNm != null and shrPrductNm != '' ">
+		   AND UPPER(SPM.PRDUCT_UPPER_SEQNO) LIKE '%'||UPPER(TRIM(#{shrPrductNm}))||'%'
+		 </if>
+		 <if test="shrIssueProgrsSittnCode != null and shrIssueProgrsSittnCode != '' ">
+		   AND ISU.ISSUE_PROGRS_SITTN_CODE = #{shrIssueProgrsSittnCode}
+		 </if>
+		 <if test="shrIssueRegistBeginDt != null and shrIssueRegistBeginDt !='' and shrIssueRegistEndDt != null and shrIssueRegistEndDt !=''">
+     	   AND ISU.ISSUE_REGIST_DT BETWEEN TO_DATE(#{shrIssueRegistBeginDt}) AND (TO_DATE(#{shrIssueRegistEndDt})+1)
+    	 </if>
+		 <if test="shrInnerIssueAt != null and shrInnerIssueAt != '' ">
+		   AND ISU.INNER_ISSUE_AT = #{shrInnerIssueAt}
+		 </if>
+		 <if test="shrImproptTyCode != null and shrImproptTyCode != '' ">
+		   AND ISU.IMPROPT_TY_CODE = #{shrImproptTyCode}
+		 </if>
+		 <if test="shrIssueSeCode != null and shrIssueSeCode != '' ">
+		   AND ISU.ISSUE_SE_CODE = #{shrissueSeCode}
+		 </if>
+		 <if test="shrIssueSeqno != null and shrIssueSeqno != '' ">
+		   AND ISU.ISSUE_SEQNO = #{shrIssueSeqno}
+		 </if>
+		 <if test="reqestSeqno != null and reqestSeqno != ''">
+		 	AND ISU.REQEST_SEQNO = #{reqestSeqno}
+		 </if>
+		 <if test="shrLotId != null and shrLotId != ''">
+		 	AND UPPER(REQ.LOT_ID) LIKE '%'||UPPER(TRIM(#{shrLotId}))||'%'
+		 </if>
+		 <if test="shrConfmer != null and shrConfmer != ''">
+		 	<if test="shrConfmer == 'Y'.toString()">
+		 		AND ISU.ISSUE_CONFMER_ID = '${@lims.util.GetUserSession@getUserId()}'
+		 	</if>
+		 </if>
+		 ORDER BY ISU.ISSUE_SEQNO DESC
+	</select>
+	
+	
+	<!-- 이슈관리 차트 조회 -->
+	<select id="getIssueMChart" parameterType="lims.test.vo.IssueMVo" resultType="lims.com.vo.ChartVo">
+		SELECT B.EXPRIEM_SEQNO,
+		       SE.EXPRIEM_NM,
+		       A.LOT_ID,
+		       NVL(C.RESULT_VALUE1,' ') RESULT_VALUE1,
+		       NVL(C.RESULT_VALUE2,' ') RESULT_VALUE2,
+		       NVL(C.RESULT_VALUE3,' ') RESULT_VALUE3,
+		       NVL(C.RESULT_VALUE4,' ') RESULT_VALUE4,
+		       NVL(C.RESULT_VALUE5,' ') RESULT_VALUE5,
+		       NVL(C.RESULT_VALUE_LAST,' ') RESULT_VALUE_LAST,
+               NVL(QC_RESULT_VALUE_LAST,' ') QC_RESULT_VALUE_LAST,
+		       NVL(B.FIRST_MXMM_VALUE,' ') FIRST_MXMM_VALUE,
+		       (B.FIRST_MXMM_VALUE + B.FIRST_MUMM_VALUE) / 2 FIRST_AVG_VALUE,
+		       NVL(B.FIRST_MUMM_VALUE,' ') FIRST_MUMM_VALUE,
+		       D.ISSUE_SEQNO,
+		       NVL(SPU.PRDUCT_NM,' ') PRDUCT_UPPER_NM,
+		       E.EXPR_NUMOT,
+		       SCC1.CMMN_CODE_NM GRAPH_SE_CODE_NM
+		  FROM IM_ISSUE D
+		 INNER JOIN IM_REQEST A ON D.REQEST_SEQNO = A.REQEST_SEQNO
+		 INNER JOIN IM_ISSUE_EXPRIEM E ON D.ISSUE_SEQNO = E.ISSUE_SEQNO
+		 LEFT JOIN SY_CMMN_CODE SCC1 ON E.GRAPH_SE_CODE = SCC1.CMMN_CODE
+		 INNER JOIN IM_REQEST_EXPRIEM B ON A.REQEST_SEQNO = B.REQEST_SEQNO AND E.REQEST_EXPRIEM_SEQNO = B.REQEST_EXPRIEM_SEQNO
+		 INNER JOIN SY_EXPRIEM SE ON SE.EXPRIEM_seQNO = B.EXPRIEM_SEQNO 
+		 INNER JOIN MV_REQEST_EXPRIEM_RESULT C ON A.REQEST_SEQNO = C.REQEST_SEQNO AND B.REQEST_EXPRIEM_SEQNO = C.REQEST_EXPRIEM_SEQNO
+		 INNER JOIN SY_PRDUCT SP ON SP.PRDUCT_SEQNO = A.PRDUCT_SEQNO
+		 INNER JOIN SY_PRDUCT_UPPER SPU ON SPU.PRDUCT_UPPER_SEQNO = SP.PRDUCT_UPPER_SEQNO
+		 WHERE A.DELETE_AT = 'N'
+		   AND D.ISSUE_SEQNO = #{issueSeqno}
+	</select>
+	
+	<select id="getIssueMChartData" parameterType="lims.test.vo.IssueMVo" resultType="lims.com.vo.ChartVo">
+		SELECT REQEST_SEQNO
+		      ,REQEST_EXPRIEM_SEQNO
+		      ,EXPRIEM_NM
+		      ,EXPRIEM_SEQNO
+		      ,REQEST_DTE
+		      ,LOT_ID
+          	  ,RESULT_VALUE_LAST
+		      ,QC_RESULT_VALUE_LAST
+          	  ,FIRST_MUMM_VALUE
+          	  ,FIRST_MXMM_VALUE
+		  FROM(
+				SELECT REQ.REQEST_SEQNO
+				      ,REI.REQEST_EXPRIEM_SEQNO
+				      ,(SELECT X.EXPRIEM_NM FROM SY_EXPRIEM X WHERE X.EXPRIEM_SEQNO = REI.EXPRIEM_SEQNO ) AS EXPRIEM_NM
+				      ,REI.EXPRIEM_SEQNO
+				      ,REQ.REQEST_DTE
+				      ,REQ.LOT_ID
+              		  ,ERA.RESULT_VALUE_LAST
+				      ,ERA.QC_RESULT_VALUE_LAST
+            		  ,REI.FIRST_MUMM_VALUE
+             		  ,REI.FIRST_MXMM_VALUE
+				  FROM(
+				        SELECT REQ.REQEST_SEQNO
+				              ,REQ.REQEST_DTE
+				              ,REQ.LOT_ID           
+				          FROM IM_REQEST REQ
+				              ,(
+				                SELECT MTRIL_CODE
+				                      ,REQEST_DTE
+				                      ,REQEST_DEPT_CODE
+				                      ,LOT_ID
+				                      ,BATCH_CO
+				                  FROM IM_REQEST                           
+				                 WHERE LOT_ID = #{lotId}
+				              ) A
+				         WHERE REQ.MTRIL_CODE = A.MTRIL_CODE
+				           AND REQ.REQEST_DTE = A.REQEST_DTE
+				           AND REQ.REQEST_DEPT_CODE = A.REQEST_DEPT_CODE
+					    ) REQ
+				       ,IM_REQEST_EXPRIEM REI
+				       ,MV_REQEST_EXPRIEM_RESULT ERA				       
+				  WHERE 1=1
+				    AND REQ.REQEST_SEQNO = REI.REQEST_SEQNO
+				    AND REI.REQEST_EXPRIEM_SEQNO = ERA.REQEST_EXPRIEM_SEQNO
+				    AND REI.EXPRIEM_SEQNO = #{expriemSeqno}
+			 )
+       ORDER BY EXPRIEM_SEQNO, LOT_ID
+	</select>
+	
+	<!-- 이슈정보 신규저장 -->
+	<insert id="insIssueInfo" parameterType="lims.test.vo.IssueMVo">
+		INSERT INTO IM_ISSUE(
+			 ISSUE_SEQNO
+			,ISSUE_REGISTER_ID
+			,ISSUE_PROGRS_SITTN_CODE
+			,INNER_ISSUE_AT
+			<if test="issueCn != null and issueCn != '' ">
+			,ISSUE_CN
+			</if>
+			,IMPROPT_TY_CODE
+			,ISSUE_SE_CODE			
+			,ISSUE_SJ
+			,ISSUE_REGIST_DT
+			,SANCTN_SEQNO
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,REQEST_SEQNO
+			,ISSUE_CONFMER_ID
+		)VALUES(
+			 SQ_IM_ISSUE.NEXTVAL
+			,'${@lims.util.GetUserSession@getUserId()}'
+			,#{issueProgrsSittnCode}
+			,'N'
+			<if test="issueCn != null and issueCn != '' ">
+			,TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') || ' ' || '[' || FN_GET_USERNM('${@lims.util.GetUserSession@getUserId()}') || '] ' || #{issueCn}
+			</if>
+			,#{improptTyCode}
+			,#{issueSeCode}			
+			,#{issueSj}
+			,SYSDATE
+			,#{sanctnSeqno}
+			,'N'
+			,'${@lims.util.GetUserSession@getUserId()}'
+			,SYSDATE
+			,#{reqestSeqno}
+			,#{issueConfmerId}
+		)
+
+	</insert>
+	
+	<!-- 이슈정보 수정 -->
+	<update id="updIssueInfo" parameterType="lims.test.vo.IssueMVo">
+		UPDATE IM_ISSUE
+		   SET ISSUE_SJ = #{issueSj}
+			  ,ISSUE_CONFMER_ID = #{issueConfmerId}
+			  ,REQEST_SEQNO = #{reqestSeqno}
+			  ,INNER_ISSUE_AT = #{innerIssueAt}
+			  ,ISSUE_SE_CODE = #{issueSeCode}
+			  ,IMPROPT_TY_CODE = #{improptTyCode}
+			  <if test="issueProgrsSittnCodeIns != null and issueProgrsSittnCodeIns != '' ">
+			  	,LOCK_AT = #{lockAt}	  
+			  </if>
+			  
+			  <if test="appAt != null and appAt != '' ">
+			  	<if test="appAt ==  'Y'.toString()">
+			  		,ISSUE_PROGRS_SITTN_CODE = #{issueProgrsSittnCodeIns}
+			  	</if>
+			  </if>
+			  <if test="issueCn != null and issueCn != '' ">
+			  ,ISSUE_CN = (SELECT ISSUE_CN FROM IM_ISSUE WHERE ISSUE_SEQNO = #{issueSeqno}) || '\n' || TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS') || ' ' || '[' || FN_GET_USERNM('${@lims.util.GetUserSession@getUserId()}') || '] ' || #{issueCn}
+			  </if>
+			  ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			  ,LAST_CHANGE_DT = SYSDATE
+		 WHERE ISSUE_SEQNO = #{issueSeqno}
+	</update>
+	
+	<!-- 결재자 수정 -->
+	<update id="approvedChange" parameterType="lims.test.vo.IssueMVo">
+		UPDATE IM_ISSUE
+		   SET ISSUE_CONFMER_ID = #{issueConfmerId}			 
+			  ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			  ,LAST_CHANGE_DT = SYSDATE
+		 WHERE ISSUE_SEQNO = #{issueSeqno}
+	</update>
+	
+	
+	<update id="updIssueExpriemAt" parameterType="lims.test.vo.IssueMVo">
+	
+		UPDATE IM_ISSUE_EXPRIEM SET
+			EMAIL_SNDNG_AT = 'Y'
+		WHERE ISSUE_SEQNO IN
+		<foreach collection="stringIssue" item="stringIssue" open="(" close=")" separator=",">
+			#{stringIssue}
+		</foreach>		
+	</update>
+	
+	<update id="updIssueAt" parameterType="lims.test.vo.IssueMVo">
+		UPDATE IM_ISSUE A SET
+			A.EMAIL_SNDNG_COMPT_AT = (SELECT MAX(B.EMAIL_SNDNG_AT) FROM IM_ISSUE_EXPRIEM B WHERE B.ISSUE_SEQNO = A.ISSUE_SEQNO)
+		WHERE A.ISSUE_SEQNO IN
+		<foreach collection="stringIssue" item="stringIssue" open="(" close=")" separator=",">
+			#{stringIssue}
+		</foreach>
+		
+	</update>
+	
+	<!-- 의뢰테이블 잠금여부 업데이트 -->
+	<update id="updImReqestLockAt" parameterType="lims.test.vo.IssueMVo">
+		UPDATE IM_REQEST 
+		   SET LOCK_AT = (
+		   					WITH HCPARK AS (
+									SELECT SUM(Y_CNT + N_CNT) AS SUM_CNT
+									      ,N_CNT
+									      ,Y_CNT
+									      ,A.REQEST_SEQNO
+									  FROM(
+											SELECT DISTINCT
+											       REQ.REQEST_SEQNO
+											      ,COUNT(*) AS N_CNT  
+											  FROM IM_REQEST REQ
+											      ,IM_ISSUE ISU
+											 WHERE REQ.REQEST_SEQNO = ISU.REQEST_SEQNO
+											   AND REQ.REQEST_SEQNO = #{reqestSeqno}
+											   AND ISU.LOCK_AT = 'N'
+											 GROUP BY REQ.REQEST_SEQNO ,ISU.LOCK_AT
+										  )A,
+										  (
+											 SELECT DISTINCT
+											       REQ.REQEST_SEQNO
+											      ,COUNT(*) AS Y_CNT        
+											  FROM IM_REQEST REQ
+											      ,IM_ISSUE ISU
+											 WHERE REQ.REQEST_SEQNO = ISU.REQEST_SEQNO
+											   AND REQ.REQEST_SEQNO = #{reqestSeqno}
+											   AND ISU.LOCK_AT = 'Y'
+											 GROUP BY REQ.REQEST_SEQNO ,ISU.LOCK_AT
+										  )B
+									  WHERE  A.REQEST_SEQNO = B.REQEST_SEQNO(+)
+									    AND  A.REQEST_SEQNO = #{reqestSeqno}
+									  GROUP BY Y_CNT,N_CNT,A.REQEST_SEQNO
+								)SELECT CASE WHEN Y_CNT = SUM_CNT THEN 'Y'
+									         WHEN N_CNT = SUM_CNT THEN 'N'
+                             				 ELSE 'N' 
+									    END AS LOCK_AT
+								   FROM HCPARK
+		   				 )
+		
+	</update>
+	
+	<select id="getSendEmailInfo" parameterType="lims.test.vo.ResultInputMVo" resultType="lims.test.vo.IssueMVo">
+		SELECT B.USER_NM, B.MOBLPHON, #{reqestExpriemSeqno} REQEST_EXPRIEM_SEQNO
+		FROM SY_PRDUCT_SE_EMAIL_USER A
+		INNER JOIN SY_USER B ON A.USER_ID = B.USER_ID
+		INNER JOIN IM_REQEST C ON A.PRDUCT_SEQNO = C.PRDUCT_SEQNO
+		INNER JOIN IM_REQEST_EXPRIEM D ON C.REQEST_SEQNO = D.REQEST_SEQNO 
+		WHERE A.SCHDUL_SE_CODE = 'SY16000001'
+		AND D.REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno} AND B.EMAIL IS NOT NULL
+		UNION
+		SELECT B.USER_NM, B.MOBLPHON, #{reqestExpriemSeqno} REQEST_EXPRIEM_SEQNO
+		FROM SY_SCHDUL_NTCN_TRGTER A
+		INNER JOIN SY_SCHDUL C ON A.SCHDUL_SEQNO = C.SCHDUL_SEQNO
+		INNER JOIN SY_USER B ON A.USER_ID = B.USER_ID 
+		WHERE C.SCHDUL_SE_CODE = 'SY16000001' AND B.EMAIL IS NOT NULL
+	</select>
+	
+	<resultMap id="resultMap" type="String">
+      <result property="vo" column="EMAIL_CN" jdbcType="CLOB" javaType="java.lang.String" />
+   </resultMap>
+	<select id="getIssueMailCn" parameterType="String" resultMap="resultMap">
+		SELECT EMAIL_CN FROM IM_ISSUE
+		WHERE ISSUE_SEQNO = #{vo}
+	</select>
+	
+	<update id="updMailCn" parameterType="lims.test.vo.IssueMVo">
+		UPDATE IM_ISSUE SET
+			EMAIL_CN = #{emailCn}
+		WHERE ISSUE_SEQNO = #{issueSeqno}
+	</update>
+	
+	
+	
+	<select id="mainLcountList" parameterType="lims.test.vo.IssueMVo" resultType="lims.test.vo.IssueMVo">
+	WITH T AS (
+		SELECT REQ.LOT_ID
+		       ,ISS.ISSUE_SE_CODE
+		       ,FN_GET_CDDTLNM(ISS.ISSUE_SE_CODE) AS ISSUE_SE_NM
+		       ,ISS.ISSUE_SJ
+		       ,REQ.REQEST_DEPT_CODE
+		       ,FN_GET_INSPCT_INSTT(REQ.REQEST_DEPT_CODE) AS REQEST_DEPT_NM
+		       ,REQ.PROCESS_TY_CODE
+		       ,FN_GET_CDDTLNM(REQ.PROCESS_TY_CODE) AS PROCESS_TY_NM
+		       ,ISS.EXPRIEM_CN
+		       ,ISS.ISSUE_PROGRS_SITTN_CODE
+		       ,FN_GET_CDDTLNM(ISS.ISSUE_PROGRS_SITTN_CODE) AS ISSUE_PROGRS_SITTN_NM
+		       ,ISS.LOCK_AT
+		       ,ISS.ISSUE_REGIST_DT
+		       ,SUM(CASE WHEN ISS.ISSUE_REGIST_DT BETWEEN ADD_MONTHS(TRUNC(SYSDATE,'MM'), -1 ) AND LAST_DAY(ADD_MONTHS(TRUNC(SYSDATE,'MM'), -1 )) THEN 1 ELSE 0 END)  LCOUNT       
+		FROM IM_ISSUE ISS
+		LEFT OUTER JOIN IM_REQEST REQ ON ISS.REQEST_SEQNO = REQ.REQEST_SEQNO
+		WHERE ISS.ISSUE_REGIST_DT BETWEEN ADD_MONTHS(TRUNC(SYSDATE,'MM'), -1 ) AND LAST_DAY(TRUNC(SYSDATE,'MM'))
+		AND REQ.DELETE_AT='N'
+		AND ISS.DELETE_AT='N'
+		<if test="deptSchCode != null and deptSchCode != ''">
+		 	AND REQ.REQEST_DEPT_CODE = #{deptSchCode}
+		 </if>
+		GROUP BY REQ.LOT_ID,ISS.ISSUE_SE_CODE,ISS.ISSUE_SJ,REQ.REQEST_DEPT_CODE,REQ.PROCESS_TY_CODE,ISS.EXPRIEM_CN
+		,ISS.ISSUE_PROGRS_SITTN_CODE,ISS.LOCK_AT,ISS.ISSUE_REGIST_DT
+	) SELECT * FROM T WHERE LCOUNT = 1
+	</select>
+	
+	<select id="mainCcountList" parameterType="lims.test.vo.IssueMVo" resultType="lims.test.vo.IssueMVo">
+	WITH T AS (
+		SELECT REQ.LOT_ID
+		       ,ISS.ISSUE_SE_CODE
+		       ,FN_GET_CDDTLNM(ISS.ISSUE_SE_CODE) AS ISSUE_SE_NM
+		       ,ISS.ISSUE_SJ
+		       ,REQ.REQEST_DEPT_CODE
+		       ,FN_GET_INSPCT_INSTT(REQ.REQEST_DEPT_CODE) AS REQEST_DEPT_NM
+		       ,REQ.PROCESS_TY_CODE
+		       ,FN_GET_CDDTLNM(REQ.PROCESS_TY_CODE) AS PROCESS_TY_NM
+		       ,ISS.EXPRIEM_CN
+		       ,ISS.ISSUE_PROGRS_SITTN_CODE
+		       ,FN_GET_CDDTLNM(ISS.ISSUE_PROGRS_SITTN_CODE) AS ISSUE_PROGRS_SITTN_NM
+		       ,ISS.LOCK_AT
+		       ,ISS.ISSUE_REGIST_DT
+		       ,SUM(CASE WHEN ISS.ISSUE_REGIST_DT BETWEEN TRUNC(SYSDATE,'MM') AND LAST_DAY(TRUNC(SYSDATE,'MM')) THEN 1 ELSE 0 END) CCOUNT
+		FROM IM_ISSUE ISS
+		LEFT OUTER JOIN IM_REQEST REQ ON ISS.REQEST_SEQNO = REQ.REQEST_SEQNO
+		WHERE ISS.ISSUE_REGIST_DT BETWEEN ADD_MONTHS(TRUNC(SYSDATE,'MM'), -1 ) AND LAST_DAY(TRUNC(SYSDATE,'MM'))
+		AND REQ.DELETE_AT='N'
+		AND ISS.DELETE_AT='N'
+		<if test="deptSchCode != null and deptSchCode != ''">
+		 	AND REQ.REQEST_DEPT_CODE = #{deptSchCode}
+		 </if>
+		GROUP BY REQ.LOT_ID,ISS.ISSUE_SE_CODE,ISS.ISSUE_SJ,REQ.REQEST_DEPT_CODE,REQ.PROCESS_TY_CODE,ISS.EXPRIEM_CN,ISS.ISSUE_PROGRS_SITTN_CODE
+		,ISS.LOCK_AT,ISS.ISSUE_REGIST_DT
+	) SELECT * FROM T WHERE CCOUNT = 1
+	</select>
+	
+	<insert id="insMobphonCn" parameterType="lims.test.vo.ResultInputMVo">
+		INSERT INTO SDK_SMS_SEND (
+			MSG_ID
+			, USER_ID
+			, SCHEDULE_TYPE
+			, SUBJECT
+			, SMS_MSG
+			, NOW_DATE
+			, SEND_DATE
+			, CALLBACK
+			, DEST_INFO
+		)   SELECT 
+			    SDK_SMS_SEQ.NEXTVAL,
+			    A.LOGIN_ID,
+			    0,
+			    <!-- '[Warning Message]' || D.INSPCT_INSTT_NM || '-' || F.PRDUCT_NM || '(' || C.LOT_ID ||')', -->
+			    FN_GET_CDDTLNM(#{graphSeCode}),
+			    <!-- C.LOT_ID || ' 라트의 ' || 'Ca' || '항목이 부적합 났습니다.', -->
+			    #{messageTitle} || ' - ' || #{expriemNm} || '외 ' || (#{etcEa}-1) ||'건에 부적합이 발생하였습니다.',
+			    TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'),
+			    TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'),
+			    '0418401320',
+			    A.USER_NM||'^'||REPLACE(A.MOBLPHON,'-','')
+			FROM 
+			(
+			    SELECT B.USER_NM, B.MOBLPHON, B.LOGIN_ID
+			    FROM SY_PRDUCT_SE_EMAIL_USER A
+			    INNER JOIN SY_USER B ON A.USER_ID = B.USER_ID
+			    INNER JOIN IM_REQEST C ON A.PRDUCT_SEQNO = C.PRDUCT_SEQNO
+			    INNER JOIN IM_REQEST_EXPRIEM D ON C.REQEST_SEQNO = D.REQEST_SEQNO 
+			    WHERE A.SCHDUL_SE_CODE = 'SY16000001'
+			    AND D.REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno} AND A.CHRCTR_RECPTN_AT = 'Y'
+			    UNION
+			    SELECT B.USER_NM, B.MOBLPHON, B.LOGIN_ID
+			    FROM SY_SCHDUL_NTCN_TRGTER A
+			    INNER JOIN SY_SCHDUL C ON A.SCHDUL_SEQNO = C.SCHDUL_SEQNO
+			    INNER JOIN SY_USER B ON A.USER_ID = B.USER_ID 
+			    WHERE C.SCHDUL_SE_CODE = 'SY16000001'
+			) A
+		    <!-- JOIN IM_REQEST_EXPRIEM B ON A.REQEST_EXPRIEM_SEQNO = B.REQEST_EXPRIEM_SEQNO
+		    JOIN IM_REQEST C ON C.REQEST_SEQNO = B.REQEST_SEQNO
+		    JOIN SY_INSPCT_INSTT D ON C.REQEST_DEPT_CODE = D.INSPCT_INSTT_CODE
+		    JOIN SY_PRDUCT E ON E.PRDUCT_SEQNO = C.PRDUCT_SEQNO
+		    JOIN SY_PRDUCT_UPPER F ON F.PRDUCT_UPPER_SEQNO = E.PRDUCT_UPPER_SEQNO -->	
+	</insert>
+	
+	<select id="getMessageTitle" parameterType="lims.test.vo.ResultInputMVo" resultType="String">
+		SELECT 
+	  	 '[Warning Message] '|| '-' || E.PRDUCT_NM || '(' || A.LOT_ID || ')' AS MESSAGE_TITLE				   
+	   FROM 
+	   IM_REQEST A
+	   JOIN IM_REQEST_EXPRIEM B ON A.REQEST_SEQNO = B.REQEST_SEQNO
+	   JOIN SY_PRDUCT D ON D.PRDUCT_SEQNO = A.PRDUCT_SEQNO
+	   JOIN SY_PRDUCT_UPPER E ON E.PRDUCT_UPPER_sEQNO = D.PRDUCT_UPPER_SEQNO
+	   WHERE B.REQEST_EXPRIEM_sEQNO = #{reqestExpriemSeqno} 
+	</select>
+	
+	<!-- 의뢰 변경점 알림 문자 -->
+	<insert id="insMobphonNtcn" parameterType="lims.dly.vo.DlivyMVo">
+		INSERT INTO SDK_SMS_SEND (
+			   MSG_ID
+			  ,USER_ID
+			  ,SCHEDULE_TYPE
+			  ,SUBJECT
+			  ,SMS_MSG
+			  ,NOW_DATE
+			  ,SEND_DATE
+			  ,CALLBACK
+			  ,DEST_INFO
+		)   SELECT 
+			    SDK_SMS_SEQ.NEXTVAL
+			    ,'${@lims.util.GetUserSession@getUserId()}'
+			    ,0
+			    ,A.NTCN_SE_CODE
+			    ,#{smsMsg}
+			    ,TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+			    ,TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+			    ,'0418401320'
+			    ,A.USER_NM||'^'||REPLACE(A.MOBLPHON,'-','')
+			FROM 
+			(
+			    SELECT A.USER_ID
+			          ,A.NTCN_SE_CODE
+			          ,B.MOBLPHON
+			          ,B.USER_NM
+			      FROM SY_DEPT_ACCTO_NTCN_TRGTER A
+			          ,SY_USER B
+			     WHERE A.USER_ID = B.USER_ID
+			       AND A.DEPT_CODE = #{deptCode}
+			       AND A.NTCN_SE_CODE = #{ntcnSeCode}
+			) A
+		    
+	</insert>
+</mapper>

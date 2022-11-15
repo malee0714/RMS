@@ -1,0 +1,85 @@
+@charset "UTF-8";
+/* 드래그 */
+::selection { background: #face00; color: #fff; }
+.tb1, .tb2, .tb3 { width: 100%; border-top: 1px solid #4faadc; }
+.tb1 th, .tb1 td, .tb2 th, .tb2 td, .tb3 th, .tb3 td { padding: 0px; font-size: 12px; border-left: 1px solid #dadada; border-right: 1px solid #dadada; }
+.tb1 th, .tb2 th, .tb3 th { font-family: 'Noto Sans Light', sans-serif; }
+.tb1 tr, .tb2 tr, .tb3 tr { border-bottom: 1px solid #dadada; }
+.tb1 th { text-align: center; }
+.tb1 tr { border-left: hidden; border-right: hidden; }
+.tb1 tbody tr:nth-child(odd) { background: #f3f3f3; }
+.tb1 tbody tr:hover { background: #ededed; }
+.tb1 td { text-align: center; }
+.tb2 tbody th { background: transparent; }
+.tb3 td, .tb3 tr { border-left: hidden; border-right: hidden; }
+.tb3 th { width: 140px; text-align: left; background: #efefef; text-indent: 5px; }
+
+#tabCtsLst .tabCts { transition-duration: 0.5s; }
+.subtabMenuLst {background-color:#b3b3b3;border-bottom:1px solid #d7d7d7; height:30px;width:100%;font: 600 14px/20px roboto, "Open Sans", Helvetica, sans-serif;margin-bottom: 15px;}
+.subtabMenuLst ul {margin:7px; padding:0px; list-style:none; text-align:left;padding-left: 10px;}
+.subtabMenuLst ul li {display:inline; line-height:30px; color:#ffffff; text-decoration:none; padding:10px 15px 10px 15px;margin-right: 8px;cursor: pointer;}
+.subtabMenuLst ul li.on {border-left:1px solid #d7d7d7; border-right:1px solid #d7d7d7; color:#000000; background-color:#ffffff; font-weight:bold;  position:relative;margin-right: 8px;}
+
+/* Tabbed Styles */
+.tabMenuLst {width: 100%;min-width: 400px;margin: 0 auto;margin-bottom: 15px;overflow: hidden;transition: border 250ms ease;}
+.tabMenuLst ul {position:relative; width:100%; height:65px; box-sizing:border-box; margin: 0px; padding: 0px;overflow: hidden;/*float: left;*/list-style-type: none;}
+.tabMenuLst ul:before{content:""; width:100%; height:1px; background:#f492a0; position:absolute; bottom:14px; left:0; box-sizing:border-box; }
+.tabMenuLst ul li {background:#ececf5; display:block; float:left; padding: 14px 34px;z-index: 2;position: relative;cursor: pointer;color: #777;text-transform: uppercase;font-size:15px; font-weight:bold;transition: all 250ms ease;}
+.tabMenuLst ul li + li{margin-left:5px;}
+.tabMenuLst ul li:before,
+.tabMenuLst ul li:after {display: block;content: " ";position: absolute;top: 0;height: 100%; background-color: #FFF;}
+.tabMenuLst ul li:hover,
+.tabMenuLst ul li:hover:before,
+.tabMenuLst ul li:hover:after {background-color: #F4F7F9; color:#fff;}
+.tabMenuLst ul li.on {z-index: 3; background:#f492a0; color:#fff}
+.tabMenuLst ul li.on,
+.tabMenuLst ul li.on:before,
+.tabMenuLst ul li.on:after {color: #fff;}
+.tabMenuLst[class*="skin-"] ul li {}
+.tabMenuLst.skin-peter-river ul li:hover,
+.tabMenuLst.skin-peter-river ul li:hover:before,
+.tabMenuLst.skin-peter-river ul li:hover:after {background:#f492a0; color:#fff;}
+.tabMenuLst.skin-peter-river ul li.on:after{background:transparent; border-bottom:none; content: " "; position:absolute; right: 0; top:46px; left:0; margin:0 auto; width: 0; height: 0; border-style: solid; 
+border-color: #f492a0 transparent transparent transparent; border-width: 1em; z-index: 2;}
+
+/* Skins */
+.switcher-box a.skin-peter-river span {background: #3498DB;}
+
+/*========================================================================================TAB*/
+/* 팝업 */
+.popupBg, .popup { display: none; position: fixed; top: 0; left: 0; }
+.popupBg { width: 100%; height: 100%; z-index: 1000; background: rgba(0, 0, 0, 0.6); cursor: pointer; }
+.popup { z-index: 1100; background: #fff; padding: 7px; padding-top: 10px; padding-left: 10px; box-sizing: border-box; width: 500px; border-radius: 5px; box-shadow: 0 6px 6px rgb(0 0 0 / 40%), 0 6px 6px rgb(0 0 0 / 40%);}
+.popup .popupClose { position: absolute; right: 0; top: -32px; cursor: pointer; }
+.popup .ctsInnerArea {max-height: 600px; overflow-y: auto;} /* dialog에서 grid div size 변경시 overflow 세로축 생성 */
+
+  /* 세로축 스크롤바 길이, 가로축 스크롤바 길이 */
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track {background-color: transparent;}
+::-webkit-scrollbar-thumb { border-radius: 3px;/* background: linear-gradient(150deg, #1f296f, #62a8ea); */background: #bbbbbb;}
+.popup ::-webkit-scrollbar-thumb {} /* dialog에서 scroll bar 재정의 하고싶으면 사용하세요.*/
+::-webkit-scrollbar-button {width: 0;height: 0;}
+::-webkit-scrollbar-button:start {}
+::-webkit-scrollbar-button:end {}
+::-webkit-scrollbar-button:vertical:increment {}
+::-webkit-scrollbar-button:vertical:decrement {}
+
+/*인풋Mixin*/
+/*텍스트박스*/
+input[type="text"], input[type="email"], input[type="password"], input[type="tel"], input[type="search"], input[type="url"], input[type="month"], input[type="date"], input[type="datetime-local"], input[type="number"], input[type="week"], input[type="time"] { min-width: 50px; height: 26px; outline: 0; border: 1px solid #ddd; text-indent: 5px; transition-duration: 0.5s; box-sizing: border-box; font-size: 12px; color: #444; display: inline-block; margin-right: 5px; }
+input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, input[type="tel"]:focus, input[type="search"]:focus, input[type="url"]:focus, input[type="month"]:focus, input[type="date"]:focus, input[type="datetime-local"]:focus, input[type="number"]:focus, input[type="week"]:focus, input[type="time"]:focus { border: 1px solid #348dcc; transition-duration: 0.5s; }
+
+/*텍스트아레아*/
+textarea { border: 1px solid #ddd; box-sizing: border-box; text-indent: 10px; overflow: auto; transition-duration: 0.2s; outline: none; border-radius: 2.5px; margin-right: 5px; resize: vertical; width: 100%; min-width: 8em;}
+textarea:focus { border: 1px solid #348dcc; transition-duration: 0.2s;}
+
+/*셀렉트*/
+select {min-width:50px; height: 26px; outline:0; border: 1px solid #ddd; text-indent: 5px; transition-duration:0.5s; box-sizing: border-box; font-size: 12px; color: #555; display: inline-block; padding-left: 5px; text-indent: 0; }
+select::-ms-expand { padding-right: 4px; background: transparent; color: #888; border: 0; outline: 0; }
+
+/*날짜*/
+.dateBox { height: 30px; position: relative; display: inline-block; }
+
+.ui-datepicker-trigger { position: absolute; right: 1px; top: 1px; }
+
+.datePicker { margin-right: 0 !important; }

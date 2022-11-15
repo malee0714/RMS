@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.qa.dao.NcrMDao">
+   <sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+   <sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+
+    <select id="getNcrList" parameterType="lims.qa.vo.NcrMVo" resultType="lims.qa.vo.NcrMVo">
+        SELECT
+            A.NCR_SEQNO
+             ,A.CRRSPND_DEPT_CODE
+             ,A.REQEST_SEQNO
+             ,A.PRDUCT_NM
+             ,A.OCCRRNC_DTE
+             ,A.CHRG_DEPT_CODE
+             ,E.INSPCT_INSTT_NM AS CHRG_DEPT_CODE_NM
+             ,A.CHARGER_ID
+             ,G.USER_NM AS CHARGER_ID_NM
+             ,A.EXMNT_DEPT_CODE
+             ,F.INSPCT_INSTT_NM AS EXMNT_DEPT_CODE_NM
+             ,A.OCAP_STTUS_CODE
+             ,A.IMPROPT_CN
+             ,A.CAUSE_ANALS_CN
+             ,A.IMPRVM_CNTRPLN_CN
+             ,A.IMPROPT_DGREE_CODE
+             ,A.IMPROPT_PROCESS_STLE_CODE
+             ,A.COMPT_DTE
+             ,A.IMPROPT_VALIDFMNM_EVL_CODE
+             ,A.VALIDFMNM_EVL_DTE
+             ,A.DMGE_SCALE_CN
+             ,A.PROCESS_RESULT_CN
+             ,A.RECR_PRVN_CNTRPLN_CN
+             ,A.ATCHMNFL_SEQNO
+             ,A.DELETE_AT
+             ,A.LAST_CHANGER_ID
+             ,A.LAST_CHANGE_DT
+             ,A.EXMNT_SEQNO
+             ,A.SANCTN_SEQNO
+             ,B.SANCTN_PROGRS_SITTN_CODE
+             ,A.IMPROPT_PROCESS_RESULT_CODE
+             ,C.SANCTNER_NM
+             ,D.CMMN_CODE_NM AS SANCTN_PROGRS_SITTN_CODE_NM
+             ,H.CMMN_CODE_NM AS OCAP_STTUS_CODE_NM
+             ,I.CMMN_CODE_NM AS IMPROPT_DGREE_CODE_NM
+             ,J.CMMN_CODE_NM AS IMPROPT_PROCESS_STLE_CODE_NM
+             ,L.MTRIL_NM
+             ,L.PRDUCT_SE_CODE
+             ,FN_GET_CDDTLNM(L.PRDUCT_SE_CODE) PRDUCT_TY_NM
+             ,M.CMMN_CODE_NM AS IMPROPT_PROCESS_RESULT_CODE_NM
+             ,N.CMMN_CODE_NM AS IMPROPT_VALIDFMNM_EVL_CODE_NM
+             ,FN_GET_CDDTLNM(a.IMPROPT_VALIDFMNM_EVL_CODE) IMPROPT_VALIDFMNM_EVL_CODE_NM
+        FROM RS_NCR A
+        LEFT JOIN CM_SANCTN B ON A.SANCTN_SEQNO = B.SANCTN_SEQNO
+        LEFT JOIN (
+            SELECT  IA.SANCTN_SEQNO
+                 , LISTAGG(IB.USER_NM, ' > ') WITHIN GROUP(ORDER BY IA.SANCTN_ORDR) AS SANCTNER_NM
+            FROM CM_SANCTN_INFO IA
+                INNER JOIN SY_USER IB ON IA.SANCTNER_ID = IB.USER_ID
+            WHERE IA.USE_AT = 'Y'
+            GROUP BY IA.SANCTN_SEQNO
+        ) C ON B.SANCTN_SEQNO = C.SANCTN_SEQNO
+        LEFT JOIN SY_CMMN_CODE D ON B.SANCTN_PROGRS_SITTN_CODE = D.CMMN_CODE AND D.USE_AT = 'Y'
+        LEFT JOIN SY_INSPCT_INSTT E ON E.INSPCT_INSTT_CODE = A.CHRG_DEPT_CODE
+        LEFT JOIN SY_INSPCT_INSTT F ON F.INSPCT_INSTT_CODE = A.EXMNT_DEPT_CODE
+        LEFT JOIN SY_USER G ON G.USER_ID = A.CHARGER_ID
+        LEFT JOIN SY_CMMN_CODE H ON H.CMMN_CODE = A.OCAP_STTUS_CODE
+        LEFT JOIN SY_CMMN_CODE I ON I.CMMN_CODE = A.IMPROPT_DGREE_CODE
+        LEFT JOIN SY_CMMN_CODE J ON J.CMMN_CODE = A.IMPROPT_PROCESS_STLE_CODE
+        JOIN IM_REQEST K ON K.REQEST_SEQNO = A.REQEST_SEQNO
+        JOIN SY_MTRIL L ON K.MTRIL_SEQNO = L.MTRIL_SEQNO
+        LEFT JOIN SY_CMMN_CODE M ON M.CMMN_CODE = A.IMPROPT_PROCESS_RESULT_CODE
+        LEFT JOIN SY_CMMN_CODE N ON N.CMMN_CODE = A.IMPROPT_VALIDFMNM_EVL_CODE
+        WHERE A.BPLC_CODE = <include refid="bplcCode"/>
+        AND A.DELETE_AT ='N'
+        <if test="mtrilNmSch != null and mtrilNmSch != '' ">
+            AND L.MTRIL_NM = #{mtrilNmSch}
+        </if>
+        <if test="prductTyNmSch != null and prductTyNmSch != '' ">
+            AND L.PRDUCT_SE_CODE = #{prductTyNmSch}
+        </if>
+        <if test="ocapSttusCodeSch != null and ocapSttusCodeSch != '' ">
+            AND A.OCAP_STTUS_CODE = #{ocapSttusCodeSch}
+        </if>
+        <if test="chrgDeptCodeSch != null and chrgDeptCodeSch != '' ">
+            AND A.CHRG_DEPT_CODE = #{chrgDeptCodeSch}
+        </if>
+        <if test="chargerIdSch != null and chargerIdSch != '' ">
+            AND G.USER_NM = #{chargerIdSch}
+        </if>
+        <if test="exmntDeptCodeSch != null and exmntDeptCodeSch != '' ">
+            AND A.EXMNT_DEPT_CODE = #{exmntDeptCodeSch}
+        </if>
+        <if test="comptBeginDte != null and comptBeginDte != '' ">
+            AND A.COMPT_DTE <![CDATA[>=]]> #{comptBeginDte}
+        </if>
+        <if test="comptEndDte != null and comptEndDte != '' ">
+            AND A.COMPT_DTE <![CDATA[<=]]> #{comptEndDte}
+        </if>
+        ORDER BY NCR_SEQNO
+    </select>
+
+    <insert id="insertNcr" parameterType="lims.qa.vo.NcrMVo">
+        <selectKey keyProperty="ncrSeqno" resultType="lims.qa.vo.NcrMVo" order="BEFORE">
+            SELECT SQ_RS_NCR.NEXTVAL AS NCR_SEQNO FROM DUAL
+        </selectKey>
+      INSERT INTO RS_NCR(
+            NCR_SEQNO
+            ,CRRSPND_DEPT_CODE
+            ,REQEST_SEQNO
+            ,PRDUCT_NM
+            ,OCCRRNC_DTE
+            ,CHRG_DEPT_CODE
+            ,CHARGER_ID
+            ,EXMNT_DEPT_CODE
+            ,OCAP_STTUS_CODE
+            ,IMPROPT_CN
+            ,CAUSE_ANALS_CN
+            ,IMPRVM_CNTRPLN_CN
+            ,IMPROPT_DGREE_CODE
+            ,IMPROPT_PROCESS_STLE_CODE
+            ,COMPT_DTE
+            ,IMPROPT_VALIDFMNM_EVL_CODE
+            ,VALIDFMNM_EVL_DTE
+            ,DMGE_SCALE_CN
+            ,PROCESS_RESULT_CN
+            ,RECR_PRVN_CNTRPLN_CN
+            ,ATCHMNFL_SEQNO
+            ,DELETE_AT
+            ,LAST_CHANGER_ID
+            ,LAST_CHANGE_DT
+            ,EXMNT_SEQNO
+            ,SANCTN_SEQNO
+            ,IMPROPT_PROCESS_RESULT_CODE
+            ,BPLC_CODE
+        ) VALUES (
+              #{ncrSeqno}
+            , #{crrspndDeptCode}
+            , #{reqestSeqno}
+            , #{prductNm}
+            , #{occrrncDte}
+            , #{chrgDeptCode}
+            , #{chargerId}
+            , #{exmntDeptCode}
+            , #{ocapSttusCode}
+            , #{improptCn}
+            , #{causeAnalsCn}
+            , #{imprvmCntrplnCn}
+            , #{improptDgreeCode}
+            , #{improptProcessStleCode}
+            , #{comptDte}
+            , #{improptValidfmnmEvlCode}
+            , #{validfmnmEvlDte}
+            , #{dmgeScaleCn}
+            , #{processResultCn}
+            , #{recrPrvnCntrplnCn}
+            , #{atchmnflSeqno}
+            , 'N'
+            , <include refid="loginId"/>
+            , SYSDATE
+            , #{exmntSeqno}
+            , #{sanctnSeqno}
+            , #{improptProcessResultCode}
+            , <include refid="bplcCode"/>
+            )
+    </insert>
+
+    <update id="updateNcr" parameterType="lims.qa.vo.NcrMVo">
+        UPDATE  RS_NCR SET
+                 CRRSPND_DEPT_CODE = #{crrspndDeptCode}
+                , REQEST_SEQNO = #{reqestSeqno}
+                , PRDUCT_NM = #{prductNm}
+                , OCCRRNC_DTE = #{occrrncDte}
+                , CHRG_DEPT_CODE = #{chrgDeptCode}
+                , CHARGER_ID = #{chargerId}
+                , EXMNT_DEPT_CODE = #{exmntDeptCode}
+                , OCAP_STTUS_CODE = #{ocapSttusCode}
+                , IMPROPT_CN = #{improptCn}
+                , CAUSE_ANALS_CN = #{causeAnalsCn}
+                , IMPRVM_CNTRPLN_CN = #{imprvmCntrplnCn}
+                , IMPROPT_DGREE_CODE = #{improptDgreeCode}
+                , IMPROPT_PROCESS_STLE_CODE = #{improptProcessStleCode}
+                , COMPT_DTE = #{comptDte}
+                , IMPROPT_VALIDFMNM_EVL_CODE = #{improptValidfmnmEvlCode}
+                , VALIDFMNM_EVL_DTE = #{validfmnmEvlDte}
+                , DMGE_SCALE_CN = #{dmgeScaleCn}
+                , PROCESS_RESULT_CN = #{processResultCn}
+                , RECR_PRVN_CNTRPLN_CN = #{recrPrvnCntrplnCn}
+                , ATCHMNFL_SEQNO = #{atchmnflSeqno}
+                , LAST_CHANGER_ID = <include refid="loginId"/>
+                , LAST_CHANGE_DT = SYSDATE
+                , EXMNT_SEQNO = #{exmntSeqno}
+                , SANCTN_SEQNO = #{sanctnSeqno}
+                , IMPROPT_PROCESS_RESULT_CODE = #{improptProcessResultCode}
+                , BPLC_CODE = <include refid="bplcCode"/>
+        WHERE NCR_SEQNO = #{ncrSeqno}
+    </update>
+
+
+    <update id="updateNcrSanctn" parameterType="lims.qa.vo.NcrMVo">
+        /* 결재 SEQNO UPDATE */
+        UPDATE RS_NCR SET SANCTN_SEQNO = #{sanctnSeqno} WHERE NCR_SEQNO = #{ncrSeqno}
+    </update>
+
+    <select id="getExprGrid" parameterType="lims.qa.vo.NcrMVo" resultType="lims.qa.vo.NcrMVo">
+        SELECT
+            A.REQEST_SEQNO
+            ,B.EXPRIEM_SEQNO
+            ,B.REQEST_EXPRIEM_SEQNO
+            ,C.EXPRIEM_NM
+            ,D.EXPR_ODR
+            ,D.QC_RESULT_VALUE
+            ,B.REQEST_EXPRIEM_SEQNO||D.EXPR_ODR AS SEQ_COUNT
+        FROM IM_REQEST A
+        LEFT JOIN IM_REQEST_EXPRIEM B ON A.REQEST_SEQNO = B.REQEST_SEQNO
+        LEFT JOIN SY_EXPRIEM C ON B.EXPRIEM_SEQNO = C.EXPRIEM_SEQNO
+        LEFT JOIN IM_REQEST_EXPRIEM_RESULT D ON B.REQEST_EXPRIEM_SEQNO = D.REQEST_EXPRIEM_SEQNO
+        WHERE A.BPLC_CODE = <include refid="bplcCode"/>
+        AND A.REQEST_SEQNO= #{reqestSeqno}
+        AND D.JDGMNT_WORD_CODE = 'IM05000002'
+        ORDER BY EXPRIEM_SEQNO,EXPR_ODR
+    </select>
+
+    <select id="ncrExpriemGrid" parameterType="lims.qa.vo.NcrMVo" resultType="lims.qa.vo.NcrMVo">
+        SELECT
+            A.NCR_SEQNO
+             ,A.ORDR
+             ,A.LAST_CHANGER_ID
+             ,A.LAST_CHANGE_DT
+             ,A.REQEST_EXPRIEM_SEQNO
+             ,C.EXPRIEM_NM
+             ,D.EXPR_ODR
+             ,D.QC_RESULT_VALUE
+             ,B.REQEST_EXPRIEM_SEQNO||D.EXPR_ODR AS SEQ_COUNT
+        FROM RS_NCR_EXPRIEM A
+        LEFT JOIN IM_REQEST_EXPRIEM B ON A.REQEST_EXPRIEM_SEQNO = B.REQEST_EXPRIEM_SEQNO
+        LEFT JOIN SY_EXPRIEM C ON C.EXPRIEM_SEQNO = B.EXPRIEM_SEQNO
+        LEFT JOIN IM_REQEST_EXPRIEM_RESULT D ON A.REQEST_EXPRIEM_SEQNO = D.REQEST_EXPRIEM_SEQNO AND A.EXPR_ODR = D.EXPR_ODR
+        WHERE A.BPLC_CODE = <include refid="bplcCode"/>
+        AND A.NCR_SEQNO = #{ncrSeqno} AND A.DELETE_AT='N'
+        ORDER BY REQEST_EXPRIEM_SEQNO, EXPR_ODR
+    </select>
+
+    <insert id="insNcrExpriem" parameterType="lims.qa.vo.NcrMVo">
+        INSERT INTO RS_NCR_EXPRIEM(
+            NCR_SEQNO
+            ,ORDR
+            ,LAST_CHANGER_ID
+            ,LAST_CHANGE_DT
+            ,REQEST_EXPRIEM_SEQNO
+            ,DELETE_AT
+            ,EXPR_ODR
+            ,BPLC_CODE
+        ) VALUES (
+            #{ncrSeqno}
+            , (SELECT NVL(MAX(ORDR),0)+1 FROM RS_NCR_EXPRIEM WHERE NCR_SEQNO = #{ncrSeqno})
+            , <include refid="loginId"/>
+            , SYSDATE
+            , #{reqestExpriemSeqno}
+            ,'N'
+            , #{exprOdr}
+            , <include refid="bplcCode"/>
+            )
+    </insert>
+
+    <update id="updNcrExpriem" parameterType="lims.qa.vo.NcrMVo">
+        UPDATE RS_NCR_EXPRIEM SET
+                 LAST_CHANGER_ID = <include refid="loginId"/>
+                , LAST_CHANGE_DT = SYSDATE
+                , REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno}
+        WHERE NCR_SEQNO = #{ncrSeqno} AND ORDR = #{ordr}
+    </update>
+
+    <update id="deleteNcr" parameterType="lims.qa.vo.NcrMVo">
+        UPDATE RS_NCR SET
+        LAST_CHANGER_ID = <include refid="loginId"/>
+        , LAST_CHANGE_DT = SYSDATE
+        , DELETE_AT = 'Y'
+        WHERE NCR_SEQNO = #{ncrSeqno}
+    </update>
+
+    <update id="delNcrExpriem" parameterType="lims.qa.vo.NcrMVo">
+        UPDATE RS_NCR_EXPRIEM SET
+        LAST_CHANGER_ID = <include refid="loginId"/>
+        , LAST_CHANGE_DT = SYSDATE
+        , DELETE_AT = 'Y'
+        WHERE NCR_SEQNO = #{ncrSeqno}
+        AND ORDR = #{ordr}
+    </update>
+
+    <update id="updateExmntSeqno" parameterType="lims.com.vo.CmExmntDto">
+        /* 검토 seqno update */
+        UPDATE RS_NCR SET
+        EXMNT_SEQNO = #{exmntSeqno},
+        LAST_CHANGER_ID = <include refid="loginId"/>,
+        LAST_CHANGE_DT = SYSDATE
+        WHERE NCR_SEQNO = #{otherKey}
+    </update>
+</mapper>

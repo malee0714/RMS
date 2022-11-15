@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.test.dao.RoaUploadMDao">
+
+    <select id="getMtrilCode" parameterType="string" resultType="string">
+        SELECT
+            SM.MTRIL_CODE
+        FROM SY_MTRIL SM
+        WHERE SM.MTRIL_SEQNO = #{mtrilSeqno}
+          AND SM.DELETE_AT = 'N'
+          AND SM.BPLC_CODE = '${@lims.util.GetUserSession@getBestInspctInsttCode()}'
+    </select>
+
+    <select id="getMtrilExpriem" parameterType="string" resultType="string">
+        SELECT
+            SE.EXPRIEM_NM
+        FROM SY_MTRIL SM
+                 LEFT JOIN SY_MTRIL_SDSPC SMS ON SMS.MTRIL_SEQNO = SM.MTRIL_SEQNO
+                 LEFT JOIN SY_EXPRIEM SE ON SE.EXPRIEM_SEQNO = SMS.EXPRIEM_SEQNO
+        WHERE SM.DELETE_AT = 'N'
+          AND SMS.DELETE_AT = 'N'
+          AND SE.DELETE_AT = 'N'
+          AND SM.MTRIL_SEQNO = #{mtrilSeqno}
+          AND SM.BPLC_CODE = '${@lims.util.GetUserSession@getBestInspctInsttCode()}'
+    </select>
+
+    <insert id="insSyMtrilRoaUpload" parameterType="lims.test.vo.RoaUploadMVo">
+        INSERT INTO SY_MTRIL_ROA_UPLOAD (
+            SN,
+            MTRIL_SEQNO,
+            BPLC_CODE,
+            USE_AT,
+            DELETE_AT,
+            LAST_CHANGER_ID,
+            LAST_CHANGE_DT
+        ) VALUES (
+            #{sn},
+            #{mtrilSeqno},
+            '${@lims.util.GetUserSession@getBestInspctInsttCode()}',
+            'Y',
+            'N',
+            '${@lims.util.GetUserSession@getUserId()}',
+            SYSDATE
+        )
+    </insert>
+
+    <select id="getExpriemSeqno" parameterType="string" resultType="string">
+        SELECT
+            SE.EXPRIEM_SEQNO
+        FROM SY_EXPRIEM SE
+        WHERE SE.DELETE_AT = 'N'
+          AND SE.EXPRIEM_NM = TRIM(#{expriemNm})
+    </select>
+
+    <insert id="insSyMtrilRoaUploadResult" parameterType="lims.test.vo.RoaUploadMVo">
+        INSERT INTO SY_MTRIL_ROA_UPLOAD_RESULT (
+            EXPR_NUMOT,
+            EXPRIEM_SEQNO,
+            SN,
+            MTRIL_SEQNO,
+            BPLC_CODE,
+            RESULT_VALUE,
+            LAST_CHANGER_ID,
+            LAST_CHANGE_DT,
+            SORT_ORDR
+        ) VALUES (
+            #{exprNumot},
+            #{expriemSeqno},
+            #{sn},
+            #{mtrilSeqno},
+            '${@lims.util.GetUserSession@getBestInspctInsttCode()}',
+            #{resultValue},
+            '${@lims.util.GetUserSession@getUserId()}',
+            SYSDATE,
+            #{sortOrdr}
+        )
+    </insert>
+
+    <delete id="delSyMtrilRoaUpload" parameterType="string">
+        DELETE FROM SY_MTRIL_ROA_UPLOAD WHERE MTRIL_SEQNO = #{mtrilSeqno}
+    </delete>
+
+    <delete id="delSyMtrilRoaUploadResult" parameterType="string">
+        DELETE FROM SY_MTRIL_ROA_UPLOAD_RESULT WHERE MTRIL_SEQNO = #{mtrilSeqno}
+    </delete>
+
+    <select id="getRoaUploadList" parameterType="string" resultType="lims.test.vo.RoaUploadMVo">
+        SELECT
+            SMRU.MTRIL_SEQNO,
+            SMRU.SN,
+            SMRUR.EXPRIEM_SEQNO,
+            (SELECT SE.EXPRIEM_NM FROM SY_EXPRIEM SE WHERE SE.EXPRIEM_SEQNO = SMRUR.EXPRIEM_SEQNO) AS EXPRIEM_NM,
+            SMRUR.EXPR_NUMOT,
+            SMRUR.RESULT_VALUE
+        FROM SY_MTRIL_ROA_UPLOAD SMRU
+                 JOIN SY_MTRIL_ROA_UPLOAD_RESULT SMRUR ON SMRU.MTRIL_SEQNO = SMRUR.MTRIL_SEQNO AND SMRU.SN = SMRUR.SN
+        WHERE SMRU.DELETE_AT = 'N'
+          AND SMRU.MTRIL_SEQNO = #{mtrilSeqno}
+          AND SMRU.BPLC_CODE = '${@lims.util.GetUserSession@getBestInspctInsttCode()}'
+        ORDER BY SMRUR.SN, SMRUR.SORT_ORDR
+    </select>
+
+    <select id="getUsedRoaUploadChkList" parameterType="lims.test.vo.RoaUploadMVo" resultType="lims.test.vo.RoaUploadMVo">
+        SELECT
+            SMRU.USE_AT,
+            SMRU.SN
+        FROM SY_MTRIL_ROA_UPLOAD SMRU
+        WHERE SMRU.DELETE_AT = 'N'
+          AND SMRU.MTRIL_SEQNO = #{mtrilSeqno}
+          AND SMRU.BPLC_CODE = '${@lims.util.GetUserSession@getBestInspctInsttCode()}'
+    </select>
+</mapper>

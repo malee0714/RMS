@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.test.dao.ResultInputPscMDao">
+
+	<!-- 시험 항목 결과 저장 -->
+	<update id="updReqestExpriemResultPsc" parameterType="lims.test.vo.ResultInputPscMVo">
+	<selectKey keyProperty="jdgmntWordCode" resultType="lims.test.vo.ResultInputPscMVo" order="BEFORE">
+		SELECT FN_GET_CALC_FOM(JDGMNT_FOM_CODE, 
+								REGEXP_REPLACE(FIRST_MUMM_VALUE, '[^0-9.,]+'),
+								REGEXP_REPLACE(FIRST_MXMM_VALUE, '[^0-9.,]+'),
+								FIRST_MUMM_VALUE_SE_CODE, 
+								FIRST_MXMM_VALUE_SE_CODE, 
+								null, 
+								#{resultValue})
+		       AS jdgmntWordCode
+ 		  FROM IM_REQEST_EXPRIEM
+		 WHERE REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno}		 
+	</selectKey>
+		UPDATE IM_REQEST_EXPRIEM_RESULT
+		   SET RESULT_VALUE			 = #{resultValue}
+		      ,RESULT_REGISTER_ID    = '${@lims.util.GetUserSession@getUserId()}'
+		      ,RESULT_REGIST_DTE     = SYSDATE
+		      ,QC_RESULT_VALUE       = #{qcResultValue}
+			  ,QC_RESULT_REGIST_DTE  = SYSDATE
+			  ,QC_RESULT_REGISTER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			  ,LAST_CHANGER_ID       = '${@lims.util.GetUserSession@getUserId()}'
+			  ,JDGMNT_WORD_CODE      = #{jdgmntWordCode}
+			  ,LAST_CHANGE_DT		 = SYSDATE
+		 WHERE REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno} 
+		   AND EXPR_ODR = '1'
+		   AND EXPR_NUMOT = '1'
+	</update>
+	
+	<!-- 시험 항목 결과 평균 저장 -->
+	<update id="updReqestExpriemResultAvrgPsc" parameterType="lims.test.vo.ResultInputPscMVo">
+		UPDATE IM_REQEST_EXPRIEM_RESULT_AVRG
+		   SET RESULT_VALUE     = #{resultValue}
+		      ,QC_RESULT_VALUE  = #{qcResultValue}
+		      ,JDGMNT_WORD_CODE = #{jdgmntWordCode}
+		      ,LAST_CHANGER_ID  = '${@lims.util.GetUserSession@getUserId()}'
+			  ,LAST_CHANGE_DT   = SYSDATE
+	     WHERE REQEST_EXPRIEM_SEQNO =  #{reqestExpriemSeqno}
+	       AND EXPR_ODR = '1'
+	</update>
+	
+	<update id="updReqestExpriemProgrsPsc" parameterType="lims.test.vo.ResultInputPscMVo">
+	<selectKey keyProperty="cnt" resultType="lims.test.vo.ResultInputPscMVo" order="BEFORE">
+		SELECT COUNT(*) AS cnt FROM
+		IM_REQEST_EXPRIEM_RESULT 
+		WHERE REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno} 
+		AND EXPR_ODR = 1 AND RESULT_VALUE IS NULL AND DELETE_AT = 'N'
+	</selectKey>
+	BEGIN
+		UPDATE IM_REQEST_EXPRIEM A
+		SET A.PROGRS_SITTN_CODE = <if test="cnt > 0">	'IM03000003'</if>
+								<if test="cnt == 0">'IM03000004'</if>
+		, A.RESULT_INPUT_COMPT_AT = <if test="cnt > 0">'N'</if>
+								  <if test="cnt == 0">'Y'</if> 	
+		, A.RESULT_REGIST_DTE = SYSDATE
+		, A.JDGMNT_WORD_CODE = (SELECT CASE
+								          WHEN JDGMNT_WORD_CODE2 > 0 THEN 'IM05000002'
+								          WHEN JDGMNT_WORD_CODE1 > 0 THEN 'IM05000001'
+								          WHEN JDGMNT_WORD_CODE3 > 0 THEN 'IM05000003'
+								           END
+								  FROM (SELECT NVL (SUM (CASE WHEN JDGMNT_WORD_CODE = 'IM05000001' THEN '1' END),0)
+								                  JDGMNT_WORD_CODE1,
+								               NVL (SUM (CASE WHEN JDGMNT_WORD_CODE = 'IM05000002' THEN '1' END),0)
+								                  JDGMNT_WORD_CODE2,
+								               NVL (SUM (CASE WHEN JDGMNT_WORD_CODE = 'IM05000003' THEN '1' END),0)
+								                  JDGMNT_WORD_CODE3
+								          FROM IM_REQEST_EXPRIEM_RESULT
+								         WHERE REQEST_eXPRIEM_SEQNO = #{reqestExpriemSeqno} AND EXPR_ODR = 1))	
+		WHERE A.REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno};
+		
+		UPDATE IM_REQEST SET
+				PROGRS_SITTN_CODE = (SELECT MIN(PROGRS_SITTN_CODE) FROM IM_REQEST_EXPRIEM WHERE REQEST_SEQNO = (SELECT REQEST_SEQNO FROM IM_REQEST WHERE LOT_ID = #{lotId} AND DELETE_AT = 'N')),
+				JDGMNT_WORD_CODE = (SELECT CASE
+								          WHEN JDGMNT_WORD_CODE2 > 0 THEN 'IM05000002'
+								          WHEN JDGMNT_WORD_CODE1 > 0 THEN 'IM05000001'
+								          WHEN JDGMNT_WORD_CODE3 > 0 THEN 'IM05000003'
+								       END
+								  FROM (SELECT NVL (SUM (CASE WHEN JDGMNT_WORD_CODE = 'IM05000001' THEN '1' END), 0)
+								                  JDGMNT_WORD_CODE1,
+								               NVL (SUM (CASE WHEN JDGMNT_WORD_CODE = 'IM05000002' THEN '1' END),0)
+								                  JDGMNT_WORD_CODE2,
+								               NVL (SUM (CASE WHEN JDGMNT_WORD_CODE = 'IM05000003' THEN '1' END),0)
+								                  JDGMNT_WORD_CODE3
+								          FROM IM_REQEST_CAN_NO
+								         WHERE REQEST_sEQNO = (SELECT REQEST_SEQNO FROM IM_REQEST WHERE LOT_ID = #{lotId} AND DELETE_AT='N'))),
+				LOCK_AT = 'N'
+			WHERE REQEST_SEQNO = (SELECT REQEST_SEQNO FROM IM_REQEST WHERE LOT_ID = #{lotId} AND DELETE_AT='N');
+	END;
+	</update>
+	
+	<!-- 시험항목 일련번호 가져오기 -->
+	<select id="getImReqestExpriemPsc" parameterType="lims.test.vo.ResultInputPscMVo" resultType="String">
+		SELECT REX.REQEST_EXPRIEM_SEQNO
+		  FROM IM_REQEST REQ
+		      ,IM_REQEST_EXPRIEM REX
+		      ,SY_EXPRIEM EXPR
+		 WHERE REQ.REQEST_SEQNO = REX.REQEST_SEQNO
+		   AND REX.EXPRIEM_SEQNO = EXPR.EXPRIEM_SEQNO
+		   AND REQ.MTRIL_CODE = SUBSTR(#{lotId}, 1, 8)
+ 		   AND REQ.LOT_ID LIKE '%'|| SUBSTR(#{lotId}, 9) || '%'		   
+		   AND UPPER(TRIM(EXPR.EXPRIEM_NM)) = UPPER(TRIM(#{expriemNm}))
+		   AND REQ.DELETE_AT='N'
+		   AND REX.DELETE_AT='N'
+	</select>
+	
+	<!-- 의뢰 진행상황 가져오기 -->
+	<select id="getProgrsSittnCodePsc" parameterType="lims.test.vo.ResultInputPscMVo" resultType="String">
+		SELECT PROGRS_SITTN_CODE
+ 		  FROM IM_REQEST
+ 		 WHERE MTRIL_CODE = SUBSTR(#{lotId}, 1, 8)
+ 		   AND LOT_ID LIKE '%'|| SUBSTR(#{lotId}, 9) || '%'
+ 		   AND DELETE_AT= 'N'
+	</select>
+	
+	<!-- 의뢰 시험항목 결과 데이터 있는지 확인 -->
+	<select id="getReqestExpriemPsc" parameterType="lims.test.vo.ResultInputPscMVo" resultType="String">
+		SELECT CASE WHEN MAX(RESULT_VALUE) IS NULL THEN 'Y'
+		            ELSE 'N'
+		       END AS RESULT_VALUE
+		  FROM IM_REQEST_EXPRIEM_RESULT
+		 WHERE REQEST_EXPRIEM_SEQNO = #{reqestExpriemSeqno}
+	</select>
+	
+</mapper>

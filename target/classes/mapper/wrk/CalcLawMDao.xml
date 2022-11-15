@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.CalcLawMDao">
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+	<!-- 계산식 목록 조회 -->
+	<select id="getCalcLawMList" parameterType="lims.wrk.vo.CalcLawMVo" resultType="lims.wrk.vo.CalcLawMVo">
+		SELECT
+		    A.CALC_LAW_SEQNO
+		    , A.CALC_LAW_NM
+		    , A.EXPRIEM_SEQNO
+		    , C.EXPRIEM_NM
+		    , A.MTRIL_SEQNO
+		    , B.MTRIL_NM
+		    , B.MTRIL_CODE
+		    , A.NOMFRM_CN
+		    , A.RVSOP_CN
+		    , A.VRIABL_ID
+		    , A.MARK_CPHR
+		    , A.USE_AT
+		    , A.RVSOP_CPHR_RANDOM_CREAT_AT
+		FROM
+			SY_CALC_LAW A
+		LEFT JOIN
+			SY_MTRIL B ON B.MTRIL_SEQNO = A.MTRIL_SEQNO
+		LEFT OUTER JOIN
+			SY_EXPRIEM C ON C.EXPRIEM_SEQNO = A.EXPRIEM_SEQNO
+		<!-- 사용여부, 삭제여부 -->
+		WHERE A.DELETE_AT = 'N' AND B.USE_AT = 'Y' AND B.DELETE_AT = 'N' AND C.USE_AT = 'Y' AND C.DELETE_AT = 'N'
+		<if test="useSch != null and useSch != ''">
+			AND
+				A.USE_AT = #{useSch}
+		</if>
+			AND
+				B.BPLC_CODE = <include refid="bplcCode" />
+		<if test="mtrilTyCodeSch != null and mtrilTyCodeSch != ''">
+			AND
+				B.MTRIL_TY_CODE = #{mtrilTyCodeSch}
+		</if>
+		<if test="calcLawNmSch != null and calcLawNmSch != ''">
+			AND
+				A.CALC_LAW_NM LIKE '%' || #{calcLawNmSch} || '%'
+		</if>
+		<if test="mtrilNmSch != null and mtrilNmSch != ''">
+			AND
+				B.MTRIL_NM LIKE '%' ||	TRIM(UPPER(#{mtrilNmSch})) || '%'
+		</if>
+		<if test="expriemNmSch != null and expriemNmSch != ''">
+			AND
+				C.EXPRIEM_NM LIKE '%' || #{expriemNmSch} ||'%'
+		</if>
+		<if test="mtrilCodeSch != null and mtrilCodeSch != ''">
+			AND
+				B.MTRIL_CODE LIKE '%' || #{mtrilCodeSch} || '%'
+		</if>
+	</select>
+
+	<!-- 계산식 상세 정보 조회 -->
+	<select id="getCalcNomfrm" parameterType="lims.wrk.vo.CalcLawMVo" resultType="lims.wrk.vo.CalcLawMVo">
+		SELECT
+			A.VRIABL_SEQNO
+		    , A.CALC_LAW_SEQNO
+		    , A.VRIABL_ID
+		    , A.VRIABL_NM
+		    , A.VRIABL_UNIT_NM
+		    , A.BASS_VALUE
+		    , A.VRIABL_DC
+		    , NVL(A.MARK_CPHR, 5) AS MARK_CPHR
+		    , NVL(A.BASS_VALUE, '') AS VRIABL_VALUE
+		    , NVL(A.BASS_VALUE, '') AS QC_VRIABL_VALUE
+		    , A.RDMS_CNTC_AT
+		    , A.DATA_CHANGE_AT
+		    , A.LAS_CNTC_AT
+			, <include refid="bplcCode" /> AS BPLC_CODE
+		FROM
+			SY_CALC_NOMFRM_VRIABL A
+		WHERE
+			A.CALC_LAW_SEQNO = #{calcLawSeqno}
+		AND
+			A.DELETE_AT = 'N'
+		ORDER BY
+			A.VRIABL_SEQNO
+	</select>
+
+	<!-- 계산식 등록 -->
+	<insert id="insExprMthCalc" parameterType="lims.wrk.vo.CalcLawMVo">
+		<selectKey keyProperty="calcLawSeqno" resultType="java.lang.String" order="BEFORE">
+			SELECT SQ_SY_CALC_LAW.NEXTVAL AS calcLawSeqno FROM DUAL
+        </selectKey>
+		INSERT INTO SY_CALC_LAW(
+			CALC_LAW_SEQNO
+			, MTRIL_SEQNO
+			, EXPRIEM_SEQNO
+			, CALC_LAW_NM
+			, NOMFRM_CN
+			, RVSOP_CN
+			, VRIABL_ID
+			, MARK_CPHR
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+			, RVSOP_CPHR_RANDOM_CREAT_AT
+		) VALUES (
+			#{calcLawSeqno}
+			, #{mtrilSeqno}
+			, #{expriemSeqno}
+			, #{calcLawNm}
+			, REPLACE(#{nomfrmCn},'MATH.ABS((MATH.RANDOM','Math.abs((Math.random')
+			, #{rvsopCn}
+			, UPPER(#{vriablId})
+			, NVL(#{markCphr},4)
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+			, NVL(#{rvsopCphrRandomCreatAt},'N')
+		)
+	</insert>
+
+	<!-- 계산식 수정 -->
+	<update id="updExprMthCalc" parameterType="lims.wrk.vo.CalcLawMVo">
+		UPDATE SY_CALC_LAW
+			SET
+				MTRIL_SEQNO = #{mtrilSeqno}
+				, EXPRIEM_SEQNO = #{expriemSeqno}
+				, CALC_LAW_NM = #{calcLawNm}
+				, NOMFRM_CN =REPLACE(#{nomfrmCn},'MATH.ABS((MATH.RANDOM','Math.abs((Math.random')
+				, RVSOP_CN = #{rvsopCn}
+				, VRIABL_ID = UPPER(#{vriablId})
+				, MARK_CPHR = NVL(#{markCphr},4)
+				, USE_AT = #{useAt}
+				, LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+				, LAST_CHANGE_DT = SYSDATE
+				, RVSOP_CPHR_RANDOM_CREAT_AT = NVL(#{rvsopCphrRandomCreatAt},'N')
+			WHERE
+				CALC_LAW_SEQNO = #{calcLawSeqno}
+	</update>
+
+	<!-- 계산 수식 변수 등록 -->
+	<insert id="insCalcNomfrmVriabl" parameterType="lims.wrk.vo.CalcLawMVo">
+		<selectKey keyProperty="vriablSeqno" resultType="java.lang.String" order="BEFORE">
+			SELECT NVL(MAX(VRIABL_SEQNO), 0) + 1 AS vriablSeqno FROM SY_CALC_NOMFRM_VRIABL WHERE CALC_LAW_SEQNO = #{calcLawSeqno}
+        </selectKey>
+		INSERT INTO SY_CALC_NOMFRM_VRIABL(
+			VRIABL_SEQNO
+			, CALC_LAW_SEQNO
+			, VRIABL_ID
+			, VRIABL_NM
+			, VRIABL_UNIT_NM
+			, BASS_VALUE
+			, VRIABL_DC
+			, MARK_CPHR
+			, RDMS_CNTC_AT
+			, DATA_CHANGE_AT
+			, LAS_CNTC_AT
+			, USE_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{vriablSeqno}
+			, #{calcLawSeqno}
+			, #{vriablId}
+			, #{vriablNm}
+			, #{vriablUnitNm}
+			, #{bassValue}
+			, #{vriablDc}
+			, NVL(#{markCphr},5)
+			, NVL(#{rdmsCntcAt}, 'N')
+			, NVL(#{dataChangeAt}, 'N')
+			, NVL(#{lasCntcAt},'N')
+			, 'Y'
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+		)
+	</insert>
+	<!-- 계산 수식 변수 삭제 -->
+	<delete id="delCalcNomfrmVriabl" parameterType="String">
+		DELETE FROM
+			SY_CALC_NOMFRM_VRIABL
+		WHERE
+			CALC_LAW_SEQNO = #{sCalcLawSeqno}
+	</delete>
+
+	<!-- 계산 수식 변수 삭제여부 'Y' 선진행, 계산 수식 삭제여부 'Y' 후진행 -->
+	<update id="delCalcLawAndVriabl" parameterType="lims.wrk.vo.CalcLawMVo">
+		BEGIN
+			UPDATE SY_CALC_NOMFRM_VRIABL
+				SET
+					DELETE_AT = 'Y'
+				WHERE
+					CALC_LAW_SEQNO = #{calcLawSeqno};
+
+			UPDATE SY_CALC_LAW
+				SET
+					DELETE_AT = 'Y'
+				WHERE
+					CALC_LAW_SEQNO = #{calcLawSeqno};
+		END;
+	</update>
+
+	<!-- 동일한 계산식 체크 -->
+	<select id="chkCalcInfo" parameterType="lims.wrk.vo.CalcLawMVo" resultType="int">
+		SELECT
+			COUNT(*)
+		FROM
+			SY_CALC_LAW
+		WHERE
+			MTRIL_SEQNO = #{mtrilSeqno}
+		AND
+			EXPRIEM_SEQNO = #{expriemSeqno}
+		AND
+			DELETE_AT = 'N' AND USE_AT = 'Y'
+		<if test="calcLawSeqno != null and calcLawSeqno != ''">
+			AND
+				CALC_LAW_SEQNO != #{calcLawSeqno}
+		</if>
+	</select>
+
+	<!-- 자재목록 팝업 -->
+	<select id="getMtrilPopList" parameterType="lims.wrk.vo.PrductMVo" resultType="lims.wrk.vo.PrductMVo">
+		SELECT
+			A.BPLC_CODE
+			, A.DEPT_CODE
+			, (SELECT XA.INSPCT_INSTT_NM FROM SY_INSPCT_INSTT XA WHERE XA.INSPCT_INSTT_CODE = A.DEPT_CODE) AS DEPT_NM
+			, A.MTRIL_SEQNO
+			, A.MTRIL_NM
+			, A.MTRIL_CODE
+			, A.MTRIL_TY_CODE
+			, (SELECT XA.CMMN_CODE_NM FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = A.MTRIL_TY_CODE) AS MTRIL_TY_NM
+			, A.LBL_DC_OUTPT_AT
+			, C.CMMN_CODE_NM AS PRDUCT_SE_CODE_NM
+			, A.PRDUCT_SE_CODE
+		FROM SY_MTRIL A
+		LEFT JOIN SY_INSPCT_INSTT B ON B.INSPCT_INSTT_CODE = A.BPLC_CODE
+		LEFT JOIN SY_CMMN_CODE C ON A.PRDUCT_SE_CODE = C.CMMN_CODE AND C.USE_AT = 'Y'
+		WHERE A.USE_AT = 'Y'
+		  AND A.DELETE_AT = 'N'
+		  AND B.USE_AT = 'Y'
+		  AND B.DELETE_AT = 'N'
+		  AND A.BPLC_CODE = <include refid="bplcCode"/>
+		<if test="deptCode != null and deptCode != ''">
+			AND A.DEPT_CODE = #{deptCode}
+		</if>
+		<if test="mtrilTyCode != null and mtrilTyCode != ''">
+			AND A.PRDUCT_SE_CODE = #{mtrilTyCode}
+		</if>
+		<if test="mtrilCode != null and mtrilCode != ''">
+			AND A.MTRIL_CODE LIKE '%'|| #{mtrilCode} ||'%'
+		</if>
+		<if test="mtrilNm != null and mtrilNm != ''">
+			AND UPPER(A.MTRIL_NM) LIKE '%'|| UPPER(#{mtrilNm}) ||'%'
+		</if>
+	</select>
+
+	<!-- 자재목록 하위 시험항목 리스트 -->
+	<select id="getCLMtrilExpriemList" parameterType="lims.wrk.vo.CalcLawMVo" resultType="lims.wrk.vo.CalcLawMVo">
+		SELECT
+			B.EXPRIEM_SEQNO as VALUE
+	        , C.EXPRIEM_NM as KEY
+	        , B.JDGMNT_FOM_CODE
+	        , (SELECT XA.CMMN_CODE_NM FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = B.JDGMNT_FOM_CODE) AS JDGMNT_FOM_NM
+		FROM
+			SY_MTRIL A
+    	LEFT JOIN
+    		SY_MTRIL_SDSPC B ON B.MTRIL_SEQNO = A.MTRIL_SEQNO
+		LEFT JOIN
+			SY_EXPRIEM C ON C.EXPRIEM_SEQNO = B.EXPRIEM_SEQNO
+		<!-- 사용여부, 삭제여부 -->
+    	WHERE A.USE_AT = 'Y' AND A.DELETE_AT = 'N' AND B.USE_AT = 'Y' AND B.DELETE_AT = 'N' AND C.USE_AT = 'Y' AND C.DELETE_AT = 'N'
+    	AND
+    		A.MTRIL_SEQNO = #{mtrilSeqno}
+    	AND	
+    		C.EXPRIEM_CL_CODE = 'SY05000001'
+    	<!-- <if test="expriemClCode != null and expriemClCode != ''">
+    		AND
+    			C.EXPRIEM_CL_CODE = #{expriemClCode}
+    	</if> -->
+		<if test="expriemNm != null and expriemNm != ''">
+			AND
+				C.EXPRIEM_NM = #{expriemNm}
+		</if>
+		ORDER BY
+			C.EXPRIEM_NM
+	</select>
+
+	<select id="getCalcLawCombo" parameterType="lims.wrk.vo.CalcLawMVo" resultType="lims.wrk.vo.CalcLawMVo">
+		SELECT
+			CALC_LAW_SEQNO VALUE
+			, CALC_LAW_NM KEY
+		FROM SY_CALC_LAW SCL
+		WHERE 1 = 1 AND SCL.DELETE_AT = 'N' AND SCL.USE_AT = 'Y'
+		<if test="mtrilSeqno != null and mtrilSeqno != ''">
+			AND SCL.MTRIL_SEQNO = #{mtrilSeqno}
+		</if>
+		<if test="expriemSeqno != null and expriemSeqno != ''">
+			AND SCL.EXPRIEM_SEQNO = #{expriemSeqno}
+		</if>
+	</select>
+
+	<select id="getCalcMasterInfo" parameterType="lims.wrk.vo.CalcLawMVo" resultType="lims.wrk.vo.CalcLawMVo">
+		SELECT
+			SCL.CALC_LAW_SEQNO
+			, SCL.CALC_LAW_NM
+			, SCL.NOMFRM_CN
+			, SCL.RVSOP_CN
+			, SCL.VRIABL_ID
+			, SCL.MARK_CPHR
+			, SCL.RVSOP_CPHR_RANDOM_CREAT_AT
+			, <include refid="bplcCode" />BPLC_CODE
+		FROM SY_CALC_LAW SCL
+		WHERE 1 = 1 AND SCL.DELETE_AT = 'N' AND SCL.USE_AT = 'Y'
+		<if test="calcLawSeqno != null and calcLawSeqno != ''">
+			AND SCL.CALC_LAW_SEQNO = #{calcLawSeqno}
+		</if>
+	</select>
+</mapper>

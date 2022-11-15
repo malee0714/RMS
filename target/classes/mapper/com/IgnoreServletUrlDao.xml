@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.com.dao.IgnoreServletUrlDao">
+
+	<!-- 사업장 조회 -->
+	<select id="getBplcCode" parameterType="lims.sys.vo.InsttMVo" resultType="lims.com.vo.ComboVo">
+		SELECT
+		       INSPCT_INSTT_CODE VALUE,
+		       INSPCT_INSTT_NM KEY
+		FROM SY_INSPCT_INSTT
+		WHERE DELETE_AT = 'N'
+		  AND USE_AT = 'Y'
+		  AND UPPER_INSPCT_INSTT_CODE IS NULL
+		ORDER BY INSPCT_INSTT_NM ASC
+	</select>
+
+	<!-- 부서 콤보박스 리스트 -->
+	<select id="getDeptCode" parameterType="lims.sys.vo.InsttMVo" resultType="lims.com.vo.ComboVo">
+		SELECT
+			CASE
+				WHEN LEVEL <![CDATA[<=]]> 1 THEN A.INSPCT_INSTT_NM
+			    ELSE LPAD(' ', 2*(LEVEL-1), 'ㅤ') || '└ ' || A.INSPCT_INSTT_NM
+			END AS KEY,
+		 	A.INSPCT_INSTT_CODE AS VALUE
+		FROM SY_INSPCT_INSTT A
+		JOIN (
+			SELECT
+			       IA.INSPCT_INSTT_CODE,
+			       IA.UPPER_INSPCT_INSTT_CODE
+			FROM SY_INSPCT_INSTT IA
+			WHERE IA.USE_AT = 'Y'
+			  AND IA.DELETE_AT = 'N'
+			  AND IA.INSPCT_INSTT_CODE NOT IN (#{bestInspctInsttCode})
+			START WITH IA.INSPCT_INSTT_CODE = #{bestInspctInsttCode}
+			CONNECT BY PRIOR IA.INSPCT_INSTT_CODE = IA.UPPER_INSPCT_INSTT_CODE
+
+			UNION
+
+			SELECT
+				   IB.INSPCT_INSTT_CODE,
+				IB.UPPER_INSPCT_INSTT_CODE
+			FROM SY_INSPCT_INSTT IB
+			WHERE IB.USE_AT = 'Y'
+			  AND IB.DELETE_AT = 'N'
+			  AND IB.INSPCT_INSTT_CODE NOT IN (#{bestInspctInsttCode})
+			START WITH IB.INSPCT_INSTT_CODE = #{bestInspctInsttCode}
+			CONNECT BY PRIOR IB.UPPER_INSPCT_INSTT_CODE = IB.INSPCT_INSTT_CODE
+
+			MINUS
+
+			SELECT
+				   IC.INSPCT_INSTT_CODE,
+				   IC.UPPER_INSPCT_INSTT_CODE
+			FROM SY_INSPCT_INSTT IC
+			CONNECT BY NOCYCLE PRIOR IC.INSPCT_INSTT_CODE = IC.UPPER_INSPCT_INSTT_CODE
+			START WITH IC.INSPCT_INSTT_CODE IN (
+				SELECT
+					   SC.INSPCT_INSTT_CODE
+				FROM SY_INSPCT_INSTT SC
+				WHERE 1=1
+				AND SC.DELETE_AT = 'N'
+				AND SC.USE_AT = 'N'
+			)
+		)B
+		ON B.INSPCT_INSTT_CODE = A.INSPCT_INSTT_CODE
+		START WITH A.UPPER_INSPCT_INSTT_CODE = #{bestInspctInsttCode}
+		CONNECT BY PRIOR A.INSPCT_INSTT_CODE = A.UPPER_INSPCT_INSTT_CODE
+	</select>
+	
+	<!-- 직급,직위 콤보 -->
+	<select id="getOfcpsAndClsfCode" resultType="lims.com.vo.ComboVo" parameterType="lims.sys.vo.CmmnCodeMVo">
+		SELECT
+			CMMN_CODE VALUE,
+			CMMN_CODE_NM KEY
+		FROM SY_CMMN_CODE
+		WHERE UPPER_CMMN_CODE = #{upperCmmnCode}
+	</select>
+	
+	<!-- 사용자 정보 저장 -->
+	<insert id="insUserJoin" parameterType="lims.sys.vo.UserMVo" >
+		<selectKey keyProperty="userId" resultType="lims.sys.vo.UserMVo" order="BEFORE">
+			SELECT SQ_SY_USER.NEXTVAL AS USER_ID FROM DUAL
+		</selectKey>
+		INSERT INTO SY_USER (
+			USER_ID
+			, BPLC_CODE
+			, LOGIN_ID
+			, DEPT_CODE
+			, USER_NM
+			, PASSWORD
+			, MOBLPHON
+			, EMAIL
+			, OFCPS_CODE
+			, CLSF_CODE
+			, AUTHOR_SE_CODE
+			, ENCPN
+			, TIMHDER_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+			, LAST_LOGIN_DT
+			,SBSCRB_CONFM_AT
+		) VALUES (
+			#{userId}
+			, '1000'
+			, #{loginId}
+			, #{deptCode}
+			, #{userNm}
+			, (SELECT PKG_CRYPTO.ENCRYPT(#{password}) FROM DUAL)
+			, #{moblphon}
+			, #{email}
+			, #{ofcpsCode}
+			, #{clsfCode}
+			, 'SY09000003'
+			, #{encpn}
+			, CASE WHEN #{timhderAt} = 'on' THEN 'Y' ELSE 'N' END
+			, 'NEW USER JOIN'
+			, SYSDATE
+			, SYSDATE
+			, 'Y'
+		)
+	</insert>
+	
+	<insert id="insAthUser" parameterType="lims.sys.vo.UserMVo"  >
+			INSERT INTO SY_AUTHOR_USER(
+				AUTHOR_CODE
+				,USER_ID
+				,STRE_AUTHOR_AT
+				,INQIRE_AUTHOR_AT
+				,DELETE_AUTHOR_AT
+				,OUTPT_AUTHOR_AT
+				,LAST_CHANGER_ID
+				,LAST_CHANGE_DT
+			)VALUES
+			(
+				#{authorCode},
+				#{userId},
+				'Y',
+				'Y',
+				'Y',
+				'Y',
+				'NEW USER JOIN',
+				sysdate	
+			)
+			
+	</insert>
+	
+	<select id="findAuthorCode" parameterType="lims.sys.vo.UserMVo" resultType="java.lang.String">
+	SELECT AUTHOR_CODE  FROM  SY_INSPCT_INSTT WHERE INSPCT_INSTT_CODE = #{deptCode}
+	
+	</select>
+	
+	<select id="getLoginIdList" resultType="java.lang.String">
+		SELECT LOGIN_ID FROM SY_USER
+	</select>
+
+	<!-- 비밀번호 정책 조회 -->
+	<select id="getPasswordPolicy" resultType="lims.sys.vo.UserMVo">
+		SELECT
+			LOGIN_FAILR_LOCK_AT
+			, LOGIN_FAILR_LOCK_NUMOT
+			, PASSWORD_POLICY_EXECUT_AT
+			, PASSWORD_MXMM_CPHR
+			, PASSWORD_SPCL_CHRCTR_INCLS_AT
+			, PASSWORD_NUMBER_INCLS_AT
+			, PASSWORD_UPPRS_INCLS_AT
+			, CTMMNY_CNTRMSR_AT
+		FROM
+			SY_SYS_MANAGE
+	</select>
+</mapper>

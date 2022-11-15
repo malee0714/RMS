@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.src.dao.PedigeeRealMDao">
+	<select id="getUpperReqestPedigee" resultType="lims.src.vo.PedigeeMVo" parameterType="lims.src.vo.PedigeeMVo">
+		  SELECT 
+<!-- 		 	삭제하면 안됩니다. -->
+		 	/*+ OPT_PARAM('_optimizer_connect_by_cost_based', 'false') */	
+			IB.PRDUCT_SEQNO
+            ,IA.UPPER_REQEST_SEQNO
+            ,BATCH_CO
+            ,TY_DC
+            ,VIRTL_DC
+            ,IB.REQEST_SEQNO
+            ,IB.MTRIL_CODE
+            ,IB.PRDUCT_MTRIL_SEQNO
+            ,IB.PRDUCT_SE_CODE
+            ,LOT_ID
+            ,REQEST_DTE
+            ,MNFCTUR_DTE
+            ,SP.MTRIL_NM
+            ,FN_GET_CDDTLNM(IB.PROCESS_TY_CODE) PROCESS_TY
+            ,DEPT.INSPCT_INSTT_NM AS REQEST_DEPT_NM
+            ,(SELECT WM_CONCAT(REQEST_SE_CODE) FROM IM_REQEST_SE IRS WHERE IB.REQEST_SEQNO = IRS.REQEST_SEQNO) REQEST_SE_CODE_LIST
+            ,FN_GET_CDDTLNM(IB.VIRTL_LOT_SE_CODE) VIRTL_LOT_SE
+            ,SP.PRDUCT_NM
+            ,(
+				 SELECT 
+				 	CASE 
+			       WHEN ('${@lims.util.GetUserSession@getAuthorSeCode()}' = 'SY09000001'
+			       OR '${@lims.util.GetUserSession@getAuthorSeCode()}' = 'SY09000002' 
+			       OR ('${@lims.util.GetUserSession@getAuthorSeCode()}' = 'SY09000004' AND CTMMNY_OTHBC_AT = 'Y')) 
+			       THEN LISTAGG(SCC1.CMMN_CODE_NM, ',') WITHIN GROUP (ORDER BY REQEST_SE_CODE)
+			       ELSE '' END
+				 FROM IM_REQEST_SE AA
+				 LEFT JOIN SY_CMMN_CODE SCC1 ON AA.REQEST_SE_CODE = SCC1.CMMN_CODE
+				 WHERE AA.REQEST_SEQNO = IB.REQEST_SEQNO
+			) REQEST_SE_TEXT
+            ,IB.JDGMNT_WORD_CODE
+            ,SCC2.CMMN_CODE_NM PROGRS_SITTN_CODE_NM
+            ,IB.PRDLST_NM
+            ,SPT.TANK_NM
+            ,SCC3.CMMN_CODE_NM JDGMNT_WORD_CODE_NM
+            ,IB.FRST_LOT_ID
+            ,(SELECT COUNT(*) FROM IM_ISSUE WHERE REQEST_SEQNO = IB.REQEST_SEQNO AND DELETE_AT = 'N') ISSUE_CNT
+		FROM (
+		SELECT a.REQEST_SEQNO, NULL AS upper_reqest_seqno 
+		FROM IM_REQEST a
+		WHERE 1=1 
+		and a.REQEST_SEQNO IN (
+		  SELECT
+		    CONNECT_by_root b.REQEST_SEQNO
+		  FROM IM_REQEST_UPPER_REAL_LOT_ID b 
+		  START WITH b.LOT_ID_REQEST_SEQNO IN (
+		    SELECT IA.REQEST_SEQNO  
+		    FROM IM_REQEST IA 
+		    JOIN SY_PRDUCT IB ON IA.PRDUCT_SEQNO = IB.PRDUCT_SEQNO
+			JOIN SY_PRDUCT_UPPER IC ON IC.PRDUCT_UPPER_SEQNO = IB.PRDUCT_UPPER_SEQNO
+		    WHERE IA.DELETE_AT= 'N'
+		    <if test="authorSeCode == 'SY09000004'">
+		    	AND IA.CTMMNY_OTHBC_AT = 'Y'
+		    </if>
+		    <if test="deptCodeSch != null and deptCodeSch !=''">
+	            AND IA.REQEST_DEPT_CODE = #{deptCodeSch}
+	        </if>
+	        <if test="prductSeqnoSch != null and prductSeqnoSch !=''">
+	            AND IC.PRDUCT_UPPER_SEQNO = #{prductSeqnoSch}
+	        </if>
+	        <if test="lotIdSch != null and lotIdSch != ''">
+	            AND IA.LOT_ID LIKE '%' || UPPER(#{lotIdSch}) || '%'
+	        </if>
+	        <if test="mtrilCodeSch != null and mtrilCodeSch != ''">
+	            AND IB.PRDUCT_SEQNO = REPLACE(#{mtrilCodeSch},'|','')
+	        </if>
+	        <if test="processTySch != null and processTySch != ''">
+	            AND IA.PROCESS_TY_CODE = #{processTySch}
+	        </if>
+	        <if test="reqestStDte != null and reqestStDte != ''">
+	            <if test="reqestEnDte != null and reqestEnDte != ''">
+	                AND IA.REQEST_DTE BETWEEN #{reqestStDte} AND #{reqestEnDte}
+	            </if>	
+	            <if test="reqestEnDte == null or reqestEnDte == ''">
+	                AND IA.REQEST_DTE <![CDATA[ > ]]> #{reqestStDte}
+	            </if>
+	        </if>
+	        <if test="processTyElseCodeSch != null and processTyElseCodeSch != ''">
+	            AND IA.PROCESS_TY_ELSE_CODE = #{processTyElseCodeSch}
+	        </if>
+	        <if test="progrsSittnCodeSch != null and progrsSittnCodeSch != ''">
+	            AND IA.PROGRS_SITTN_CODE = #{progrsSittnCodeSch}
+	        </if>
+	        <if test="reqestSeCodeSch != null and reqestSeCodeSch != ''">
+	            AND EXISTS (SELECT * FROM 
+	                        IM_REQEST_SE AA 
+	                        JOIN IM_REQEST AB ON AA.REQEST_SEQNO = AB.REQEST_SEQNO
+	                        WHERE AA.REQEST_SE_CODE = #{reqestSeCodeSch} 
+	                        <if test="authorSeCode == 'SY09000004'">
+	                        	AND AB.CTMMNY_OTHBC_AT = 'Y'
+	                        </if>
+	                        AND AA.REQEST_SEQNO = IA.REQEST_SEQNO)
+	        </if>
+		  )
+		  CONNECT BY PRIOR b.REQEST_SEQNO =  b.LOT_ID_REQEST_SEQNO
+		)
+		
+		UNION ALL
+		SELECT b.LOT_ID_REQEST_SEQNO, b.REQEST_SEQNO AS upper_reqest_seqno 
+		FROM IM_REQEST_UPPER_REAL_LOT_ID b
+		) ia
+		JOIN IM_REQEST IB ON IA.REQEST_SEQNO = IB.REQEST_SEQNO  
+        LEFT JOIN SY_CMMN_CODE SCC2 ON SCC2.CMMN_CODE = IB.PROGRS_SITTN_CODE
+        LEFT JOIN SY_CMMN_CODE SCC3 ON SCC3.CMMN_CODE = IB.JDGMNT_WORD_CODE    
+        LEFT JOIN SY_PRDUCT_TANK SPT ON SPT.PRDUCT_TNK_SEQNO = IB.PRDUCT_TNK_SEQNO  
+        LEFT JOIN SY_PRDUCT SP ON SP.PRDUCT_SEQNO = IB.PRDUCT_SEQNO       
+        JOIN SY_INSPCT_INSTT DEPT ON DEPT.INSPCT_INSTT_CODE = IB.REQEST_DEPT_CODE  
+        WHERE IB.DELETE_AT = 'N'
+        <if test="authorSeCode == 'SY09000004'">
+        	AND IB.CTMMNY_OTHBC_AT = 'Y'
+        </if>
+		START WITH ia.upper_reqest_seqno IS NULL 
+		CONNECT BY prior ia.REQEST_SEQNO = ia.upper_reqest_seqno
+	</select>
+</mapper>
+	

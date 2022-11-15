@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.rsc.dao.MhrlsCmpdsUseMDao">
+	<!-- 고비용 소모품 사용 조회 -->
+	<select id="getMhrlsCmpdsUseMList" resultType="lims.rsc.vo.MhrlsCmpdsUseMVo" parameterType="lims.rsc.vo.MhrlsCmpdsUseMVo">
+		SELECT CMP.MHRLS_CMPDS_SEQNO
+		      ,CMP.BRCD
+		      ,CMP.CHRG_TEAM_SE_CODE		      
+		      ,(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE X WHERE X.CMMN_CODE = CMP.CHRG_TEAM_SE_CODE) AS CHRG_TEAM_NM
+		      ,(SELECT FN_GET_INSPCT_INSTT(X.DEPT_CODE) FROM SY_CHRG_TEAM X WHERE X.CHRG_TEAM_SEQNO = CMP.CHRG_TEAM_SEQNO ) AS DEPT_NM
+		      ,CMP.MHRLS_CMPDS_SE_CODE
+		      ,FN_GET_CDDTLNM(CMP.MHRLS_CMPDS_SE_CODE) AS MHRLS_CMPDS_SE_NM
+		      ,RM.MHRLS_NM
+	          ,TIM.MHRLS_SEQNO
+		      ,CMP.CMPDS_NM
+		      ,TO_CHAR(TIM.USE_BEGIN_DT, 'YYYY-MM-DD HH24:MI:SS') AS USE_BEGIN_DT
+		      ,TO_CHAR(TIM.USE_END_DT, 'YYYY-MM-DD HH24:MI:SS') AS USE_END_DT
+		      ,TIM.USE_PURPS
+		      ,TIM.RM
+		      ,CMP.NOW_USE_AT
+		      ,TIM.ORDR
+		      ,CMP.MHRLS_CL_CODE
+		      ,FN_GET_CDDTLNM(CMP.MHRLS_CL_CODE) AS MHRLS_CL_CODE_NM
+		      ,CASE WHEN CMP.VALID_DTE <![CDATA[<=]]> SYSDATE THEN 'Y' ELSE 'N' END VALID_CHK
+		  FROM RS_MHRLS_CMPDS CMP
+		      ,RS_CMPDS_USE_TIME TIM
+		      ,(
+	          	SELECT CMP.MHRLS_CMPDS_SEQNO, TIM.ORDR
+	              FROM RS_MHRLS_CMPDS CMP
+	                  ,RS_CMPDS_USE_TIME TIM
+	              WHERE CMP.MHRLS_CMPDS_SEQNO = TIM.MHRLS_CMPDS_SEQNO
+	                AND TIM.DELETE_AT = 'N'
+	           )OD
+	           ,RS_MHRLS RM
+		 WHERE 1=1
+		   AND CMP.MHRLS_CMPDS_SEQNO = TIM.MHRLS_CMPDS_SEQNO
+		   AND CMP.MHRLS_CMPDS_SEQNO = OD.MHRLS_CMPDS_SEQNO
+      	   AND TIM.ORDR = OD.ORDR
+      	   AND RM.MHRLS_sEQNO(+) = TIM.MHRLS_SEQNO
+		   AND CMP.DELETE_AT = 'N'		   
+		<if test="shrBrcd != null and shrBrcd != '' ">
+			AND UPPER(CMP.BRCD) LIKE '%' || UPPER(TRIM(#{shrBrcd})) || '%'
+		</if>
+		<if test="shrDeptCode != null and shrDeptCode != '' ">
+			AND TIM.MHRLS_SEQNO = #{shrDeptCode}
+		</if>
+		<if test="shrChrgTeamSeqno != null and shrChrgTeamSeqno != '' ">
+			AND CMP.CHRG_TEAM_SE_CODE = #{shrChrgTeamSeqno}
+		</if>
+		<if test="shrMhrlsClCode != null and shrMhrlsClCode != '' ">
+			AND CMP.MHRLS_CL_CODE = #{shrMhrlsClCode}
+		</if>
+		<if test="shrMhrlsNm != null and shrMhrlsNm != '' ">
+			AND TIM.MHRLS_SEQNO = #{shrMhrlsNm}
+		</if>
+		<if test="shrMhrlsCmpdsSeCode != null and shrMhrlsCmpdsSeCode != '' ">
+			AND CMP.MHRLS_CMPDS_SE_CODE = #{shrMhrlsCmpdsSeCode}
+		</if>
+		<if test="shrCmpdsNm != null and shrCmpdsNm != '' ">
+			AND UPPER(CMP.CMPDS_NM) LIKE '%' || UPPER(TRIM(#{shrCmpdsNm})) || '%'
+		</if>
+		  
+		ORDER BY CMP.LAST_CHANGE_DT DESC
+	</select>
+	
+	<!-- 고비용 소모품 사용 바코드 조회 -->
+	<select id="getBrcdMhrlsCmpdsUseM" resultType="lims.rsc.vo.MhrlsCmpdsUseMVo" parameterType="lims.rsc.vo.MhrlsCmpdsUseMVo">
+		SELECT * FROM (SELECT CMP.MHRLS_CMPDS_SEQNO
+		      ,CMP.BRCD
+		      ,CMP.CHRG_TEAM_SE_CODE CHRG_TEAM_SEQNO
+		      ,(SELECT X.CMMN_CODE_NM FROM SY_CMMN_CODE X WHERE X.CMMN_CODE = CMP.CHRG_TEAM_SE_CODE ) AS CHRG_TEAM_NM
+		      ,(SELECT FN_GET_INSPCT_INSTT(X.DEPT_CODE) FROM SY_CHRG_TEAM X WHERE X.CHRG_TEAM_SEQNO = CMP.CHRG_TEAM_SEQNO ) AS DEPT_NM
+		      ,CMP.MHRLS_CMPDS_SE_CODE
+		      ,FN_GET_CDDTLNM(CMP.MHRLS_CMPDS_SE_CODE) AS MHRLS_CMPDS_SE_NM
+		      ,TIM.MHRLS_SEQNO
+		      ,RM.MHRLS_NM
+		      ,CMP.CMPDS_NM
+		      ,TO_CHAR(TIM.USE_BEGIN_DT, 'YYYY-MM-DD HH24:MI:SS') AS USE_BEGIN_DT
+		      ,TO_CHAR(TIM.USE_END_DT, 'YYYY-MM-DD HH24:MI:SS') AS USE_END_DT
+		      ,TIM.USE_PURPS
+		      ,TIM.RM
+		      ,CMP.NOW_USE_AT
+		      ,TIM.ORDR
+		      ,CMP.VALID_DTE
+		      ,CMP.USE_DTE
+		      ,CMP.DELETE_AT
+		      ,CMP.MHRLS_CL_CODE
+		  FROM RS_MHRLS_CMPDS CMP
+               LEFT JOIN RS_CMPDS_USE_TIME TIM ON CMP.MHRLS_CMPDS_SEQNO = TIM.MHRLS_CMPDS_SEQNO AND TIM.DELETE_AT = 'N'
+               LEFT JOIN RS_MHRLS RM ON TIM.MHRLS_SEQNO = RM.MHRLS_SEQNO
+		 WHERE CMP.DELETE_AT = 'N'
+		<if test="shrBrcd != null and shrBrcd != '' ">
+			AND CMP.BRCD = #{shrBrcd}
+		</if>
+			ORDER BY ORDR DESC )WHERE ROWNUM = 1
+	</select>
+	
+	<!-- 소모품 사용 시간 정보 저장 -->
+	<insert id="instMhrlsCmpdsUseM" parameterType="lims.rsc.vo.MhrlsCmpdsUseMVo">
+		INSERT INTO RS_CMPDS_USE_TIME(
+		     MHRLS_CMPDS_SEQNO
+			,ORDR
+			,USER_ID
+			,USE_DTE
+			,USE_BEGIN_DT
+			,USE_END_DT
+			,USE_PURPS
+			,RM
+			,USE_TIME
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,MHRLS_SEQNO
+		)VALUES(
+		     #{mhrlsCmpdsSeqno}
+			,(SELECT NVL(MAX(ORDR), 0) +1 FROM RS_CMPDS_USE_TIME WHERE MHRLS_CMPDS_SEQNO = #{mhrlsCmpdsSeqno})
+			,'${@lims.util.GetUserSession@getUserId()}'
+			,SYSDATE
+			,SYSDATE
+			,''
+			,#{usePurps}
+			,#{rm}
+			,#{useTime}
+			,'${@lims.util.GetUserSession@getUserId()}'
+			,SYSDATE
+			,#{mhrlsSeqno}
+		)
+	</insert>
+	
+	<!-- 소모품 사용 시간 정보 수정 -->
+	<update id="updtMhrlsCmpdsUseM" parameterType="lims.rsc.vo.MhrlsCmpdsUseMVo">
+		UPDATE  RS_CMPDS_USE_TIME
+		   SET  USE_BEGIN_DT    = TO_DATE(#{useBeginDt}, 'YYYY-MM-DD HH24:MI:SS')
+			   ,USE_END_DT	    = TO_DATE(#{useEndDt}, 'YYYY-MM-DD HH24:MI:SS')
+			   ,USE_TIME	    = #{useTime}
+			   ,USE_PURPS 	    = #{usePurps}
+			   ,RM 			    = #{rm}
+			   ,USER_ID         = '${@lims.util.GetUserSession@getUserId()}'
+			   ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+               ,LAST_CHANGE_DT  = SYSDATE
+               ,MHRLS_SEQNO = #{mhrlsSeqno}
+		  WHERE MHRLS_CMPDS_SEQNO = #{mhrlsCmpdsSeqno}
+		    AND ORDR = #{ordr}
+	</update>
+	
+	<!-- 현재 사용 여부 수정 -->
+	<update id="updNowUseAt" parameterType="lims.rsc.vo.MhrlsCmpdsUseMVo">
+		UPDATE  RS_MHRLS_CMPDS A
+		   SET  A.NOW_USE_AT      = #{nowUseAt}
+		       ,A.TOT_USE_TIME = (SELECT SUM(ROUND((NVL(USE_END_DT,SYSDATE) - USE_BEGIN_DT)*24)) FROM RS_CMPDS_USE_TIME WHERE MHRLS_CMPDS_SEQNO = #{mhrlsCmpdsSeqno})
+		       ,A.USE_DTE = NVL(A.USE_DTE, TO_CHAR(SYSDATE,'YYYY-MM-DD'))
+			   ,A.LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+               ,A.LAST_CHANGE_DT  = SYSDATE
+		  WHERE A.MHRLS_CMPDS_SEQNO = #{mhrlsCmpdsSeqno}
+	</update>
+	
+	<update id="delMhrlsCmpdsUseM" parameterType="lims.rsc.vo.MhrlsCmpdsUseMVo">
+		UPDATE  RS_CMPDS_USE_TIME
+		   SET  DELETE_AT       = 'Y'
+			   ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+               ,LAST_CHANGE_DT  = SYSDATE
+		  WHERE MHRLS_CMPDS_SEQNO = #{mhrlsCmpdsSeqno}
+		    AND ORDR = #{ordr}
+	</update>
+	
+
+
+</mapper>

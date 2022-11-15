@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.EntrpsMDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'
+	</sql>
+
+	<!-- 업체관리 리스트 -->
+	<select id="getEntrpsMList" parameterType="lims.wrk.vo.EntrpsMVo"
+		resultType="lims.wrk.vo.EntrpsMDto">
+		SELECT
+		A.ENTRPS_SEQNO,
+		A.ENTRPS_NM entrpsNm,
+		A.USE_AT entUseAt,
+		CASE
+			WHEN B.ENTRPS_SE_CODE IS NOT NULL AND B.USE_AT = 'Y' THEN 'Y'
+			ELSE 'N'
+		END entrpsSeCodeCus,
+		CASE
+			WHEN C.ENTRPS_SE_CODE IS NOT NULL AND C.USE_AT = 'Y' THEN 'Y'
+			ELSE 'N'
+		END entrpsSeCodeCoop
+		FROM SY_ENTRPS A
+		LEFT JOIN SY_ENTRPS_SE B ON A.ENTRPS_SEQNO = B.ENTRPS_SEQNO AND B.ENTRPS_SE_CODE ='SY08000001'
+		LEFT JOIN SY_ENTRPS_SE C ON B.ENTRPS_SEQNO = C.ENTRPS_SEQNO AND C.ENTRPS_SE_CODE = 'SY08000002'
+		WHERE A.DELETE_AT = 'N'
+		AND A.BPLC_CODE = <include refid="bplcCode" />
+		<if test="srcUseAt != null and srcUseAt !=''">
+			AND A.USE_AT LIKE '%' || #{srcUseAt} || '%'
+		</if>
+		<if test="srchentrpsNm != null and srchentrpsNm !=''">
+			AND A.ENTRPS_NM LIKE '%' || #{srchentrpsNm} || '%'
+		</if>
+		<if test=" entrpsSeCodeSch != null and entrpsSeCodeSch != '' ">
+			AND (B.ENTRPS_SE_CODE = #{entrpsSeCodeSch} AND B.USE_AT = 'Y' OR C.ENTRPS_SE_CODE = #{entrpsSeCodeSch} AND C.USE_AT = 'Y') 
+		</if>
+		ORDER BY A.ENTRPS_SEQNO DESC
+	</select>
+
+	<!-- SY_ENTRPS 업체정보 등록 -->
+	<insert id="insEntrpsM" parameterType="lims.wrk.vo.EntrpsMDto">
+		<selectKey resultType="Integer" keyProperty="entrpsSeqno"
+			order="BEFORE">
+			SELECT SQ_SY_ENTRPS.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO SY_ENTRPS
+		VALUES(
+		#{entrpsSeqno},
+		<include refid="bplcCode" />
+		,
+		#{entrpsNm},
+		#{entUseAt},
+		'N',
+		<include refid="loginId" />
+		,
+		SYSDATE
+		)
+	</insert>
+
+	<!-- SY_ENTRPS 업체정보 수정 -->
+	<update id="updEntrpsM" parameterType="lims.wrk.vo.EntrpsMDto">
+		UPDATE SY_ENTRPS SET
+			ENTRPS_NM = #{entrpsNm},
+			USE_AT = #{entUseAt},
+			LAST_CHANGER_ID =<include refid="loginId" />,
+			LAST_CHANGE_DT = SYSDATE
+		WHERE ENTRPS_SEQNO = #{entrpsSeqno}
+	</update>
+
+	<!-- SY_ENTRPS 업체정보 삭제 -->
+	<update id="deleteEntrpsM" parameterType="lims.wrk.vo.EntrpsMDto">
+		UPDATE SY_ENTRPS SET
+			DELETE_AT = 'Y',
+			LAST_CHANGER_ID = <include refid="loginId" />,
+			LAST_CHANGE_DT = SYSDATE
+		WHERE ENTRPS_SEQNO = #{entrpsSeqno}
+	</update>
+
+	<!-- SY_ENTRPS_SE 업체 정보 생성 및 수정 -->
+	<update id="saveEntrpsSe" parameterType="lims.wrk.vo.EntrpsMDto">
+		MERGE INTO SY_ENTRPS_SE
+		USING DUAL
+		ON (ENTRPS_SEQNO = #{entrpsSeqno} AND ENTRPS_SE_CODE = #{entrpsSeCode})
+		WHEN MATCHED THEN
+			UPDATE SET
+				USE_AT = 'Y',
+				LAST_CHANGER_ID = <include refid="loginId" />,
+				LAST_CHANGE_DT = SYSDATE
+		WHEN NOT MATCHED THEN
+			INSERT
+			VALUES(
+				#{entrpsSeqno},
+				#{entrpsSeCode},
+				<include refid="bplcCode" />,
+				'Y',
+				<include refid="loginId" />,
+				SYSDATE
+			)
+	</update>
+
+	<!-- SY_ENTRPS_SE 업체 코드 정보 초기화 -->
+	<update id="resetEntrpsSeCode" parameterType="lims.wrk.vo.EntrpsMDto">
+		UPDATE SY_ENTRPS_SE SET
+			USE_AT = 'N',
+			LAST_CHANGER_ID = <include refid="loginId" />,
+			LAST_CHANGE_DT = SYSDATE
+		WHERE ENTRPS_SEQNO = #{entrpsSeqno}
+	</update>
+
+
+	<!-- 업체관리 업체명 중복확인 ins -->
+	<select id="insEntrpsNmValidation" resultType="int" parameterType="lims.wrk.vo.EntrpsMDto">
+		SELECT count(*) FROM SY_ENTRPS WHERE ENTRPS_NM = #{entrpsNm} AND DELETE_AT != 'Y'
+	</select>
+
+	<!-- 업체관리 업체명 중복확인 upd -->
+	<select id="updEntrpsNmValidation" resultType="int" parameterType="lims.wrk.vo.EntrpsMDto">
+		SELECT count(*) FROM SY_ENTRPS WHERE ENTRPS_NM = #{entrpsNm} AND ENTRPS_SEQNO != #{entrpsSeqno} AND DELETE_AT != 'Y'
+	</select>
+</mapper>

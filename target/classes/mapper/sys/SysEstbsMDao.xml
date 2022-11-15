@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.sys.dao.SysEstbsMDao">
+	
+	<!-- 시스템 정책 정보 가져오기 -->
+	<select id="getSysManage" resultType="lims.sys.vo.SysEstbsMVo" parameterType="lims.sys.vo.SysEstbsMVo">
+		SELECT
+			LOGIN_FAILR_LOCK_AT,
+			LOGIN_FAILR_LOCK_NUMOT,
+			INITL_PASSWORD,
+			PASSWORD_POLICY_EXECUT_AT,
+			PASSWORD_MXMM_CPHR,
+			PASSWORD_SPCL_CHRCTR_INCLS_AT,
+			PASSWORD_NUMBER_INCLS_AT,
+			PASSWORD_UPPRS_INCLS_AT,
+			CTMMNY_CNTRMSR_AT
+		FROM SY_SYS_MANAGE
+	</select>
+	
+	<!-- 시스템 정책 정보 저장 -->
+	<update id="updSysManage" parameterType="lims.sys.vo.SysEstbsMVo">
+		UPDATE SY_SYS_MANAGE SET
+			LOGIN_FAILR_LOCK_AT = #{loginFailrLockAt},
+			LOGIN_FAILR_LOCK_NUMOT = #{loginFailrLockNumot},
+			INITL_PASSWORD = #{initlPassword},
+			PASSWORD_POLICY_EXECUT_AT = #{passwordPolicyExecutAt},
+			PASSWORD_MXMM_CPHR = #{passwordMxmmCphr},
+			PASSWORD_SPCL_CHRCTR_INCLS_AT = #{passwordSpclChrctrInclsAt},
+			PASSWORD_NUMBER_INCLS_AT = #{passwordNumberInclsAt},
+			PASSWORD_UPPRS_INCLS_AT = #{passwordUpprsInclsAt},
+			CTMMNY_CNTRMSR_AT = #{ctmmnyCntrmsrAt}
+	</update>
+	
+</mapper>

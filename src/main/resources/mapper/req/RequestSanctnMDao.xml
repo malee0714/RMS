@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.req.dao.RequestSanctnMDao">
+
+	<!-- 의뢰 결재 조회, 의뢰 결재의 담당자, 결재 순번  -->
+	<select id="getRequestSanctnList" parameterType="lims.req.vo.RequestSanctnMVo" resultType="lims.req.vo.RequestSanctnMVo">
+	    SELECT
+			IR.REQEST_SEQNO <!-- 의뢰일련번호 -->
+			, IR.BPLC_CODE <!-- 사업장코드 -->
+			, (SELECT XA.INSPCT_INSTT_NM FROM SY_INSPCT_INSTT XA WHERE XA.INSPCT_INSTT_CODE = IR.BPLC_CODE) AS BPLC_NM <!-- 사업장 명 -->
+			, IR.UPPER_REQEST_SEQNO <!-- 상위의뢰일련번호 -->
+			, IR.REQEST_NO <!-- 의뢰번호 -->
+			, IR.MTRIL_SEQNO <!-- 자재일련번호 -->
+			, SP.MTRIL_NM <!-- 자재명 -->
+			, SP.LOT_CODE <!-- 랏트코드 -->
+			, IR.INSPCT_TY_CODE <!-- 검사유형코드 -->
+			, (SELECT XA.CMMN_CODE_NM FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = IR.INSPCT_TY_CODE) AS INSPCT_TY_CODE_NM
+			, IR.PARTCLR_MATTER_CODE <!-- 특이사항코드 -->
+			, IR.REQEST_DTE <!-- 의뢰일자 -->
+			, IR.MNFCTUR_DTE <!-- 제조일자 -->
+			, IR.EMRGNCY_AT <!-- 긴급여부 -->
+			, IR.ORDR <!-- 순서 -->
+			, IR.MTRIL_EQP_SE_SEQNO <!-- 자재 설비 구분 일련번호 -->
+			, IR.MTRIL_VENDOR_SEQNO <!-- 자재 벤더 일련번호 -->
+			, IR.LOT_NO <!-- 랏트번호 -->
+			, IR.FRST_LOT_NO <!-- 최초랏트번호 -->
+			, IR.VENDOR_LOT_NO <!-- 벤더랏트번호 -->
+			, IR.REQEST_DEPT_CODE <!-- 의뢰부서코드 -->
+			, DEPT.INSPCT_INSTT_NM AS REQEST_DEPT_NM <!-- 의뢰부서명 -->
+			, IR.CLIENT_ID <!-- 의뢰자ID -->
+			, SU.USER_NM AS CLIENT_NM <!-- 의뢰자명 -->
+			, IR.EXPRIEM_CO <!-- 시험항목수 -->
+			, IR.RM <!-- 비고 -->
+			, IR.VIRTL_LOT_AT <!-- 가상랏트여부 -->
+			, IR.RE_REQEST_AT <!-- 재의뢰여부 -->
+			, IR.JDGMNT_WORD_CODE <!-- 판정용어코드 -->
+			, IR.PROGRS_SITTN_CODE <!-- 진행상황코드 -->
+			, (SELECT XA.CMMN_CODE_NM FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = IR.PROGRS_SITTN_CODE) AS PROGRS_SITTN_CODE_NM
+			, IR.LAST_ANALS_DT <!-- 최종분석일시 -->
+			, IR.REREQEST_NUM <!-- 재의뢰건수 -->
+			, IR.ROA_CREAT_AT <!-- ROA생성여부 -->
+			, IR.CTMMNY_OTHBC_AT <!-- 고객사공개여부 -->
+			, IR.LOCK_AT <!-- 잠금여부 -->
+			, IR.DELETE_AT <!-- 삭제여부 -->
+			, IR.LAST_CHANGER_ID <!-- 최종변경자ID -->
+			, IR.LAST_CHANGE_DT <!-- 최종변경일시 -->
+			, IR.VALID_PD_CYCLE <!-- 유효 기간 주기 -->
+			, IR.VALID_PD_CYCLE_CODE <!-- ZSY14 유효 기간 주기 코드 -->
+			, IR.VALID_DTE <!-- 유효 일자 -->
+			, CS.SANCTN_SEQNO
+	    FROM <!-- 의뢰 -->
+	      	IM_REQEST IR
+	    LEFT JOIN <!-- 자재 -->
+	      	SY_MTRIL SP ON SP.MTRIL_SEQNO = IR.MTRIL_SEQNO
+	    LEFT JOIN <!-- 검사기관 -->
+	      	SY_INSPCT_INSTT DEPT ON IR.REQEST_DEPT_CODE = DEPT.INSPCT_INSTT_CODE
+	    LEFT JOIN <!-- 이용자 -->
+	      	SY_USER SU ON SU.USER_ID = IR.CLIENT_ID
+	    LEFT JOIN
+	    	CM_SANCTN CS ON CS.SANCTN_SEQNO = IR.SANCTN_SEQNO AND CS.SANCTN_PROGRS_SITTN_CODE = 'CM01000002' <!-- 결재 진행 상황 : 결재 대기 -->
+	    LEFT JOIN
+	    	CM_SANCTN_INFO CSI ON CSI.SANCTN_SEQNO = CS.SANCTN_SEQNO AND CSI.SANCTN_PROGRS_SITTN_CODE = 'CM01000002' <!-- 결재 진행 상황 : 결재 대기 -->
+	    WHERE
+	      	IR.DELETE_AT = 'N'
+	    AND
+	    	CS.SANCTN_KND_CODE = 'CM05000003' <!-- 결재 종류 코드 : 의뢰 -->
+	    AND
+	    	CS.USE_AT = 'Y'
+	    AND
+	    	CSI.USE_AT = 'Y'
+	    AND
+	    	CSI.SANCTNER_ID = '${@lims.util.GetUserSession@getUserId()}'
+	    AND
+	    	IR.PROGRS_SITTN_CODE = 'IM03000002' <!-- 의뢰 진행 상황 : 접수 대기 -->
+	    <if test="bplcCodeSch != null and bplcCodeSch != ''">
+	      	AND
+	        	IR.BPLC_CODE = #{bplcCodeSch}
+	    </if>
+	    <if test="mtrilNmSch != null and mtrilNmSch != ''">
+	      	AND
+	        	UPPER(SP.MTRIL_NM) LIKE '%' || TRIM(UPPER(#{mtrilNmSch})) || '%'
+	    </if>
+	    <if test="lotNoSch != null and lotNoSch != ''">
+	      	AND
+	        	UPPER(IR.LOT_NO) LIKE '%' || TRIM(UPPER(#{lotNoSch})) || '%'
+	    </if>
+	    <if test="reqestNoSch != null and reqestNoSch != ''">
+	      	AND
+	        	UPPER(IR.REQEST_NO) LIKE '%' || TRIM(UPPER(#{reqestNoSch})) || '%'
+	    </if>
+	    <if test="inspctTyCodeSch != null and inspctTyCodeSch != ''">
+	      	AND
+	        	IR.INSPCT_TY_CODE = #{inspctTyCodeSch}
+	    </if>
+	    <if test="stReqestDteSch != null and stReqestDteSch != ''">
+	      	<if test="enReqestDteSch != null and enReqestDteSch != ''">
+	        	AND
+	          		IR.REQEST_DTE BETWEEN #{stReqestDteSch} AND #{enReqestDteSch}
+	      	</if>
+	      	<if test="enReqestDteSch == null or enReqestDteSch == ''">
+	        	AND
+	          		IR.REQEST_DTE <![CDATA[ > ]]> #{stReqestDteSch}
+	      	</if>
+	    </if>
+	    <if test="enReqestDteSch != null and enReqestDteSch != ''">
+	      	<if test="stReqestDteSch == null or stReqestDteSch == ''">
+	        	AND
+	          		IR.REQEST_DTE <![CDATA[ < ]]> #{enReqestDteSch}
+	      	</if>
+	    </if>
+	    <if test="stMnfcturDteSch != null and stMnfcturDteSch != ''">
+	      	<if test="enMnfcturDteSch != null and enMnfcturDteSch != ''">
+	        	AND
+	        		IR.MNFCTUR_DTE BETWEEN #{stMnfcturDteSch} AND #{enMnfcturDteSch}
+	      	</if>
+	      	<if test="enMnfcturDteSch == null or enMnfcturDteSch == ''">
+	        	AND
+	        		IR.MNFCTUR_DTE <![CDATA[ > ]]> #{stMnfcturDteSch}
+	      	</if>
+	    </if>
+	    <if test="enMnfcturDteSch != null and enMnfcturDteSch != ''">
+	      	<if test="stMnfcturDteSch == null or stMnfcturDteSch == ''">
+	        	AND
+	        		IR.MNFCTUR_DTE <![CDATA[ < ]]> #{enMnfcturDteSch}
+	      	</if>
+	    </if>
+	    <if test="reqestDeptCodeSch != null and reqestDeptCodeSch !=''">
+	      	AND
+	       		IR.REQEST_DEPT_CODE = #{reqestDeptCodeSch}
+	    </if>
+	    <if test="@lims.util.GetUserSession@getAuthorSeCode() == 'SY09000004'">
+	      	AND
+	        	IR.CTMMNY_OTHBC_AT = 'Y'
+	    </if>
+	    AND
+	    	IR.VENDOR_COA_AT = 'N'
+	    ORDER BY
+	      	IR.MNFCTUR_DTE, SUBSTR(IR.LOT_NO,9)
+	</select>
+
+	<!-- 의뢰결재 시험항목 조회 -->
+	<select id="getExpriemSanctnList" parameterType="lims.req.vo.RequestSanctnMVo" resultType="lims.req.vo.RequestSanctnMVo">
+		SELECT
+			A.REQEST_SEQNO
+			, A.REQEST_EXPRIEM_SEQNO
+			, A.EXPRIEM_SEQNO
+			, B.EXPRIEM_NM
+			, A.FRST_ANALS_AT
+			, A.MIDDLE_ANALS_AT
+			, A.LAST_ANALS_AT
+			, C.RM
+		FROM
+			IM_REQEST_EXPRIEM A
+		LEFT JOIN
+			SY_EXPRIEM B ON B.EXPRIEM_SEQNO = A.EXPRIEM_SEQNO
+		LEFT JOIN
+			IM_REQEST C ON C.REQEST_SEQNO = A.REQEST_SEQNO
+		WHERE
+			A.REQEST_SEQNO = #{reqestSeqno}
+		  AND
+			A.DELETE_AT = 'N'
+		  AND
+		  	B.EXPRIEM_CL_CODE = 'SY05000001'
+		ORDER BY
+			A.SORT_ORDR ASC
+	</select>
+
+	<!-- 의뢰결재 승인 -->
+	<update id="updApproval" parameterType="lims.req.vo.RequestSanctnMVo">
+		UPDATE CM_SANCTN_INFO A
+			SET
+				A.SANCTN_PROGRS_SITTN_CODE = 'CM01000005' <!-- 결재완료 -->
+				, A.SANCTN_DTE = SYSDATE
+			    , A.LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			    , A.LAST_CHANGE_DT = SYSDATE
+			WHERE
+				A.USE_AT = 'Y'
+			AND
+				A.SANCTN_SEQNO = #{sanctnSeqno}
+			AND
+				A.SANCTNER_ID = '${@lims.util.GetUserSession@getUserId()}'
+	</update>
+
+	<!-- 다음 결재자 조회 -->
+	<select id="getNextSanctnerCnt" parameterType="lims.req.vo.RequestSanctnMVo" resultType="int">
+		SELECT
+			COUNT(A.SANCTNER_ID)
+		FROM
+			CM_SANCTN_INFO A
+		WHERE
+			A.USE_AT = 'Y'
+		AND
+			A.SANCTN_SEQNO = #{sanctnSeqno}
+		AND
+			A.SANCTN_PROGRS_SITTN_CODE = 'CM01000003' <!-- 결재대기예정 -->
+	</select>
+
+	<!-- 결재 진행상황 MIN -->
+	<update id="updSanctnTableProgresSetMinVal" parameterType="lims.req.vo.RequestSanctnMVo">
+		UPDATE CM_SANCTN A
+			SET
+				A.SANCTN_PROGRS_SITTN_CODE = (
+					SELECT
+						MIN(XA.SANCTN_PROGRS_SITTN_CODE)
+					FROM
+						CM_SANCTN_INFO XA
+					WHERE
+						XA.USE_AT = 'Y'
+					AND
+						XA.SANCTN_SEQNO = #{sanctnSeqno}
+				)
+				, A.LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			    , A.LAST_CHANGE_DT = SYSDATE
+			WHERE
+				A.USE_AT = 'Y'
+			  AND
+				A.SANCTN_SEQNO = #{sanctnSeqno}
+	</update>
+
+	<!-- 다음 결재 진행을 위한 결재대기예정자 >>> 결재대기 진행상황 변경 -->
+	<update id="updNextSanctnProgres" parameterType="lims.req.vo.RequestSanctnMVo">
+		UPDATE CM_SANCTN_INFO A
+			SET
+				A.SANCTN_PROGRS_SITTN_CODE = 'CM01000002' <!-- 결재대기 -->
+			    , A.LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			  	, A.LAST_CHANGE_DT = SYSDATE
+			WHERE
+				A.USE_AT = 'Y'
+			AND
+				A.SANCTN_SEQNO = #{sanctnSeqno}
+			AND
+				A.SANCTN_PROGRS_SITTN_CODE = 'CM01000003' <!-- 결재대기예정 -->
+			AND
+				A.SANCTN_ORDR = (
+					SELECT
+						MIN(XA.SANCTN_ORDR)
+					FROM
+						CM_SANCTN_INFO XA
+					WHERE
+						XA.USE_AT = 'Y'
+					AND
+						XA.SANCTN_SEQNO = #{sanctnSeqno}
+					AND
+						XA.SANCTN_PROGRS_SITTN_CODE = 'CM01000003' <!-- 결재대기예정 -->
+				)
+	</update>
+
+	<insert id="insRnt" parameterType="lims.req.vo.RequestSanctnMVo">
+		INSERT INTO CM_RTN (
+			SANCTN_SEQNO
+		   	, ORDR
+		    , RETURNER_ID
+		    , RTN_RESN
+		    , LAST_CHANGER_ID
+		    , LAST_CHANGE_DT
+		) VALUES (
+			#{sanctnSeqno}
+			, (select COUNT(XA.ORDR) + 1 from CM_RTN XA WHERE XA.SANCTN_SEQNO = #{sanctnSeqno} AND XA.USE_AT = 'Y')
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, #{rtnResn}
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- 의뢰결재 반려 -->
+	<update id="updRtnSanctn" parameterType="lims.req.vo.RequestSanctnMVo">
+		UPDATE CM_SANCTN A
+		SET
+			A.SANCTN_PROGRS_SITTN_CODE = 'CM01000004', <!-- 반려 -->
+			A.LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}',
+			A.LAST_CHANGE_DT = SYSDATE
+		WHERE A.USE_AT = 'Y'
+		  AND A.SANCTN_SEQNO = #{sanctnSeqno}
+	</update>
+
+	<!-- 의뢰결재정보 반려 -->
+	<update id="updRtnSanctnInfo" parameterType="lims.req.vo.RequestSanctnMVo">
+		UPDATE CM_SANCTN_INFO A
+			SET
+				A.SANCTN_PROGRS_SITTN_CODE = 'CM01000004'
+			    , A.LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			    , A.LAST_CHANGE_DT = SYSDATE
+			WHERE
+				A.USE_AT = 'Y'
+			  AND
+				A.SANCTN_SEQNO = #{sanctnSeqno}
+			  AND
+				A.SANCTNER_ID = '${@lims.util.GetUserSession@getUserId()}'
+	</update>
+</mapper>

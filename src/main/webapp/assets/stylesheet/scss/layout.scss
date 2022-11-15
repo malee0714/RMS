@@ -1,0 +1,293 @@
+/*공통레이아웃*/
+.wrap {width:100%; display:block;}
+.wrapInner {width:1200px; height:100%; display:block; position:relative; margin:0 auto;}
+
+/* 컨테이너 단나누기 */ 
+/*감싸는 부분을 1200px(예)로 해놓으면 칼럼단이 가로스크롤링시 가변이 아닌 고정형이 된다.*/
+@for $i from 1 through 12 {
+.ctn#{$i} { width: 100%/$i; float:left; }
+.ctn#{$i}Hei { height: (100%/$i); }
+}
+//반응형 미디어에 따른 컨테이너
+$media: (xl: 1500px, lg:1200px, md:866px, sm:490px, xs:1px);
+@each $key, $val in $media {
+
+@media (min-width:$val) {
+@for $i from 1 through 12 {
+.ctn#{$i}-#{$key} { width: 100%/$i; float:left; }
+.ctn#{$i}Hei-#{$key} { height: (100%/$i); }
+}
+}
+
+}
+
+
+//여백삽입 컨테이너
+//반드시 엘리먼트에 부모영역이 있어야 n순서가 올바르게 된다.
+@for $i from 2 through 12 {
+$j:0.5; $k:$j; $d:null;
+// +1씩 몇까지 했을때, 1로 나눠 나머지가 0.5가 남는 경우
+@while $j <= 4 {  
+//변수용 네이밍 조건문 선언
+@if $j%1 == 0.5 { $k: $j+(-0.5); $d: 'd5'; }  
+@else { $k:$j; $d:null; }
+
+//마진값 컨테이너
+.ctn#{$i}-Mg#{$k}#{$d}p {
+    width: (100%-(($i+(-1))*$j))/$i;
+    float:left; margin-right:($j/2)+0%; margin-left:($j/2)+0%; background: #ba521f; height:50px;}
+.ctn#{$i}-Mg#{$k}#{$d}p:nth-of-type(#{$i}n+1) {margin-left:0;}
+.ctn#{$i}-Mg#{$k}#{$d}p:nth-of-type(#{$i}n) {margin-right:0;}
+
+//보더값처리 컨테이너
+.ctn#{$i}-Bd#{$k}#{$d} {
+    width: 100%/$i; float:left; 
+    border-right:($j/2)+px solid #fff; border-left:($j/2)+px solid #fff;
+    box-sizing: border-box;
+    background: #ba521f; height:50px; }
+.ctn#{$i}-Bd#{$k}#{$d}:nth-of-type(#{$i}n+1) {border-left:0;}
+.ctn#{$i}-Bd#{$k}#{$d}:nth-of-type(#{$i}n) {border-right:0;}
+
+$j:$j+0.5;
+} 
+
+} 
+
+/*디스플레이*/
+$display: (dpBlock:block, dpInBlock:inline-block, dpInline:inline, dpNone:none, dpIh:inherit, dpTb:table);
+@each $key ,$val in $display {  
+.#{$key} { display: $val !important; }
+}
+
+/* 레이어위치 */
+$zidx: (zIdx0:0, zIdx-1:-1, zIdx-2:-2, zIdx-3:-3, zIdx-4:-4, zIdx-5:-5, zIdx1:1, zIdx2:2, zIdx3:3, zIdx4:4, zIdx5:5, zIdx999:999, zIdx500:500, zIdx150: 150, zIdx100:100, zIdx10:10);
+@each $key ,$val in $zidx {  
+.#{$key} { z-index: $val !important; }
+}
+
+
+/* 사이즈 */
+$size: (wd:width, hei:height);
+@each $key ,$val in $size {  
+//1씩 음수양수 100 미만 반복문
+@for $i from 0 through 100 {
+.#{$key}#{$i} { #{$val}: $i+px !important; }
+.#{$key}#{$i}p { #{$val}: $i+% !important; }
+}
+//양수 100이상 반복문
+$i:110;
+@while $i <= 1000 {   
+.#{$key}#{$i} { #{$val}: $i+px !important; $i:$i+10; }
+}
+
+
+
+/*텍스트정렬*/
+$txtAl: (taL:left, taR:right, taCt:center, taJ:justify);
+@each $key ,$val in $txtAl {  
+.#{$key} {text-align: $val !important;} 
+}
+$vtcAl: (vaT:top, vaMd:middle, vaBt:bottomcenter, vaBs:baseline);
+@each $key ,$val in $vtcAl {  
+.#{$key} {display:table-cell !important;  vertical-align: $val !important;} 
+}
+
+
+/*정렬*/
+.fL {float:left !important;} .fR {float:right !important;}
+.pstL {position: absolute !important; left:0 !important;} 
+.pstR {position: absolute !important; right:0 !important;}
+.clB {clear:both;} .clL {clear:left;} .clR {clear:right;}
+
+/* 중앙정렬 */
+.pstCt, .pstMd, .tlCtMd, .tlCt, .tlMd { position: absolute !important; }
+.pstCt { left:0 !important; margin-left:auto !important; right:0 !important; margin-right:auto !important; }
+.pstMd { top:0 !important; margin-top:auto !important; bottom:0 !important; margin-bottom:auto !important; }
+.pstCtMd { @extend .pstCt; @extend .pstMd; }
+.tlCt { left:50% !important; transform:translate(-50%, 0); }
+.tlMd { top:50% !important; transform:translate(0, 50%); }
+.tlCtMd { @extend .tlCt; @extend .tlMd; transform:translate(-50%, -50%) !important; }
+.mgCt { margin:0 auto !important; }
+.vtcMd {display:table-cell !important; vertical-align:middle !important;}
+
+
+/* 여백-마진 */
+$pstAttr: (pstRt:relative, pstAs:absolute, pstFx:fixed);
+@each $key ,$val in $pstAttr {  
+.#{$key} {position:$val !important;} 
+}
+
+$blackArea: (mg:margin, mgT:margin-top, mgR:margin-right, mgB:margin-bottom, mgL:margin-left, pd:padding, pdT:padding-top, pdR:padding-right, pdB:padding-bottom, pdL: padding-left, pstT:top, pstR: right, pstB: bottom, pstL: left);
+
+@each $k ,$v in $blackArea {  
+//1씩 음수양수 100 미만 반복문
+@for $i from -99 through 99 {
+.#{$k}#{$i} { #{$v}: #{$i}px !important; }
+}
+//양수 100이상 반복문
+$i:100;
+@while $i <= 1000 {   
+.#{$k}#{$i} { #{$v}: #{$i}px !important; $i:$i+10; }
+}
+//음수 -100 이하 반복문
+$i:-1000;
+@while $i <= 100 {   
+.#{$k}#{$i} { #{$v}: #{$i}px !important; $i:$i+10; }
+}
+}
+
+
+/*개별레이아웃*/
+//Mixin
+@import "mixin"; 
+// @mixin arrowLft {content:""; display: block; width:8px; height:8px; border-top:4.5px solid #dcdcdc; border-right:4.5px solid #dcdcdc; transform: rotate(45deg);}
+.arrowLft::after {content:""; display: block; width:8px; height:8px; border-top:4px solid #dcdcdc; border-right:4px solid #dcdcdc; transform: rotate(45deg);}
+.arrowTop::after{content:""; display: block; width:8px; height:8px; border-top:4.5px solid #dcdcdc; border-right:4.5px solid #dcdcdc; transform: rotate(-45deg);}
+
+
+//화살표
+.ctsArrowArea {
+.arrowArea { width:45px; height:45px; background: #4faadc; border-radius: 50%;
+    // @include posMdCt; 
+    margin: 0 auto; position: relative; transition-duration: 0.3s; cursor: pointer;
+    // color:#fff; text-align: center; line-height: 45px; font-size: 20px;
+    border: 2px solid #a1cee7; 
+}
+.arrowArea:hover { background: #3d92c1; transition-duration: 0.3s; }
+.arrowAreaLft {margin-bottom:10px;}
+.arrowAreaRit {margin-top:10px;}
+.arrowAreaLft::after {@extend .arrowLft; width:10px; height:10px; border-top:1.5px solid #fff; border-right:1.5px solid #fff;  position: absolute; left:15px; top:17px;}
+.arrowAreaRit::after {@extend .arrowLft; width:10px; height:10px; border-top:1.5px solid #fff; border-right:1.5px solid #fff; transform: rotate(-135deg); position: absolute; left:20px; top:17px;}
+
+}
+
+
+/*전체*/
+#wrap {min-width:1350px;}
+
+/*헤더*/
+.mainHeader {min-width:1350px;}
+.mainHeaderTop {height:61px; border-bottom:2px solid #4597c9; position: relative;
+.logo {@include posMd; left:8px;}
+}
+//LNB
+#lnbArea {height:28px; @include posMd; margin-left:300px;
+li {display:inline-block; margin-right:10px;
+a { color:#777; padding: 5px 20px 5px 20px; border-radius: 7px; transition-duration: 0.2s; 
+     font: {size:16px; family:'NotoSansKR-Regular-Hestia';}   
+&:hover, &.open { background: #1b97d3; color:#fff; transition-duration: 0.2s; }
+}
+}
+}
+//GNB
+#gnbArea { height:28px; @include posMd; right:10px;;
+li {display:inline-block; 
+&:nth-of-type(1n)::before {content:"·"; margin: 0 10px 0 10px; font-weight: bold;}   
+&:first-of-type::before {content:"" !important;}   
+a {font-size:13px;
+&:hover {color: #1b97d3;}
+}
+}
+}
+
+//메인헤더하단
+.mainHeaderBot {height:46px; box-sizing: border-box; border-bottom:1px solid #e9e9e9; position: relative;}
+//path
+#pathArea {
+li {float:left; height:46px; line-height:46px; padding:0 57px 0 15px; @include borderLn; border-top:0; box-sizing: border-box; margin-left:-1px;  position: relative;
+&:first-of-type {width:40px; padding:0;
+// & img {width:17px; height:17px; background:url(../image/pathHome.png); @include posMd; @include posCt;}
+// & img {@include posMd; @include posCt;}
+& .pathIco {width:17px; height:17px; background:url(../image/pathHome.png); @include posMd; @include posCt;}
+}
+// & img { width:13px; height:14px; background: url(../image/pathArrow.png); @include posMd; right:9px;}
+& .arrowLft::after {@include posMd; right:9px;}
+}
+}
+//user
+#userArea { float:right;
+span, figcaption {float:left; @include borderLn; line-height:45px; border-top:0; box-sizing: border-box;}
+span {height:46px; width:47px; margin-right:-1px; position:relative; margin-right:-1px; 
+& img { @include posMd; @include posCt; }
+}
+figcaption {padding:0 50px 0 20px; font-size:13px; border-bottom: 0; border-left:0;
+// & img {@include posMd; right:15px;}
+& .userArrow::after { @extend .arrowTop; @include posMd; right:15px; width:6px; height:6px; border-top:2px solid #dcdcdc; border-right:2px solid #dcdcdc; transform: rotate(135deg);}
+}
+}
+
+
+
+/*사이드바*/
+.sidebar { @include borderLn; width:230px; height:100%; border-top:0; float:left;
+.snbTit {width:100%; height:42px; line-height:42px; text-indent: 10px; border-bottom:1px solid #e9e9e9; background:#f7f7f7; font-family: 'NanumGothicBold';}
+}
+
+/*SNB-메뉴전체*/
+#snbArea { .snb {position:relative; 
+& a {display: block;} 
+} 
+}
+
+/*SNB-1뎁스*/
+.snbLst {transition-duration:0.5s;
+&:hover { transition-duration:0.5s; color:#fff;}
+& > a {font-size:14px; height:33px; line-height: 33px; text-indent: 10px; position: relative;
+&.open, &:hover { background:#4faadc; color:#fff; }
+}
+}
+.snbLst > a::after {@extend .arrowLft; width:6px; height:6px; border-top:2px solid #dcdcdc; border-right:2px solid #dcdcdc; @include posMd; right:13px; transition-duration:0.5s;}
+.snbLst > a.open::after {border-top:2px solid #fff; border-right:2px solid #fff; transition-duration:0.5s;}
+.snbTit {position: relative;}
+.snbToggle {width: 0; height: 0; border-top: 7px solid transparent; border-bottom: 7px solid transparent; position: absolute; right:9px; @include posMd; cursor: pointer;}
+.snbToggle.open {border-right: 13px solid #a7a7a7;}
+.snbToggle.close {border-left: 13px solid #a7a7a7;}
+.snbToggle.open:hover {border-right: 14px solid #1b97d3;}
+.snbToggle.close:hover {border-left: 13px solid #1b97d3;}
+
+/*SNB-2뎁스*/
+.snb2dt {display: none; background: #fff;
+.snb2dtLst {
+& > a {font-size:12px; height:30px; line-height:30px; text-indent: 18px; position: relative;
+&:hover, &.open {color:#0e7ebb; cursor: pointer; }
+}
+&:first-of-type {margin-top: 10px;}
+&:last-of-type {margin-bottom: 10px;}
+}
+}
+
+/*메인컨텐츠*/
+.ctsArea {padding:20px; border-right:1px solid #e9e9e9; min-height:793px; margin-left:230px;
+.ctsInnerArea { display:block; margin-top:15px; position: relative;
+&:first-of-type {margin-top: 0;}
+.ctsInnerAreaTop {margin-bottom: 13px;  
+& > div { display:inline-block; } 
+.ctsInnerAreaTopRit {float:right;}
+} 
+}
+}
+
+/*푸터*/
+.mainFooter {width:100%; height:42px; background: #6f6f6f; clear:both;
+.mainInnerFooter {width:1200px; height:42px; margin: 0 auto;}
+.copyright {color:#fff; line-height: 42px; font-size:12px; padding-left: 10px; }
+.scrollTop {width:48px; height:42px; background: #595858; float:right; position: relative; cursor: pointer; transition-duration:0.5s;
+&:hover {background: #4faadc;transition-duration:0.5s;}
+}
+.scrollTop::after {@extend .arrowTop; width:8px; height:8px; border-top:3.5px solid #fff; border-right:3.5px solid #fff;  @include posCt; top:20px;}
+}
+
+/*필수값*/
+th.necessary::after {content:'*'; padding-left:5px; color:red;}
+
+/*이미지첨부*/
+.imgAttArea { @include borderLn; 
+.imgAttTit {border-bottom:1px solid #e9e9e9; padding:10px; font-family: 'NanumGothicBold'}
+.imgAttInnerAreaWrap { padding:10px;}
+.imgAttInnerAreaFir { margin-bottom:10px;
+.imgShowFir, .imgShowAttFir {display:inline-block; vertical-align: middle;}    
+}
+.imgAttInnerArea { margin-bottom:10px;
+&:last-of-type { margin-bottom:0; }
+}
+}

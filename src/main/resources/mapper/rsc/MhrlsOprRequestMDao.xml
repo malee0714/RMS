@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.rsc.dao.MhrlsOprRequestMDao">
+	<!-- 기기 가동 목록 조회 -->
+	<select id="getMhrlsOprList" resultType="lims.rsc.vo.MhrlsOprRequestMVo" parameterType="lims.rsc.vo.MhrlsOprRequestMVo">
+		SELECT A.MHRLS_SEQNO
+		  	  ,A.MHRLS_MANAGE_NO
+			  ,A.MHRLS_NM
+			  ,A.MODL_NO
+			  ,A.MHRLS_BRCD
+			  ,B.OPR_DTE
+              /*,C.BRCD
+              ,C.ANALS_TEAM_SEQNO*/
+              ,TO_CHAR(B.BEGIN_DT, 'YYYY-MM-DD HH24:MI:SS') AS BEGIN_DT
+			  ,TO_CHAR(B.END_DT, 'YYYY-MM-DD HH24:MI:SS') AS END_DT
+			  ,B.OPR_TIME
+			  ,B.OPR_NUM
+	      FROM RS_MHRLS A
+			  ,RS_MHRLS_OPR B
+			  /*,(
+			  	 SELECT MAX(A.MHRLS_SEQNO) AS MHRLS_SEQNO
+			  	      , MAX(B.BRCD) AS BRCD
+			  	      , MAX(B.ANALS_TEAM_SEQNO) AS ANALS_TEAM_SEQNO
+			  	 FROM   RS_MHRLS_OPR_REQEST A
+			  	       ,IM_REQEST_RCEPT B
+			  	 WHERE  A.REQEST_SEQNO = B.REQEST_SEQNO
+			   ) C*/
+	     WHERE A.MHRLS_SEQNO = B.MHRLS_SEQNO
+	       /*AND A.MHRLS_SEQNO = C.MHRLS_SEQNO(+)*/
+	       AND A.DELETE_AT = 'N'
+	       AND B.DELETE_AT = 'N'
+	     <if test="mhrlsManageNo != null and mhrlsManageNo != '' ">
+	        AND A.MHRLS_MANAGE_NO = #{mhrlsManageNo}
+	     </if>
+	     <if test="shrMhrlsManageNo != null and shrMhrlsManageNo != '' ">
+	     	AND UPPER(A.MHRLS_MANAGE_NO) LIKE '%'||UPPER(TRIM(#{shrMhrlsManageNo}))||'%'
+	     </if>
+	     <if test="mhrlsBrcdSch != null and mhrlsBrcdSch != '' ">
+	     	AND UPPER(A.MHRLS_BRCD) LIKE '%'||UPPER(TRIM(#{mhrlsBrcdSch}))||'%'
+	     </if>
+	     <if test="shrMhrlsNm != null and shrMhrlsNm != '' ">
+	     	AND UPPER(A.MHRLS_NM) LIKE '%'||UPPER(TRIM(#{shrMhrlsNm}))||'%'
+	     </if>
+	     <if test="shrModlNo != null and shrModlNo != '' ">
+	     	AND UPPER(A.MODL_NO) LIKE '%'||UPPER(TRIM(#{shrModlNo}))||'%'
+	     </if>
+	     <if test="shrOprBeginDteDte != null and shrOprBeginDteDte != '' and shrOprEndDteDte != null and shrOprEndDteDte != ''">
+	      	AND B.OPR_DTE BETWEEN TO_DATE(#{shrOprBeginDteDte}) AND TO_DATE(#{shrOprEndDteDte})
+	     </if>
+	     <if test="oprDte != null and oprDte != '' ">
+	        AND B.OPR_DTE = #{oprDte}
+	     </if>
+	     ORDER BY A.LAST_CHANGE_DT DESC 
+	</select>
+	
+	<!-- 바코드 번호로 조회 -->
+	<select id="getMhrlsManageNoList" resultType="lims.rsc.vo.MhrlsOprRequestMVo" parameterType="lims.rsc.vo.MhrlsOprRequestMVo">
+		SELECT A.MHRLS_SEQNO
+		  	  ,A.MHRLS_MANAGE_NO
+		  	  ,A.MHRLS_BRCD
+			  ,A.MHRLS_NM
+			  ,A.MODL_NO
+			  ,B.OPR_DTE
+              /*,C.BRCD*/
+              ,TO_CHAR(B.BEGIN_DT, 'YYYY-MM-DD HH24:MI:SS') AS BEGIN_DT
+			  ,TO_CHAR(B.END_DT, 'YYYY-MM-DD HH24:MI:SS') AS END_DT
+			  ,B.OPR_TIME
+	      FROM RS_MHRLS A
+			  ,RS_MHRLS_OPR B
+			  /*,(
+			  	 SELECT MAX(A.MHRLS_SEQNO) AS MHRLS_SEQNO
+			  	      , MAX(B.BRCD) AS BRCD
+			  	 FROM   RS_MHRLS_OPR_REQEST A
+			  	       ,IM_REQEST_RCEPT B
+			  	 WHERE  A.REQEST_SEQNO = B.REQEST_SEQNO
+			   ) C*/
+	     WHERE A.MHRLS_SEQNO = B.MHRLS_SEQNO(+)
+	       /*AND A.MHRLS_SEQNO = C.MHRLS_SEQNO(+)*/
+	       AND A.DELETE_AT = 'N'	   
+	       AND A.MHRLS_BRCD = #{mhrlsBrcd}
+	     <if test="oprDte != null and oprDte != '' ">
+	        AND B.OPR_DTE = #{oprDte}
+	     </if>
+	     ORDER BY A.LAST_CHANGE_DT DESC 
+	</select>
+	
+	<!-- 기기관리번호 바코드 조회 -->
+	<select id="getImReqestList" resultType="lims.req.vo.RequestMVo" parameterType="lims.req.vo.RequestMVo">
+		SELECT A.REQEST_SEQNO
+		 	  ,A.REQEST_SE_TEXT
+          	  ,C.BRCD
+			  ,A.REQEST_DTE
+			  ,A.REQEST_DEPT_CODE
+			  ,(SELECT INSPCT_INSTT_NM FROM SY_INSPCT_INSTT X WHERE A.REQEST_DEPT_CODE = X.INSPCT_INSTT_CODE) AS REQEST_DEPT_NM
+			  ,A.LOT_ID
+			  ,A.PRDLST_NM
+			  ,A.MTRIL_CODE			  
+			  ,(SELECT MTRIL_NM FROM SY_PRDUCT X WHERE X.PRDUCT_SEQNO = A.PRDUCT_SEQNO) AS MTRIL_NM
+			  ,A.TANK_NO
+			  ,A.RM
+			  ,C.MHRLS_SEQNO
+			  ,A.MNFCTUR_DTE
+			  ,C.ORDR
+			  ,D.CHRG_TEAM_NM			  
+	    FROM   IM_REQEST A
+              ,RS_MHRLS_OPR_REQEST C
+              ,SY_CHRG_TEAM D
+        WHERE  A.REQEST_SEQNO = C.REQEST_SEQNO
+          AND  C.ANALS_TEAM_SEQNO = D.CHRG_TEAM_SEQNO
+          AND  C.DELETE_AT = 'N'  
+        <if test="brcd != null and brcd != '' ">
+          AND  C.BRCD = #{brcd}
+        </if>
+        <if test="mhrlsSeqno != null and mhrlsSeqno != '' ">
+          AND  C.MHRLS_SEQNO = #{mhrlsSeqno}
+        </if>
+        <if test="oprDte != null and oprDte != '' ">
+          AND  C.OPR_DTE = #{oprDte} 
+        </if>
+ 
+	</select>
+		
+	<!-- 기기 가동 조회 -->
+	<select id="getMhrlsOpr" resultType="lims.rsc.vo.MhrlsOprRequestMVo" parameterType="lims.rsc.vo.MhrlsOprRequestMVo">
+		SELECT MHRLS_SEQNO
+		      ,OPR_DTE
+		FROM   RS_MHRLS_OPR
+		WHERE  MHRLS_SEQNO = #{mhrlsSeqno}
+		AND    OPR_DTE = #{oprDte}
+	</select>
+	
+	<!-- 기기 가동정보 저장 -->
+	<insert id="insMhrlsOpr" parameterType="lims.rsc.vo.MhrlsOprRequestMVo">	
+		INSERT INTO RS_MHRLS_OPR( 
+			 MHRLS_SEQNO
+			,OPR_DTE
+			,USER_ID
+			,OPR_NUM
+			,BEGIN_DT
+			,END_DT
+			,OPR_TIME
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) VALUES(
+			 #{mhrlsSeqno}
+			,#{oprDte}
+			,'${@lims.util.GetUserSession@getUserId()}'
+			,#{oprNum}
+			,TO_DATE(#{beginDt}, 'YYYY-MM-DD HH24:MI:SS')
+			,TO_DATE(#{endDt}, 'YYYY-MM-DD HH24:MI:SS')
+			,DECODE(#{oprTime},0,NULL,#{oprTime})
+			,'N'
+			,#{lastChangerId}
+			,SYSDATE
+		)																
+	</insert>
+	
+	<!-- 기기 가동 정보 수정 -->
+	<update id="udpMhrlsOrp" parameterType="lims.rsc.vo.MhrlsOprRequestMVo">
+		UPDATE RS_MHRLS_OPR
+		   SET OPR_DTE  		= #{oprDte}
+		      ,BEGIN_DT 		= TO_DATE(#{beginDt}, 'YYYY-MM-DD HH24:MI:SS')
+			  ,END_DT   		= TO_DATE(#{endDt}, 'YYYY-MM-DD HH24:MI:SS')
+			  ,OPR_TIME 		= DECODE(#{oprTime},0,NULL,#{oprTime})
+			  ,LAST_CHANGER_ID  = #{lastChangerId}
+			  ,LAST_CHANGE_DT	= SYSDATE
+			  
+		 WHERE MHRLS_SEQNO 		= #{mhrlsSeqno}
+		   AND OPR_DTE 			= #{oprDte}
+	</update>
+	
+	<!-- 추가된 기기 가동 의뢰 저장 -->
+	<insert id="insMhrlsRequestOpr" parameterType="lims.rsc.vo.MhrlsOprRequestMVo">	
+		INSERT INTO RS_MHRLS_OPR_REQEST( 
+			 ORDR
+		    ,OPR_DTE
+			,MHRLS_SEQNO
+			,REQEST_SEQNO
+			,DELETE_AT
+			,ANALS_TEAM_SEQNO
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,BRCD
+		) VALUES(
+			 (SELECT NVL(MAX(ORDR), 0)+1 FROM RS_MHRLS_OPR_REQEST WHERE MHRLS_SEQNO = #{mhrlsSeqno} AND OPR_DTE = #{oprDte})
+			,#{oprDte}
+			,#{mhrlsSeqno}
+			,#{reqestSeqno}			
+			,'N'
+			,#{analsTeamSeqno}
+			,#{lastChangerId}
+			,SYSDATE
+			,#{brcd}
+		)															
+	</insert>
+	
+	<!-- 삭제된 기가 가동 의뢰 저장 -->
+	<update id="updMhrlsRequestOpr" parameterType="lims.rsc.vo.MhrlsOprRequestMVo">	
+		UPDATE RS_MHRLS_OPR_REQEST SET
+			   DELETE_AT = 'Y'
+			  ,LAST_CHANGER_ID = #{lastChangerId}
+			  ,LAST_CHANGE_DT = SYSDATE
+	    WHERE  ORDR = #{ordr}
+	    AND    OPR_DTE = #{oprDte}
+	    AND    MHRLS_SEQNO = #{mhrlsSeqno}								
+	</update>
+	
+	<!-- 의뢰정보 바코드 조회 -->
+	<select id="getImReqestBacdList" resultType="lims.req.vo.RequestMVo" parameterType="lims.req.vo.RequestMVo">
+		SELECT A.REQEST_SEQNO
+		 	  ,A.REQEST_SE_TEXT
+          	  ,B.BRCD
+			  ,A.REQEST_DTE
+			  ,A.REQEST_DEPT_CODE
+			  ,(SELECT INSPCT_INSTT_NM FROM SY_INSPCT_INSTT X WHERE A.REQEST_DEPT_CODE = X.INSPCT_INSTT_CODE) AS REQEST_DEPT_NM
+			  ,A.LOT_ID
+			  ,A.PRDLST_NM
+			  ,A.MTRIL_CODE			  
+			  ,(SELECT MTRIL_NM FROM SY_PRDUCT X WHERE X.PRDUCT_SEQNO = A.PRDUCT_SEQNO) AS MTRIL_NM
+			  ,D.TANK_NM
+			  ,A.RM
+			  ,C.MHRLS_SEQNO
+			  ,A.MNFCTUR_DTE
+			  ,C.ORDR
+			  ,A.PROGRS_SITTN_CODE		
+			  ,B.ANALS_TEAM_SEQNO	  
+	    FROM   IM_REQEST A
+              ,IM_REQEST_RCEPT_BRCD B
+              ,RS_MHRLS_OPR_REQEST C
+              ,SY_PRDUCT_TANK D
+        WHERE  A.REQEST_SEQNO = B.REQEST_SEQNO
+          AND  A.REQEST_SEQNO = C.REQEST_SEQNO(+)
+          AND  A.DELETE_AT = 'N'
+          AND  A.PRDUCT_TNK_SEQNO = D.PRDUCT_TNK_SEQNO(+)
+        <if test="brcd != null and brcd != '' ">
+          AND  B.BRCD = #{brcd}
+        </if>
+        <if test="mhrlsSeqno != null and mhrlsSeqno != '' ">
+          AND  C.MHRLS_SEQNO = #{mhrlsSeqno}
+        </if>
+        <if test="oprDte != null and oprDte != '' ">
+          AND  C.OPR_DTE = #{oprDte} 
+        </if>
+ 
+	</select>
+		
+	<!-- 기기 가동 목록 삭제 -->
+	<update id="delMhrlsOprRequest" parameterType="lims.req.vo.RequestMVo">
+		UPDATE RS_MHRLS_OPR
+		   SET DELETE_AT = 'Y'
+		      ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			  ,LAST_CHANGE_DT = SYSDATE
+		 WHERE MHRLS_SEQNO = #{mhrlsSeqno}
+		   AND OPR_DTE = #{oprDte}
+	</update>
+	
+	<!-- 기기가동 기기가동건수 저장 -->
+	<update id="updMhrlsRequestOprCnt" parameterType="lims.req.vo.RequestMVo">
+		UPDATE RS_MHRLS_OPR
+		   SET OPR_NUM = (SELECT COUNT(*) FROM RS_MHRLS_OPR_REQEST WHERE DELETE_AT = 'N') 
+		      ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			  ,LAST_CHANGE_DT = SYSDATE
+		 WHERE MHRLS_SEQNO = #{mhrlsSeqno}
+		   AND OPR_DTE = #{oprDte}
+		   
+	</update>
+</mapper>

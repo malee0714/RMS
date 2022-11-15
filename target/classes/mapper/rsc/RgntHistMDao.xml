@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.rsc.dao.RgntHistMDao">
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+	<select id="getPrduct" parameterType="lims.rsc.vo.RgntHistMVo" resultType="lims.rsc.vo.RgntHistMVo">
+			SELECT
+		RP.CUSTLAB_SEQNO,
+		(SELECT CUSTLAB_NM FROM RS_CUSTLAB A  WHERE A.CUSTLAB_SEQNO = RP.CUSTLAB_SEQNO) AS CUSTLAB_NM,
+		PRDUCT_SEQNO,
+		BPLC_CODE,
+		(SELECT INSPCT_INSTT_NM FROM SY_INSPCT_INSTT  where INSPCT_INSTT_CODE= BPLC_CODE)AS  BPLC_CODE_NM,
+		PRDUCT_CL_CODE,
+		PRDUCT_NM,
+		(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE = PRDUCT_CL_CODE) AS PRDUCT_CL_CODE_NM,
+		NVL(NOW_INVNTRY_QY,0) as NOW_INVNTRY_QY,
+		USE_AT
+		FROM RS_PRDUCT RP WHERE 1=1 AND DELETE_AT='N'
+    AND BPLC_CODE = <include refid="bplcCode"/>
+	<if test="prductClCodeSch !=null and prductClCodeSch !=''">
+	AND PRDUCT_CL_CODE= #{prductClCodeSch} 
+	</if>
+	<if test="prductNmSch !=null and prductNmSch !=''">
+	AND UPPER(PRDUCT_NM) LIKE '%'||UPPER(TRIM(#{prductNmSch}))||'%'
+	</if>
+	<if test="custlabSeqno !=null and custlabSeqno !=''">
+		AND CUSTLAB_SEQNO = #{custlabSeqno}
+	</if>
+	<if test="useAtSch !=null and useAtSch !=''">
+		AND USE_AT = #{useAtSch}
+	</if>
+	</select>
+	
+	<select id="getHistlist" parameterType="lims.rsc.vo.RgntHistMVo" resultType="lims.rsc.vo.RgntHistMVo">
+	SELECT
+	RP.CUSTLAB_SEQNO,
+	(SELECT CUSTLAB_NM FROM RS_CUSTLAB  WHERE CUSTLAB_SEQNO = RP.CUSTLAB_SEQNO) AS CUSTLAB_NM,
+	RP.PRDUCT_NM ,
+	(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE=RP.PRDUCT_CL_CODE) as PRDUCT_CL_CODE_NM,
+	RPWBH.PRDUCT_WRHSDLVR_BRCD_SEQNO,
+	RPWB.PRDUCT_SEQNO,
+	RPWB.BRCD,
+	RPWBH.ORDR,
+	RPWBH.WRHSDLVR_SE_CODE,
+	(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE = RPWBH.WRHSDLVR_SE_CODE) AS WRHSDLVR_SE_CODE_NM,
+	RPWBH.WRHSDLVR_DT,
+	RPWBH.WRHSDLVRMAN_ID,
+	 (SELECT USER_NM FROM SY_user WHERE USER_ID = WRHSDLVRMAN_ID) AS WRHSDLVRMAN_NM,
+	 RPWBH.DELETE_AT
+	FROM RS_PRDUCT_WRHSDLVR_BRCD_HIST RPWBH
+	JOIN RS_PRDUCT_WRHSDLVR_BRCD RPWB ON RPWB.PRDUCT_WRHSDLVR_BRCD_SEQNO =	RPWBH.PRDUCT_WRHSDLVR_BRCD_SEQNO
+	JOIN RS_PRDUCT RP ON RPWB.PRDUCT_SEQNO =RP.PRDUCT_SEQNO
+	WHERE 1=1
+	<if test="prductSeqno !=null and prductSeqno !=''">
+	AND RPWB.PRDUCT_SEQNO = #{prductSeqno}
+	</if>
+	<if test="wrhsdlvrSeCodeSch !=null and wrhsdlvrSeCodeSch !=''">
+	AND RPWBH.WRHSDLVR_SE_CODE = #{wrhsdlvrSeCodeSch}
+	</if>
+	<if test="useBeginDte !=null and useBeginDte !=''  and useEndDte !=null and useEndDte !=''">
+	 AND TO_CHAR(RPWBH.WRHSDLVR_DT,'YYYY-MM-DD') BETWEEN #{useBeginDte} AND #{useEndDte}
+	</if>
+    AND RPWBH.BPLC_CODE = <include refid="bplcCode"/>
+    <if test="brcdSch !=null and brcdSch !=''">
+    AND RPWB.BRCD LIKE '%'||TRIM(#{brcdSch})||'%'
+    </if>
+	<if test="deleteAtSch !=null and deleteAtSch !=''">
+	AND RPWBH.DELETE_AT = #{deleteAtSch}
+	</if>
+		<if test="custlabSeqno !=null and custlabSeqno !=''">
+			AND RP.CUSTLAB_SEQNO = #{custlabSeqno}
+		</if>
+	ORDER BY PRDUCT_WRHSDLVR_BRCD_SEQNO , ORDR
+	</select>
+
+</mapper>

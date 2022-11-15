@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.src.dao.ImPartclLogMDao">
+	
+	<select id="getParticleList" parameterType="lims.src.vo.ImpartclLogMVo" resultType="lims.src.vo.ImpartclLogMVo">
+		SELECT
+			IPM.PARTCL_MNTRNG_SEQNO,
+			IPM.MHRLS_SEQNO,
+			TO_CHAR(IPM.MESURE_DT,'YYYY-MM-DD HH24:') || '00' MESURE_DT,
+			IPM.MESURE1_VALUE,
+			IPM.MESURE2_VALUE,
+			IPM.MESURE3_VALUE,
+			IPM.MESURE4_VALUE,
+			RM.MHRLS_NM
+		FROM IM_PARTCL_MNTRNG IPM
+		LEFT JOIN RS_MHRLS RM ON IPM.MHRLS_SEQNO = RM.MHRLS_SEQNO
+		WHERE 1 = 1
+		<if test="stMesureP != null and stMesureP != ''">
+			AND IPM.PARTCL_SE_CODE = #{stMesureP}
+		</if>
+		<if test="stMesureDt != null and stMesureDt != ''">
+			AND TO_CHAR(IPM.MESURE_DT, 'YYYY-MM-DD') BETWEEN #{stMesureDt} AND #{endMesureDt}
+		</if>
+		ORDER BY IPM.MESURE_DT, IPM.PARTCL_MNTRNG_SEQNO
+	</select>
+	
+	<select id="getMhrlsList" resultType="lims.src.vo.ImpartclLogMVo">
+		SELECT
+			MHRLS_SEQNO VALUE,
+			MHRLS_NM KEY
+		FROM RS_MHRLS
+	</select>
+</mapper>

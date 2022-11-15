@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.com.dao.LoginMDao">
+
+	<select id="getUser" parameterType="lims.sys.vo.UserMVo" resultType="lims.sys.vo.UserMVo">
+		SELECT  A.USER_ID
+		        ,A.LOGIN_ID
+		        ,A.DEPT_CODE
+		        ,A.USER_NM
+		        ,(SELECT PKG_CRYPTO.DECRYPT(A.PASSWORD) FROM DUAL) AS PASSWORD
+		        ,A.MOBLPHON
+		        ,A.EMAIL
+		        ,A.CLSF_CODE
+		        ,A.OFCPS_CODE
+		        ,A.AUTHOR_SE_CODE
+		     	,CASE WHEN A.AUTHOR_SE_CODE = 'SY09000004' THEN 'Y' ELSE 'N' END AS AUDIT_AT
+		        ,(
+		            SELECT  CASE 
+		                        WHEN COUNT(IB.AUTHOR_NM) > 1 
+		                        THEN '[' || REGEXP_REPLACE(LISTAGG(IB.AUTHOR_NM,', ') WITHIN GROUP(ORDER BY IB.AUTHOR_NM),'([^,]+)(, \1)+','\1') || ']' 
+		                        ELSE LISTAGG(IB.AUTHOR_NM,', ') WITHIN GROUP(ORDER BY IB.AUTHOR_NM) 
+		                    END 
+		            FROM SY_AUTHOR_USER IA 
+		            INNER JOIN SY_AUTHOR IB ON IA.AUTHOR_CODE = IB.AUTHOR_CODE 
+		            WHERE IA.USER_ID = A.USER_ID 
+		            GROUP BY IA.USER_ID 
+		        ) AS AUTHOR_SE_CODE_NM
+		        ,A.RESIGNDTE
+		        ,A.LOCK_AT
+		        ,A.LOCK_RESN
+		        ,A.USE_AT
+		        ,A.SIGN_ATCHMNFL_SEQNO
+		        ,A.LAST_CHANGER_ID
+		        ,A.LAST_CHANGE_DT
+		        ,A.PASSWORD_FAILR_CO
+		        ,B.BEST_INSPCT_INSTT_CODE
+		        ,B.INSPCT_INSTT_NM
+		        ,A.DEPT_CODE
+		        ,A.BPLC_CODE
+		        ,A.SBSCRB_CONFM_AT
+		FROM SY_USER A
+		LEFT JOIN SY_INSPCT_INSTT B ON A.DEPT_CODE = B.INSPCT_INSTT_CODE 
+        WHERE A.LOGIN_ID = #{loginId}
+		AND A.USE_AT = 'Y'
+	</select>
+	
+	<update id="udtLogout" parameterType="lims.com.vo.LoginMVo">
+		UPDATE AT_LOGIN_HIST SET 
+			LOGOUT_DT = SYSDATE 
+			, LAST_CHANGER_ID = #{userId}
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE LOGIN_DT = (SELECT MAX(LOGIN_DT) FROM AT_LOGIN_HIST WHERE USER_ID = #{userId} AND LOGIN_IP = #{loginIp})
+	</update>
+	
+	<!-- 로그인 실패 카운트 -->
+	<update id="loginFailureCount" parameterType="lims.sys.vo.UserMVo">
+		<selectKey keyProperty="passwordFailrCo" resultType="java.lang.Integer" order="AFTER">
+			SELECT PASSWORD_FAILR_CO AS passwordFailrCo 
+			FROM SY_USER
+			WHERE USE_AT = 'Y'
+			AND LOCK_AT = 'N'
+			AND USER_ID = #{userId}
+        </selectKey>
+		UPDATE SY_USER SET
+			PASSWORD_FAILR_CO = NVL(PASSWORD_FAILR_CO,0) + 1
+		WHERE USE_AT = 'Y'
+		AND LOCK_AT = 'N'
+		AND USER_ID = #{userId}
+	</update>
+	
+	<!-- 로그인 성공 or 실패 -->
+	<update id="loginSucceedOrFailure" parameterType="lims.sys.vo.UserMVo">
+		UPDATE SY_USER SET
+			PASSWORD_FAILR_CO = 0
+			<if test=" gbnFailure != null and gbnFailure != '' ">
+				, LOCK_AT = 'Y'
+				, LOCK_RESN = '비밀번호 5회 불일치'
+			</if>
+		WHERE USE_AT = 'Y'
+		AND LOCK_AT = 'N'
+		AND USER_ID = #{userId}
+	</update>
+	<select id="getChkAthMenu" parameterType="lims.sys.vo.MenuMVo"
+		resultType="int">
+		SELECT COUNT(*) FROM 
+           SY_AUTHOR_MENU A
+        LEFT JOIN SY_AUTHOR_USER B ON A.AUTHOR_CODE = B.AUTHOR_CODE
+        LEFT JOIN SY_MENU C ON A.MENU_SEQNO = C.MENU_SEQNO
+        WHERE B.USER_ID = #{userId} AND C.MENU_URL = #{menuUrl} AND C.USE_AT = 'Y'
+	</select>
+	<update id="updateLastLoginDate" parameterType="lims.sys.vo.UserMVo">
+		/* login
+
+
+
+		   마지막 로그인 일자 update  */
+		update SY_USER a
+			set a.LAST_LOGIN_DT = sysdate
+		where a.USER_ID = #{userId}
+	</update>
+</mapper>

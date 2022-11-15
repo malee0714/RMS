@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.src.dao.QCConditionMDao">
+    <select id="getQcconditionList"  resultType="lims.src.vo.QCConditionMVo"            parameterType="lims.src.vo.QCConditionMVo">
+
+        SELECT COUNT(*)AS cnt ,TO_CHAR(TO_DATE(IRER.RESULT_REGIST_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}')as resultRegistDte , NVL(DATESD.uncnt,0) as uncnt  ,NVL(REREQEST_NUM,0)  AS REREQEST_NUM
+        FROM IM_REQEST_EXPRIEM_RESULT IRER
+            left JOIN (SELECT COUNT(*) AS uncnt ,TO_CHAR(TO_DATE(A.RESULT_REGIST_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}') as RESULT_REGIST_DTE FROM IM_REQEST_EXPRIEM_RESULT A  WHERE JDGMNT_WORD_CODE='IM05000002' AND A.DELETE_AT = 'N'  GROUP BY TO_CHAR(TO_DATE(A.RESULT_REGIST_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}'))DATESD
+        ON DATESD.RESULT_REGIST_DTE =TO_CHAR(TO_DATE(IRER.RESULT_REGIST_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}')
+        JOIN IM_REQEST_EXPRIEM IRE ON IRE.REQEST_EXPRIEM_SEQNO = IRER.REQEST_EXPRIEM_SEQNO
+        left JOIN (SELECT  SUM(REREQEST_NUM) AS  REREQEST_NUM ,TO_CHAR(TO_DATE(A.MNFCTUR_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}') as MNFCTUR_DTE
+        FROM IM_REQEST A  WHERE  A.DELETE_AT = 'N'
+        GROUP BY TO_CHAR(TO_DATE(A.MNFCTUR_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}'))IR ON IR.MNFCTUR_DTE = TO_CHAR(TO_DATE(IRER.RESULT_REGIST_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}')
+        WHERE IRER.JDGMNT_WORD_CODE IS NOT NULL AND IRER.DELETE_AT = 'N'
+        <if test="shrReqestBeginDte !=null and shrReqestBeginDte !='' and shrReqestEndDte !=null and shrReqestEndDte !=''">
+            AND  TO_CHAR(TO_DATE(IRER.RESULT_REGIST_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}') between #{shrReqestBeginDte} AND #{shrReqestEndDte} /**P*/
+        </if>
+        GROUP BY TO_CHAR(TO_DATE(IRER.RESULT_REGIST_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}'),DATESD.uncnt ,REREQEST_NUM
+        ORDER BY TO_CHAR(TO_DATE(IRER.RESULT_REGIST_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}')
+    </select>
+
+    <select id="getQcconditionInspctList"  resultType="lims.src.vo.QCConditionMVo"            parameterType="lims.src.vo.QCConditionMVo">
+    SELECT  COUNT(*) AS cnt ,IR.INSPCT_TY_CODE ,B.CMMN_CODE_NM ,NVL(DATESD.uncnt,0) as uncnt, REREQSET.REREQEST_NUM FROM IM_REQEST_EXPRIEM_RESULT IRER
+    JOIN IM_REQEST_EXPRIEM IRE ON IRE.REQEST_EXPRIEM_SEQNO = IRER.REQEST_EXPRIEM_SEQNO
+    JOIN IM_REQEST IR ON IR.REQEST_SEQNO = IRE.REQEST_SEQNO
+    left JOIN (
+        SELECT COUNT(*)AS uncnt,INSPCT_TY_CODE
+        FROM IM_REQEST_EXPRIEM_RESULT A
+            JOIN IM_REQEST_EXPRIEM IRE
+                ON IRE.REQEST_EXPRIEM_SEQNO = A.REQEST_EXPRIEM_SEQNO
+            JOIN IM_REQEST IR
+                ON IR.REQEST_SEQNO = IRE.REQEST_SEQNO
+        WHERE A.JDGMNT_WORD_CODE='IM05000002'
+          AND A.DELETE_AT = 'N'
+          AND RESULT_REGIST_DTE IS NOT NULL
+        <if test="shrReqestBeginDte !=null and shrReqestBeginDte !='' and shrReqestEndDte !=null and shrReqestEndDte !=''">
+            AND TO_CHAR(TO_DATE(RESULT_REGIST_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}') between #{shrReqestBeginDte} AND #{shrReqestEndDte}
+        </if>
+        <if  test="shrReqestBetweenDte !=null and shrReqestBetweenDte !='' and mnfcturDteSch !=null and mnfcturDteSch !=''">
+            AND  TO_CHAR(TO_DATE(RESULT_REGIST_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}') between #{shrReqestBetweenDte} AND #{shrReqestBetweenDte}  /**P*/
+        </if>
+        GROUP BY IR.INSPCT_TY_CODE
+        )DATESD
+    ON DATESD.INSPCT_TY_CODE = IR.INSPCT_TY_CODE
+        left JOIN (
+        SELECT SUM (REREQEST_NUM) AS REREQEST_NUM ,INSPCT_TY_CODE
+        FROM IM_REQEST IR
+        WHERE 1=1
+        <if test="shrReqestBeginDte !=null and shrReqestBeginDte !='' and shrReqestEndDte !=null and shrReqestEndDte !=''">
+            AND TO_CHAR(TO_DATE(MNFCTUR_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}') between #{shrReqestBeginDte} AND #{shrReqestEndDte}
+        </if>
+        <if  test="shrReqestBetweenDte !=null and shrReqestBetweenDte !='' and mnfcturDteSch !=null and mnfcturDteSch !=''">
+            AND  TO_CHAR(TO_DATE(MNFCTUR_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}') between #{shrReqestBetweenDte} AND #{shrReqestBetweenDte} /**P*/
+        </if>
+        GROUP BY INSPCT_TY_CODE
+        ) REREQSET
+        ON REREQSET.INSPCT_TY_CODE = IR.INSPCT_TY_CODE
+    left JOIN (SELECT CMMN_CODE_NM,CMMN_CODE  FROM SY_CMMN_CODE ) B
+        ON B.CMMN_CODE =  IR.INSPCT_TY_CODE
+    WHERE IRER.JDGMNT_WORD_CODE IS NOT NULL AND IRER.DELETE_AT = 'N'
+        <if test="shrReqestBeginDte !=null and shrReqestBeginDte !='' and shrReqestEndDte !=null and shrReqestEndDte !=''">
+            AND TO_CHAR(TO_DATE(IRER.RESULT_REGIST_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}') between #{shrReqestBeginDte} AND #{shrReqestEndDte}
+        </if>
+        <if  test="shrReqestBetweenDte !=null and shrReqestBetweenDte !='' and mnfcturDteSch !=null and mnfcturDteSch !=''">
+            AND  TO_CHAR(TO_DATE(IRER.RESULT_REGIST_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}') between #{shrReqestBetweenDte} AND #{shrReqestBetweenDte} /**P*/
+        </if>
+    GROUP BY IR.INSPCT_TY_CODE ,DATESD.uncnt,B.CMMN_CODE_NM ,REREQSET.REREQEST_NUM
+        ORDER BY IR.INSPCT_TY_CODE
+</select>
+    <select id="getQcconditionPrductList"  resultType="lims.src.vo.QCConditionMVo"            parameterType="lims.src.vo.QCConditionMVo">
+        SELECT  COUNT(*) AS cnt ,SM.PRDUCT_SE_CODE ,B.CMMN_CODE_NM ,NVL(DATESD.uncnt,0) as uncnt ,REREQSET.REREQEST_NUM  FROM IM_REQEST_EXPRIEM_RESULT IRER
+        JOIN IM_REQEST_EXPRIEM IRE ON IRE.REQEST_EXPRIEM_SEQNO = IRER.REQEST_EXPRIEM_SEQNO
+        JOIN IM_REQEST IR ON IR.REQEST_SEQNO = IRE.REQEST_SEQNO
+        JOIN SY_MTRIL SM ON SM.MTRIL_SEQNO = IR.MTRIL_SEQNO
+        left JOIN (
+        SELECT COUNT(*)AS uncnt,PRDUCT_SE_CODE
+        FROM IM_REQEST_EXPRIEM_RESULT A
+        JOIN IM_REQEST_EXPRIEM IRE
+        ON IRE.REQEST_EXPRIEM_SEQNO = A.REQEST_EXPRIEM_SEQNO
+        JOIN IM_REQEST IR
+        ON IR.REQEST_SEQNO = IRE.REQEST_SEQNO
+        JOIN SY_MTRIL SM
+        ON SM.MTRIL_SEQNO = IR.MTRIL_SEQNO
+        WHERE A.JDGMNT_WORD_CODE='IM05000002'
+        AND A.DELETE_AT = 'N'
+        AND RESULT_REGIST_DTE IS NOT NULL
+        <if test="shrReqestBeginDte !=null and shrReqestBeginDte !='' and shrReqestEndDte !=null and shrReqestEndDte !=''">
+            AND TO_CHAR(TO_DATE(RESULT_REGIST_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}') between #{shrReqestBeginDte} AND #{shrReqestEndDte}
+        </if>
+        <if  test="shrReqestBetweenDte !=null and shrReqestBetweenDte !='' and mnfcturDteSch !=null and mnfcturDteSch !=''">
+            AND  TO_CHAR(TO_DATE(RESULT_REGIST_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}') between #{shrReqestBetweenDte} AND #{shrReqestBetweenDte}  /**P*/
+        </if>
+        GROUP BY PRDUCT_SE_CODE
+        )DATESD
+        ON DATESD.PRDUCT_SE_CODE = SM.PRDUCT_SE_CODE
+        left JOIN (
+        SELECT SUM (REREQEST_NUM) AS REREQEST_NUM ,MTRIL_NM
+        FROM IM_REQEST IR
+        JOIN SY_MTRIL SM
+        ON SM.MTRIL_SEQNO = IR.MTRIL_SEQNO
+        where 1=1
+        <if test="shrReqestBeginDte !=null and shrReqestBeginDte !='' and shrReqestEndDte !=null and shrReqestEndDte !=''">
+            AND TO_CHAR(TO_DATE(MNFCTUR_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}') between #{shrReqestBeginDte} AND #{shrReqestEndDte}
+        </if>
+        <if  test="shrReqestBetweenDte !=null and shrReqestBetweenDte !='' and mnfcturDteSch !=null and mnfcturDteSch !=''">
+            AND  TO_CHAR(TO_DATE(MNFCTUR_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}') between #{shrReqestBetweenDte} AND #{shrReqestBetweenDte}  /**P*/
+        </if>
+        GROUP BY MTRIL_NM
+        ) REREQSET
+        ON REREQSET.MTRIL_NM = SM.MTRIL_NM
+        left JOIN (SELECT CMMN_CODE_NM,CMMN_CODE  FROM SY_CMMN_CODE ) B
+        ON B.CMMN_CODE =  SM.PRDUCT_SE_CODE
+        WHERE IRER.JDGMNT_WORD_CODE IS NOT NULL AND IRER.DELETE_AT = 'N'
+        <if test="shrReqestBeginDte !=null and shrReqestBeginDte !='' and shrReqestEndDte !=null and shrReqestEndDte !=''">
+            AND TO_CHAR(TO_DATE(IRER.RESULT_REGIST_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}') between #{shrReqestBeginDte} AND #{shrReqestEndDte}
+        </if>
+        <if  test="shrReqestBetweenDte !=null and shrReqestBetweenDte !='' and mnfcturDteSch !=null and mnfcturDteSch !=''">
+            AND  TO_CHAR(TO_DATE(IRER.RESULT_REGIST_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}') between #{shrReqestBetweenDte} AND #{shrReqestBetweenDte}  /**P*/
+        </if>
+        GROUP BY SM.PRDUCT_SE_CODE ,DATESD.uncnt,B.CMMN_CODE_NM , REREQSET.REREQEST_NUM
+        ORDER BY SM.PRDUCT_SE_CODE
+    </select>
+
+    <select id="getQcconditionMtrilList"  resultType="lims.src.vo.QCConditionMVo"            parameterType="lims.src.vo.QCConditionMVo">
+        SELECT  COUNT(*) AS cnt ,SM.MTRIL_NM ,NVL(DATESD.uncnt,0) as uncnt ,REREQSET.REREQEST_NUM FROM IM_REQEST_EXPRIEM_RESULT IRER
+        JOIN IM_REQEST_EXPRIEM IRE ON IRE.REQEST_EXPRIEM_SEQNO = IRER.REQEST_EXPRIEM_SEQNO
+        JOIN IM_REQEST IR ON IR.REQEST_SEQNO = IRE.REQEST_SEQNO
+        JOIN SY_MTRIL SM ON SM.MTRIL_SEQNO = IR.MTRIL_SEQNO
+        left JOIN (
+        SELECT COUNT(*)AS uncnt,MTRIL_NM
+        FROM IM_REQEST_EXPRIEM_RESULT A
+        JOIN IM_REQEST_EXPRIEM IRE
+        ON IRE.REQEST_EXPRIEM_SEQNO = A.REQEST_EXPRIEM_SEQNO
+        JOIN IM_REQEST IR
+        ON IR.REQEST_SEQNO = IRE.REQEST_SEQNO
+        JOIN SY_MTRIL SM
+        ON SM.MTRIL_SEQNO = IR.MTRIL_SEQNO
+        WHERE A.JDGMNT_WORD_CODE='IM05000002'
+        AND A.DELETE_AT = 'N'
+        AND RESULT_REGIST_DTE IS NOT NULL
+        <if test="shrReqestBeginDte !=null and shrReqestBeginDte !='' and shrReqestEndDte !=null and shrReqestEndDte !=''">
+            AND TO_CHAR(TO_DATE(RESULT_REGIST_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}') between #{shrReqestBeginDte} AND #{shrReqestEndDte}
+        </if>
+        <if  test="shrReqestBetweenDte !=null and shrReqestBetweenDte !='' and mnfcturDteSch !=null and mnfcturDteSch !=''">
+            AND  TO_CHAR(TO_DATE(RESULT_REGIST_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}') between #{shrReqestBetweenDte} AND #{shrReqestBetweenDte}  /**P*/
+        </if>
+        GROUP BY MTRIL_NM
+        )DATESD
+        ON DATESD.MTRIL_NM = SM.MTRIL_NM
+        left JOIN (
+        SELECT SUM (REREQEST_NUM) AS REREQEST_NUM ,MTRIL_NM
+        FROM IM_REQEST IR
+        JOIN SY_MTRIL SM
+        ON SM.MTRIL_SEQNO = IR.MTRIL_SEQNO
+        WHERE 1=1
+        <if test="shrReqestBeginDte !=null and shrReqestBeginDte !='' and shrReqestEndDte !=null and shrReqestEndDte !=''">
+            AND TO_CHAR(TO_DATE(MNFCTUR_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}') between #{shrReqestBeginDte} AND #{shrReqestEndDte}
+        </if>
+        <if  test="shrReqestBetweenDte !=null and shrReqestBetweenDte !='' and mnfcturDteSch !=null and mnfcturDteSch !=''">
+            AND  TO_CHAR(TO_DATE(MNFCTUR_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}') between #{shrReqestBetweenDte} AND #{shrReqestBetweenDte}  /**P*/
+        </if>
+        GROUP BY MTRIL_NM
+        ) REREQSET
+        ON REREQSET.MTRIL_NM = SM.MTRIL_NM
+        WHERE IRER.JDGMNT_WORD_CODE IS NOT NULL AND IRER.DELETE_AT = 'N'
+        <if test="shrReqestBeginDte !=null and shrReqestBeginDte !='' and shrReqestEndDte !=null and shrReqestEndDte !=''">
+            AND TO_CHAR(TO_DATE(IRER.RESULT_REGIST_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}') between #{shrReqestBetweenDte} AND #{shrReqestEndDte}
+        </if>
+        <if  test="shrReqestBetweenDte !=null and shrReqestBetweenDte !='' and mnfcturDteSch !=null and mnfcturDteSch !=''">
+            AND  TO_CHAR(TO_DATE(IRER.RESULT_REGIST_DTE,'YYYY-MM-DD'),'${mnfcturDteSch}') between #{shrReqestBetweenDte} AND #{shrReqestBetweenDte}  /**P*/
+        </if>
+        GROUP BY SM.MTRIL_NM ,DATESD.uncnt,REREQSET.REREQEST_NUM
+        ORDER BY SM.MTRIL_NM
+    </select>
+</mapper>

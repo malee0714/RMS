@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.sys.dao.CmmnCodeMDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+
+	<!-- 그룹코드 중복 조회 -->
+	<select id="confirmCmmnCodeMGbnList" resultType="int" parameterType="lims.sys.vo.CmmnCodeMVo">
+		SELECT
+		   COUNT(*)
+		FROM SY_CMMN_CODE
+		WHERE CMMN_CODE = #{cmmnCode}
+	</select>
+
+	<!-- 그룹코드 계층형 조회 -->
+	<select id="getCmmnCodeMTreeList" resultType="lims.sys.vo.CmmnCodeMVo" parameterType="lims.sys.vo.CmmnCodeMVo">
+		WITH ALL_CODE AS
+		(
+			SELECT
+				*
+			FROM SY_CMMN_CODE A
+			START WITH
+				A.UPPER_CMMN_CODE IS NULL
+			CONNECT BY
+				PRIOR A.CMMN_CODE = UPPER_CMMN_CODE
+			ORDER SIBLINGS BY
+				A.SORT_ORDR
+		),
+
+		TREE_CODE AS
+		(
+			SELECT
+				A.CMMN_CODE
+			FROM SY_CMMN_CODE A
+			<if test='schUseAt != "all"'>
+				WHERE A.USE_AT = #{schUseAt}
+			</if>
+			START WITH
+				<if test='searchCode != null and searchCode != ""'>
+					<if test='searchNm != null and searchNm != ""'>
+						UPPER(A.CMMN_CODE) LIKE '%'|| UPPER(#{searchCode}) ||'%'
+						AND UPPER(A.CMMN_CODE_NM) LIKE '%'|| UPPER(#{searchNm}) ||'%'
+					</if>
+					<if test='searchNm == null or searchNm == ""'>
+						UPPER(A.CMMN_CODE) LIKE '%'|| UPPER(#{searchCode}) ||'%'
+					</if>
+				</if>
+				<if test='searchCode == null or searchCode == ""'>
+					<if test='searchNm != null and searchNm != ""'>
+						UPPER(A.CMMN_CODE_NM) LIKE '%'|| UPPER(#{searchNm}) ||'%'
+					</if>
+					<if test='searchNm == null or searchNm == ""'>
+						A.UPPER_CMMN_CODE IS NULL
+					</if>
+				</if>
+			CONNECT BY
+				PRIOR A.CMMN_CODE = A.UPPER_CMMN_CODE
+			GROUP BY
+				A.CMMN_CODE
+
+			UNION
+
+			SELECT
+				DISTINCT
+				A.UPPER_CMMN_CODE
+			FROM SY_CMMN_CODE A
+			WHERE A.CMMN_CODE IN (
+									SELECT
+									A.CMMN_CODE
+									FROM SY_CMMN_CODE A
+									WHERE LENGTH(A.CMMN_CODE) <![CDATA[>]]> 4
+									<if test='schUseAt != "all"'>
+										AND A.USE_AT = #{schUseAt}
+									</if>
+									<if test='searchCode != null and searchCode != ""'>
+										AND UPPER(A.CMMN_CODE) LIKE '%'|| UPPER(#{searchCode}) ||'%'
+									</if>
+									<if test='searchNm != null and searchNm != ""'>
+										AND UPPER(A.CMMN_CODE_NM) LIKE '%'|| UPPER(#{searchNm}) ||'%'
+									</if>
+								 )
+		)
+
+		SELECT
+			A.CMMN_CODE_NM
+			,A.CMMN_CODE
+			,A.UPPER_CMMN_CODE
+			,A.CMMN_CODE_RM
+			,A.UPDT_POSBL_AT
+			,A.USE_AT
+			,A.SORT_ORDR
+			,A.LAST_CHANGER_ID
+			,A.LAST_CHANGE_DT
+			,(CASE WHEN A.UPPER_CMMN_CODE IS NULL THEN A.TMPR_FIELD1_NM ELSE A.TMPR_FIELD1_VALUE END) TMPR_FIELD1_NM
+			,(CASE WHEN A.UPPER_CMMN_CODE IS NULL THEN A.TMPR_FIELD2_NM ELSE A.TMPR_FIELD2_VALUE END) TMPR_FIELD2_NM
+			,(CASE WHEN A.UPPER_CMMN_CODE IS NULL THEN A.TMPR_FIELD3_NM ELSE A.TMPR_FIELD3_VALUE END) TMPR_FIELD3_NM
+			,(CASE WHEN A.UPPER_CMMN_CODE IS NULL THEN A.TMPR_FIELD4_NM ELSE A.TMPR_FIELD4_VALUE END) TMPR_FIELD4_NM
+			,(CASE WHEN A.UPPER_CMMN_CODE IS NULL THEN A.TMPR_FIELD5_NM ELSE A.TMPR_FIELD5_VALUE END) TMPR_FIELD5_NM
+		FROM ALL_CODE A
+			 ,TREE_CODE B
+		WHERE A.CMMN_CODE = B.CMMN_CODE
+	</select>
+
+	<!-- 그룹코드 조회 -->
+	<select id="getCmmnCodeMList" resultType="lims.sys.vo.CmmnCodeMVo" parameterType="lims.sys.vo.CmmnCodeMVo">
+		SELECT
+			CMMN_CODE
+			,CMMN_CODE_NM
+			,CMMN_CODE_RM
+			,SORT_ORDR
+			,UPDT_POSBL_AT
+			,USE_AT
+			,TMPR_FIELD1_NM
+			,TMPR_FIELD2_NM
+			,TMPR_FIELD3_NM
+			,TMPR_FIELD4_NM
+			,TMPR_FIELD5_NM
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		FROM SY_CMMN_CODE
+		WHERE UPPER_CMMN_CODE IS NULL
+		<if test="searchCode != null and searchCode != '' ">
+			AND UPPER(CMMN_CODE) LIKE '%'|| UPPER(#{searchCode}) ||'%'
+		</if>
+		<if test="searchNm != null and searchNm != '' ">
+			AND UPPER(CMMN_CODE_NM) LIKE '%'|| UPPER(#{searchNm}) ||'%'
+		</if>
+		<if test="schUseAt != 'all'">
+			AND UPPER(USE_AT) = UPPER(#{schUseAt})
+		</if>
+		ORDER BY SORT_ORDR
+	</select>
+
+	<!-- 상세코드 조회 -->
+	<select id="getCmmnCodeMDetailList" resultType="lims.sys.vo.CmmnCodeMVo" parameterType="lims.sys.vo.CmmnCodeMVo">
+		SELECT
+			A.CMMN_CODE
+			,A.UPPER_CMMN_CODE
+			,A.CMMN_CODE_NM
+			,A.CMMN_CODE_RM
+			,A.TMPR_FIELD1_VALUE
+			,A.TMPR_FIELD2_VALUE
+			,A.TMPR_FIELD3_VALUE
+			,A.TMPR_FIELD4_VALUE
+			,A.TMPR_FIELD5_VALUE
+			,A.SORT_ORDR
+			,A.UPDT_POSBL_AT
+			,A.USE_AT
+			,A.LAST_CHANGER_ID
+			,A.LAST_CHANGE_DT
+		FROM SY_CMMN_CODE A
+		WHERE 1=1
+		AND A.UPPER_CMMN_CODE = #{cmmnCode}
+		<if test="tmprField1Value != null and tmprField1Value != '' ">
+			AND UPPER(TMPR_FIELD1_VALUE) LIKE '%'|| UPPER(#{tmprField1Value}) ||'%'
+		</if>
+		ORDER BY A.SORT_ORDR
+	</select>
+
+	<!-- 그룹코드 등록 -->
+	<insert id="insCmmnCodeM" parameterType="lims.sys.vo.CmmnCodeMVo">
+		INSERT INTO SY_CMMN_CODE (
+			CMMN_CODE
+			,CMMN_CODE_NM
+			,CMMN_CODE_RM
+			,UPDT_POSBL_AT
+			,USE_AT
+			,SORT_ORDR
+			,TMPR_FIELD1_NM
+			,TMPR_FIELD2_NM
+			,TMPR_FIELD3_NM
+			,TMPR_FIELD4_NM
+			,TMPR_FIELD5_NM
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) VALUES (
+			#{cmmnCode}
+			,#{cmmnCodeNm}
+			,#{cmmnCodeRm}
+			,#{updtPosblAt}
+			,#{useAt}
+			,#{sortOrdr}
+			,#{tmprField1Nm}
+			,#{tmprField2Nm}
+			,#{tmprField3Nm}
+			,#{tmprField4Nm}
+			,#{tmprField5Nm}
+			,<include refid="loginId"/>
+			,SYSDATE
+		)
+	</insert>
+
+	<!-- 그룹코드 수정 -->
+	<update id="updCmmnCodeM" parameterType="lims.sys.vo.CmmnCodeMVo">
+		UPDATE SY_CMMN_CODE SET
+			CMMN_CODE_NM     = #{cmmnCodeNm}
+			,CMMN_CODE_RM    = #{cmmnCodeRm}
+			,UPDT_POSBL_AT   = #{updtPosblAt}
+			,USE_AT          = #{useAt}
+		    ,SORT_ORDR       = #{sortOrdr}
+			,TMPR_FIELD1_NM  = #{tmprField1Nm}
+			,TMPR_FIELD2_NM  = #{tmprField2Nm}
+			,TMPR_FIELD3_NM  = #{tmprField3Nm}
+			,TMPR_FIELD4_NM  = #{tmprField4Nm}
+			,TMPR_FIELD5_NM  = #{tmprField5Nm}
+			,LAST_CHANGER_ID = <include refid="loginId"/>
+			,LAST_CHANGE_DT  = SYSDATE
+		WHERE CMMN_CODE = #{cmmnCode}
+	</update>
+
+	 <!-- 상세코드 등록 -->
+	 <insert id="insCmmnCodeMDetail" parameterType="lims.sys.vo.CmmnCodeMVo">
+	 	INSERT INTO SY_CMMN_CODE (
+			CMMN_CODE
+			,UPPER_CMMN_CODE
+			,CMMN_CODE_NM
+			,CMMN_CODE_RM
+			,TMPR_FIELD1_VALUE
+			,TMPR_FIELD2_VALUE
+			,TMPR_FIELD3_VALUE
+			,TMPR_FIELD4_VALUE
+			,TMPR_FIELD5_VALUE
+			,UPDT_POSBL_AT
+			,USE_AT
+			,SORT_ORDR
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) VALUES (
+			(SELECT
+				 SUBSTR(#{upperCmmnCode},0,4) || LPAD(NVL(MAX(SUBSTR(CMMN_CODE,5,10))+1,1),6,'0')
+			 FROM SY_CMMN_CODE
+			 WHERE CMMN_CODE LIKE '%'|| SUBSTR(#{upperCmmnCode},0,4) || '%'
+			 CONNECT BY PRIOR UPPER_CMMN_CODE = CMMN_CODE)
+			,#{upperCmmnCode}
+			,#{cmmnCodeNm}
+			,#{cmmnCodeRm}
+			,#{tmprField1Nm}
+			,#{tmprField2Nm}
+			,#{tmprField3Nm}
+			,#{tmprField4Nm}
+			,#{tmprField5Nm}
+			,#{updtPosblAt}
+			,#{useAt}
+		    ,#{sortOrdr}
+			,<include refid="loginId"/>
+			,SYSDATE
+		)
+	 </insert>
+
+	 <!-- 상세코드 수정 -->
+	 <update id="updCmmnCodeMDetail" parameterType="lims.sys.vo.CmmnCodeMVo">
+		UPDATE SY_CMMN_CODE SET
+			CMMN_CODE_NM       = #{cmmnCodeNm}
+			,CMMN_CODE_RM      = #{cmmnCodeRm}
+			,TMPR_FIELD1_VALUE = #{tmprField1Nm}
+			,TMPR_FIELD2_VALUE = #{tmprField2Nm}
+			,TMPR_FIELD3_VALUE = #{tmprField3Nm}
+			,TMPR_FIELD4_VALUE = #{tmprField4Nm}
+			,TMPR_FIELD5_VALUE = #{tmprField5Nm}
+			,UPDT_POSBL_AT     = #{updtPosblAt}
+			,USE_AT            = #{useAt}
+		    ,SORT_ORDR         = #{sortOrdr}
+			,LAST_CHANGER_ID   = <include refid="loginId"/>
+			,LAST_CHANGE_DT    = SYSDATE
+		WHERE CMMN_CODE = #{cmmnCode}
+	 </update>
+
+	 <!-- 정렬순서 저장 -->
+	 <update id="updCmmnCodeOrdr" parameterType="lims.sys.vo.CmmnCodeMVo">
+		UPDATE SY_CMMN_CODE SET
+			SORT_ORDR = #{sortOrdr}
+		WHERE CMMN_CODE = #{cmmnCode}
+	 </update>
+
+</mapper>

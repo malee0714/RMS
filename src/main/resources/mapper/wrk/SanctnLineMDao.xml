@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.SanctnLineMDao">
+	
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+
+	<select id="getSanctnKndList" parameterType="lims.wrk.vo.SanctnLineMVo" resultType="lims.wrk.vo.SanctnLineMVo">
+		SELECT
+			CMMN_CODE as value
+			, CMMN_CODE_NM as  KEY
+		FROM
+			SY_CMMN_CODE
+		WHERE
+			UPPER_CMMN_CODE = 'CM05'
+		AND
+			USE_AT = 'Y'
+		ORDER BY
+			SORT_ORDR
+	</select>
+
+	<select id="getSanctnLineList" parameterType="lims.wrk.vo.SanctnLineMVo" resultType="lims.wrk.vo.SanctnLineMVo">
+		SELECT
+			A.SANCTN_LINE_SEQNO
+			, A.DEPT_CODE
+			, C.INSPCT_INSTT_NM AS DEPT_NM
+			, A.SANCTN_KND_CODE
+			, B.CMMN_CODE_NM AS SANCTN_KND_NM
+			, A.SANCTN_LINE_NM
+			, A.USE_AT
+			, D.INSPCT_INSTT_NM AS BPCL_CODE_NM
+		FROM  SY_SANCTN_LINE A
+		JOIN (
+			SELECT
+				CMMN_CODE
+				, CMMN_CODE_NM
+			FROM
+				SY_CMMN_CODE
+			WHERE
+				UPPER_CMMN_CODE = 'CM05'
+			AND
+				USE_AT = 'Y'
+		) B ON A.SANCTN_KND_CODE = B.CMMN_CODE
+		JOIN SY_INSPCT_INSTT C ON A.DEPT_CODE = C.INSPCT_INSTT_CODE /* 부서 JOIN */
+		JOIN SY_INSPCT_INSTT D ON C.BEST_INSPCT_INSTT_CODE = D.INSPCT_INSTT_CODE /* 사업장 JOIN */
+		WHERE   A.DELETE_AT = 'N'
+		    AND D.INSPCT_INSTT_CODE = <include refid="bplcCode"/>
+		<if test="cboDeptS != null and cboDeptS != '' ">
+			AND A.DEPT_CODE IN (
+					SELECT
+						IA.INSPCT_INSTT_CODE
+					FROM
+						SY_INSPCT_INSTT IA
+					CONNECT BY PRIOR
+						IA.INSPCT_INSTT_CODE = IA.UPPER_INSPCT_INSTT_CODE
+					START WITH
+						IA.INSPCT_INSTT_CODE = #{cboDeptS}
+				)
+		</if>
+		<if test="cboSanctnKndS != null and cboSanctnKndS != '' ">
+			AND A.SANCTN_KND_CODE = #{cboSanctnKndS}
+		</if>
+		<if test="useYnS != null and useYnS != '' ">
+			AND A.USE_AT = #{useYnS}
+		</if>
+		<if test="cboSanctnerNm != null and cboSanctnerNm != '' ">
+			AND SANCTN_LINE_SEQNO IN (
+				SELECT
+					SANCTN_LINE_SEQNO
+				FROM
+					SY_SANCTN_LINE_SANCTNER AA
+				JOIN
+					SY_USER AB ON AA.SANCTNER_ID = AB.USER_ID
+	            WHERE
+	                AB.USER_NM LIKE '%' || #{cboSanctnerNm} || '%'
+			)
+		</if>
+		<!-- 팝업용 -->
+		<if test="sanctnLineNmSch != null and sanctnLineNmSch != '' ">
+			AND UPPER(A.SANCTN_LINE_NM) LIKE '%' || UPPER (#{sanctnLineNmSch}) ||'%'
+		</if>
+	</select>
+	
+	<select id="getUserAList" parameterType="lims.wrk.vo.SanctnLineMVo" resultType="lims.wrk.vo.SanctnLineMVo">
+		SELECT
+			#{sanctnLineSeqno} AS SANCTN_LINE_SEQNO
+		    , C.INSPCT_INSTT_NM AS DEPT_NM
+			, C.INSPCT_INSTT_NM AS DEPT_CODE
+			, A.USER_ID as SANCTNER_ID
+			, A.USER_ID
+			, A.USER_NM
+			, NULL AS SANCTNORDR
+			, C.INSPCT_INSTT_NM
+			, D.INSPCT_INSTT_NM AS BPCL_CODE_NM
+			, 'CM02000003' AS SANCTN_SE_CODE /* 결재 구분은 승인으로 고정하여 사용한다. */
+		FROM SY_USER A
+		JOIN SY_INSPCT_INSTT C ON A.DEPT_CODE = C.INSPCT_INSTT_CODE /* 부서 JOIN */
+		JOIN SY_INSPCT_INSTT D ON C.BEST_INSPCT_INSTT_CODE = D.INSPCT_INSTT_CODE /* 사업장 JOIN */
+		LEFT  JOIN SY_SANCTN_LINE_SANCTNER B ON A.USER_ID = B.SANCTNER_ID AND SANCTN_LINE_SEQNO = #{sanctnLineSeqno}
+		WHERE   A.USE_AT = 'Y'
+	  	    AND C.DELETE_AT = 'N'
+			AND C.USE_AT = 'Y'
+			AND B.SANCTN_LINE_SEQNO IS NULL
+			AND A.SBSCRB_CONFM_AT = 'Y'
+			AND C.UPPER_INSPCT_INSTT_CODE IS NOT NULL
+		    AND D.INSPCT_INSTT_CODE = <include refid="bplcCode"/>
+		<if test="userDeptCode != null and userDeptCode != ''">
+			AND A.DEPT_CODE = #{userDeptCode}
+		</if> 
+		<if test="userNmS != null and userNmS != '' ">
+			AND UPPER(A.USER_NM) LIKE '%'||UPPER(#{userNmS})||'%'
+		</if>
+		ORDER BY C.INSPCT_INSTT_NM, A.USER_NM
+	</select>
+
+	<select id="getSanctnerList" parameterType="lims.wrk.vo.SanctnLineMVo" resultType="lims.wrk.vo.SanctnLineMVo">
+		SELECT
+			A.SANCTN_LINE_SEQNO
+			, A.SANCTNER_ID
+			, B.USER_NM
+			, B.USER_ID
+			, A.SANCTN_ORDR
+			, A.SANCTN_SE_CODE
+			, FN_GET_CDDTLNM(A.SANCTN_SE_CODE) AS SANCTN_SE_NM
+			, C.INSPCT_INSTT_NM as inspctInsttNm
+		FROM
+			SY_SANCTN_LINE_SANCTNER A
+		JOIN
+			SY_USER B ON A.SANCTNER_ID = B.USER_ID
+		JOIN
+			SY_INSPCT_INSTT C ON B.DEPT_CODE = C.INSPCT_INSTT_CODE
+		WHERE
+			A.SANCTN_LINE_SEQNO = #{sanctnLineSeqno}
+		ORDER
+			BY A.SANCTN_ORDR
+	</select>
+
+	<insert id="insertSanctnLine" parameterType="lims.wrk.vo.SanctnLineMVo">
+		<selectKey keyProperty="sanctnLineSeqno" resultType="java.lang.String" order="BEFORE">
+			SELECT SQ_SY_SANCTN_LINE.NEXTVAL AS sanctnLineSeqno FROM DUAL
+	    </selectKey>
+		INSERT INTO SY_SANCTN_LINE (
+			SANCTN_LINE_SEQNO
+			, DEPT_CODE
+			, SANCTN_KND_CODE
+			, SANCTN_LINE_NM
+			, USE_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{sanctnLineSeqno}
+			, #{deptCode}
+			, #{sanctnKndCode}
+			, #{sanctnLineNm}
+			, #{useAt}
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+		)
+	</insert>
+
+	<update id="updateSanctnLine" parameterType="lims.wrk.vo.SanctnLineMVo">
+		UPDATE SY_SANCTN_LINE
+			SET
+				DEPT_CODE = #{deptCode}
+				, SANCTN_KND_CODE = #{sanctnKndCode}
+				, SANCTN_LINE_NM = #{sanctnLineNm}
+				, USE_AT = #{useAt}
+				, LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+				, LAST_CHANGE_DT = SYSDATE
+			WHERE
+				SANCTN_LINE_SEQNO = #{sanctnLineSeqno}
+	</update>
+
+	<delete id="deleteSanctner" parameterType="lims.wrk.vo.SanctnLineMVo">
+		DELETE
+			SY_SANCTN_LINE_SANCTNER
+	 	WHERE
+	 		SANCTN_LINE_SEQNO = #{sanctnLineSeqno}
+	</delete>
+
+	<insert id="insertSanctner" parameterType="lims.wrk.vo.SanctnLineMVo">
+		INSERT INTO SY_SANCTN_LINE_SANCTNER (
+			SANCTN_LINE_SEQNO
+			, SANCTNER_ID
+			, SANCTN_ORDR
+			, SANCTN_SE_CODE
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{sanctnLineSeqno}
+			, #{sanctnerId}
+			, #{sanctnOrdr}
+			, #{sanctnSeCode}
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+		)
+	</insert>
+
+	<select id="getUserNtncList" parameterType="lims.wrk.vo.SanctnLineMVo" resultType="lims.wrk.vo.SanctnLineMVo">
+		SELECT
+			NULL AS SANCTN_LINE_SEQNO
+		    , C.INSPCT_INSTT_NM AS DEPT_NM
+		    , A.DEPT_CODE
+		    , A.USER_ID
+		    , A.USER_NM
+		    , A.AUTHOR_SE_CODE
+		    , NULL AS SANCTNORDR
+		FROM
+			SY_USER A
+		INNER JOIN
+			SY_INSPCT_INSTT C ON A.DEPT_CODE = C.INSPCT_INSTT_CODE
+		LEFT OUTER JOIN
+			SY_SANCTN_LINE_SANCTNER B ON A.USER_ID = B.SANCTNER_ID AND SANCTN_LINE_SEQNO = #{sanctnLineSeqno}
+		WHERE
+			A.USE_AT = 'Y'
+	  	AND
+	  		C.DELETE_AT = 'N'
+		AND
+			C.USE_AT = 'Y'
+	  	AND
+	  		C.LIMS_USE_AT = 'Y'
+		AND
+			B.SANCTN_LINE_SEQNO IS NULL
+		<if test="userDeptCode != null and userDeptCode != ''">
+			AND
+				A.DEPT_CODE = #{userDeptCode}
+		</if>
+		<if test="userNmS != null and userNmS != '' ">
+			AND
+				UPPER(A.USER_NM) LIKE '%'||UPPER(#{userNmS})||'%'
+		</if>
+		<if test="mmnySeCode != null and mmnySeCode != '' ">
+			AND
+				A.AUTHOR_SE_CODE = #{mmnySeCode}
+		</if>
+		<if test="auth != null and auth != '' ">
+			AND
+				A.AUTHOR_SE_CODE = #{auth}
+		</if>
+		<if test="limsUseAtSch != null and limsUseAtSch != ''">
+			AND
+				C.LIMS_USE_AT = #{limsUseAtSch}
+		</if>
+		<if test=" userNmSch != null and userNmSch != '' ">
+			AND
+				UPPER(A.USER_NM) LIKE '%'||UPPER(#{userNmSch})||'%'
+		</if>
+		<if test="analsAt != null and analsAt != ''">
+			AND
+				(C.ANALS_AT = #{analsAt}
+		</if>
+		<if test="sanctnLineUser != null and sanctnLineUser.length != 0">
+			AND
+				A.USER_ID NOT IN
+					<foreach collection="sanctnLineUser" item="sanctnLineUser" open="(" close=")" separator=",">
+						#{sanctnLineUser}
+					</foreach>
+		</if>
+		ORDER BY
+			C.INSPCT_INSTT_NM, A.USER_NM
+	</select>
+
+</mapper>

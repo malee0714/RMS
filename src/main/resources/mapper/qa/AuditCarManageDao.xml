@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.qa.dao.AuditCarManageDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+	
+	<select id="getAuditCar" resultType="lims.qa.vo.AuditCarManageDto" parameterType="lims.qa.vo.AuditCarManageDto">
+		SELECT  A.*
+				,G.CMMN_CODE_NM AS CAR_STTU_CODE_NM
+		        ,H.CMMN_CODE_NM AS CAR_IPCR_CODE_NM
+		        ,I.CMMN_CODE_NM AS M5E1_CODE_NM
+		        ,AD.AUDIT_SE_CODE
+		        ,E.CMMN_CODE_NM AS AUDIT_SE_CODE_NM 
+		        ,AD.AUDIT_DETAIL_SE_CODE
+		        ,F.CMMN_CODE_NM AS AUDIT_DETAIL_SE_CODE_NM
+		        ,AD.AUDIT_NO
+		        ,AD.AUDIT_DTE
+		        ,SUBSTR(AD.AUDIT_DTE, 0, 4) AS AUDIT_YEAR
+		        ,AD.AUDIT_SJ
+		        ,AD.AUDIT_TRGET_DEPT_NM
+		        ,AD.AUDIT_TRGTER_NM
+		        ,AD.ENTRPS_SEQNO
+		        ,AD.ENTRPS_NM
+		        ,AD.AUDITMAN_NM
+		        ,AD.AUDIT_BEGIN_DTE
+		        ,AD.AUDIT_END_DTE
+		        ,AD.ATCHMNFL_SEQNO AS AUDIT_ATCHMNFL_SEQNO
+		        ,AD.RM
+		        ,B.SANCTN_PROGRS_SITTN_CODE
+		        ,D.CMMN_CODE_NM AS SANCTN_PROGRS_SITTN_CODE_NM
+		        ,C.SANCTNER_NM
+		FROM RS_AUDIT_CAR A
+		INNER JOIN RS_AUDIT AD ON A.AUDIT_SEQNO = AD.AUDIT_SEQNO
+		LEFT JOIN CM_SANCTN B ON A.SANCTN_SEQNO = B.SANCTN_SEQNO 
+		LEFT JOIN (
+		    SELECT  IA.SANCTN_SEQNO
+		            , LISTAGG(IB.USER_NM, ' > ') WITHIN GROUP(ORDER BY IA.SANCTN_ORDR) AS SANCTNER_NM 
+		    FROM CM_SANCTN_INFO IA 
+		    INNER JOIN SY_USER IB ON IA.SANCTNER_ID = IB.USER_ID
+		    WHERE IA.USE_AT = 'Y'
+		    GROUP BY IA.SANCTN_SEQNO
+		) C ON B.SANCTN_SEQNO = C.SANCTN_SEQNO
+		LEFT JOIN SY_CMMN_CODE D ON B.SANCTN_PROGRS_SITTN_CODE = D.CMMN_CODE AND D.USE_AT = 'Y'
+		LEFT JOIN SY_CMMN_CODE E ON AD.AUDIT_SE_CODE = E.CMMN_CODE AND E.USE_AT = 'Y'
+		LEFT JOIN SY_CMMN_CODE F ON AD.AUDIT_DETAIL_SE_CODE = F.CMMN_CODE AND F.USE_AT = 'Y'
+		LEFT JOIN SY_CMMN_CODE G ON A.CAR_STTU_CODE = G.CMMN_CODE AND G.USE_AT = 'Y'
+		LEFT JOIN SY_CMMN_CODE H ON A.CAR_IPCR_CODE = H.CMMN_CODE AND H.USE_AT = 'Y'
+		LEFT JOIN SY_CMMN_CODE I ON A.M5E1_CODE = I.CMMN_CODE AND I.USE_AT = 'Y'
+		WHERE A.DELETE_AT = 'N'
+		<if test="auditSeqno != null and auditSeqno != '' ">
+		  AND A.AUDIT_SEQNO = #{auditSeqno}
+		</if>
+		<if test="auditSeCode != null and auditSeCode != '' ">
+		  AND AD.AUDIT_SE_CODE = #{auditSeCode}
+		</if>
+		<if test="auditDetailSeCode != null and auditDetailSeCode != '' ">
+		  AND AD.AUDIT_DETAIL_SE_CODE = #{auditDetailSeCode}
+		</if>
+		<if test="auditYear != null and auditYear != '' ">
+		  AND SUBSTR(AD.AUDIT_DTE, 0, 4) = #{auditYear}
+		</if>
+		<if test="auditBeginDte != null and auditBeginDte != '' ">
+		  AND AD.AUDIT_DTE <![CDATA[>=]]> #{auditBeginDte}
+		</if>
+		<if test="auditEndDte != null and auditEndDte != '' ">
+		  AND AD.AUDIT_DTE <![CDATA[<=]]> #{auditEndDte}
+		</if>
+		<if test="carNo != null and carNo != '' ">
+		  AND UPPER(A.CAR_NO) LIKE '%' || UPPER(#{carNo}) || '%'
+		</if>
+		<if test="carSj != null and carSj != '' ">
+		  AND UPPER(A.CAR_SJ) LIKE '%' || UPPER(#{carSj}) || '%'
+		</if>
+		<if test="chrgDeptNm != null and chrgDeptNm != '' ">
+		  AND UPPER(A.CHRG_DEPT_NM) LIKE '%' || UPPER(#{chrgDeptNm}) || '%'
+		</if>
+		ORDER BY AD.AUDIT_DTE DESC, A.AUDIT_CAR_SEQNO DESC
+	</select>
+	
+	<insert id="insertAuditCar">
+		<selectKey keyProperty="auditCarSeqno,carNo" resultType="lims.qa.vo.AuditCarManageDto" order="BEFORE">
+			SELECT SQ_RS_AUDIT_CAR.NEXTVAL as auditCarSeqno,
+					(SELECT 'FCC-CAR-' ||
+					        SUBSTR(TO_CHAR(SYSDATE, 'YYYY-MM-DD'), 3, 2) || '-' || SUBSTR(TO_CHAR(SYSDATE, 'YYYY-MM-DD'), 6, 2) || '-' ||
+					        LPAD(NVL(SUBSTR(MAX(A.CAR_NO), 15), 0) + 1, 3, 0)
+					FROM RS_AUDIT_CAR A
+					WHERE SUBSTR(A.CAR_NO, 0, 13) = 'FCC-CAR-' || SUBSTR(TO_CHAR(SYSDATE, 'YYYY-MM-DD'),3,2) || '-' || SUBSTR(TO_CHAR(SYSDATE, 'YYYY-MM-DD'),6,2)
+					  AND A.DELETE_AT = 'N'
+				    ) AS carNo
+			FROM DUAL
+		</selectKey>
+		INSERT INTO RS_AUDIT_CAR(
+			AUDIT_CAR_SEQNO
+			,AUDIT_SEQNO
+			,CAR_NO
+			,CAR_SJ
+			,CHRG_DEPT_NM
+			,CAR_STTU_CODE
+			,CAR_IPCR_CODE
+			,M5E1_CODE
+			,CAR_EFFECTFMNM_CODE
+			,COMPT_DTE
+			,EFFECT_EXMNT_DTE
+			,EFFECT_EXMNT_CN
+			,ATCHMNFL_SEQNO
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,CHARGER_NM
+		) VALUES 	(
+			#{auditCarSeqno}
+			, #{auditSeqno}
+			, #{carNo}
+			, #{carSj}
+			, #{chrgDeptNm}
+			, #{carSttuCode}
+			, #{carIpcrCode}
+			, #{m5e1Code}
+			, #{carEffectfmnmCode}
+			, #{comptDte}
+			, #{effectExmntDte}
+			, #{effectExmntCn}
+			, #{atchmnflSeqno}
+			, 'N'
+			, <include refid="loginId"/>
+			, SYSDATE
+			, #{chargerNm}
+		)
+	</insert>
+
+	<update id="updateAuditCar" parameterType="lims.qa.vo.AuditCarManageDto">
+		UPDATE RS_AUDIT_CAR SET
+			CAR_SJ = #{carSj}
+			, CHRG_DEPT_NM = #{chrgDeptNm}
+			, CAR_STTU_CODE = #{carSttuCode}
+			, CAR_IPCR_CODE = #{carIpcrCode}
+			, M5E1_CODE = #{m5e1Code}
+			, CAR_EFFECTFMNM_CODE = #{carEffectfmnmCode}
+			, COMPT_DTE = #{comptDte}
+			, EFFECT_EXMNT_DTE = #{effectExmntDte}
+			, EFFECT_EXMNT_CN = #{effectExmntCn}
+			, ATCHMNFL_SEQNO = #{atchmnflSeqno}
+			, CHARGER_NM = #{chargerNm}
+			, LAST_CHANGER_ID = <include refid="loginId"/>
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE AUDIT_CAR_SEQNO = #{auditCarSeqno}
+	</update>
+	
+	<update id="deleteAuditCar" parameterType="lims.qa.vo.AuditCarManageDto">
+		UPDATE RS_AUDIT_CAR SET
+			DELETE_AT = 'Y',
+			LAST_CHANGER_ID = <include refid="loginId"/>,
+			LAST_CHANGE_DT = SYSDATE
+		WHERE AUDIT_CAR_SEQNO = #{auditCarSeqno}
+	</update>
+	
+	<update id="updateAuditCarSanctn" parameterType="lims.qa.vo.AuditCarManageDto">
+		/* 결재 SEQNO UPDATE */
+		UPDATE RS_AUDIT_CAR SET SANCTN_SEQNO = #{sanctnSeqno} WHERE AUDIT_CAR_SEQNO = #{auditCarSeqno}
+	</update>
+	
+	<update id="updateExmntSeqno" parameterType="lims.com.vo.CmExmntDto">
+		/* 검토 seqno update */
+		UPDATE RS_AUDIT_CAR SET
+			EXMNT_SEQNO = #{exmntSeqno},
+			LAST_CHANGER_ID = <include refid="loginId"/>,
+			LAST_CHANGE_DT = SYSDATE
+		WHERE AUDIT_CAR_SEQNO = #{otherKey}
+	</update>
+</mapper>

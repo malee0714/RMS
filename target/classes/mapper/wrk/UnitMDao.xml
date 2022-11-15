@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.UnitMDao">
+
+	<select id="getUnitList" parameterType="lims.wrk.vo.UnitMVo" resultType="lims.wrk.vo.UnitMVo">
+		SELECT A.UNIT_SEQNO, A.UNIT_NM, A.UNIT_SE_CODE, B.CMMN_CODE_NM AS UNIT_SE, A.USE_AT
+		FROM SY_UNIT A
+		LEFT JOIN SY_CMMN_CODE B ON A.UNIT_SE_CODE = B.CMMN_CODE
+		WHERE 1=1
+		<if test="cboUnitSe != null and cboUnitSe != '' ">
+			AND A.UNIT_SE_CODE = #{cboUnitSe}
+		</if>
+		<if test="txtUnitNM != null and txtUnitNM != '' ">
+			AND UPPER(A.UNIT_NM) LIKE '%'||UPPER(#{txtUnitNM})||'%' 
+		</if>
+		
+		<if test='useAtSearch == "Y" '>
+			AND A.USE_AT = 'Y'
+		</if>
+		
+		<if test='useAtSearch == "N" '>
+			AND A.USE_AT = 'N'
+		</if>
+		<if test="unitSeCode != null and unitSeCode !=''">
+			AND A.UNIT_SE_CODE = #{unitSeCode}
+		</if>
+		AND DELETE_AT = 'N'
+		ORDER BY A.UNIT_NM
+	</select>
+	
+	<insert id="insertUnit" parameterType="lims.wrk.vo.UnitMVo">
+		
+		INSERT INTO SY_UNIT
+		(
+		  UNIT_SEQNO
+		  ,UNIT_NM
+		  ,UNIT_SE_CODE
+		  ,USE_AT
+		  ,LAST_CHANGER_ID
+		  ,LAST_CHANGE_DT
+		) VALUES (
+		  SQ_SY_UNIT.NEXTVAL
+		  ,#{unitNm}		
+		  ,#{unitSeCode}
+		  ,#{useAt}
+		  ,#{lastChangerId}
+		  ,SYSDATE
+		)
+	</insert>
+	
+	<update id="updateUnit" parameterType="lims.wrk.vo.UnitMVo">
+		UPDATE SY_UNIT SET
+			UNIT_NM = #{unitNm},
+			UNIT_SE_CODE = #{unitSeCode},
+	    	USE_AT = #{useAt},
+			LAST_CHANGER_ID = #{lastChangerId},
+			LAST_CHANGE_DT = SYSDATE
+		WHERE UNIT_SEQNO = #{unitSeqno}
+	</update>
+	
+	<update id="deleteUnit" parameterType="lims.wrk.vo.UnitMVo">
+		UPDATE SY_UNIT SET
+			DELETE_AT = 'Y'
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE UNIT_SEQNO = #{unitSeqno}
+	</update>
+
+	<select id="getUnitcomdo" parameterType="lims.wrk.vo.UnitMVo" resultType="lims.com.vo.ComboVo">
+		SELECT A.UNIT_SEQNO AS VALUE, A.UNIT_NM AS KEY
+		FROM  SY_UNIT A
+		WHERE UNIT_SE_CODE = #{unitSeCode}
+	</select>
+	
+	
+	<!-- 입력 데이터 단위명 검사 -->
+	<select id="insUnitNmValidation" parameterType="lims.wrk.vo.UnitMVo" resultType="Integer">
+		SELECT COUNT(*) FROM SY_UNIT WHERE UNIT_NM = #{unitNm} AND DELETE_AT != 'Y'
+	</select>
+	
+	<!-- 수정 데이터 단위명 검사 -->
+	<select id="updUnitNmValidation" parameterType="lims.wrk.vo.UnitMVo" resultType="Integer">
+		SELECT COUNT(*) FROM SY_UNIT WHERE UNIT_NM = #{unitNm} AND UNIT_SEQNO != #{unitSeqno} AND DELETE_AT != 'Y'
+	</select>
+	
+</mapper>

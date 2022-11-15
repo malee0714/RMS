@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.dly.dao.DlivyMDao">
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+	<!-- 미등록 알림 리스트 조회 -->
+	<select id="getDlivyList" parameterType="lims.dly.vo.DlivyMVo" resultType="lims.dly.vo.DlivyMVo">
+		SELECT  DLI.DLIVY_ORDE_SEQNO
+			   ,DLI.REQEST_SEQNO
+			   ,CASE WHEN DLI.REQEST_SEQNO IS NULL THEN 'N' ELSE 'Y' END REQ_AT
+			   ,NVL(REQ.LOT_ID,DLI.LOT_ID) AS LOT_ID
+			   ,DLI.QLYHGH_DOC_NM
+			   ,DLI.DVYFG_ENTRPS_CODE
+			   ,DLI.DVYFG_ENTRPS_NM
+			   ,DLI.MTRIL_CODE
+			   ,DLI.CTMMNY_MTRIL_CODE
+			   ,DLI.PO_NO
+			   ,DLI.MTRIL_NM
+			   ,DLI.BATCH_NO
+			   ,DLI.DLIVY_QY
+			   ,DLI.UNIT_NM
+			   ,DLI.RM
+			   ,DLI.UPDT_CN
+			   ,DLI.EMAIL_SNDNG_AT
+			   ,DLI.EMAIL_SNDNG_TM
+			   ,DLI.DLIVY_DTE
+			   ,DLI.DLIVY_HM
+			   ,DLI.LAST_CHANGER_ID
+			   ,DLI.LAST_CHANGE_DT
+			   ,DLI.DEPT_CODE AS REQEST_DEPT_CODE
+			   ,FN_GET_INSPCT_INSTT(DLI.DEPT_CODE) AS REQEST_DEPT_NM
+  	       FROM IM_DLIVY DLI
+  	           ,IM_REQEST REQ
+  	      WHERE DLI.REQEST_SEQNO = REQ.REQEST_SEQNO(+)
+  	      <if test="shrDeptCode != null and shrDeptCode != '' ">
+  	        AND DLI.DEPT_CODE = #{shrDeptCode}
+  	      </if>
+  	      <if test="shrDlivyDteBeginDte != null and shrDlivyDteBeginDte != '' and shrDlivyDteEndDte != null and shrDlivyDteEndDte != ''">
+	      	AND DLI.DLIVY_DTE BETWEEN TO_DATE(#{shrDlivyDteBeginDte}) AND TO_DATE(#{shrDlivyDteEndDte})
+	      </if>
+	      <if test="authorSeCode == 'SY09000004'">
+	      	AND REQ.CTMMNY_OTHBC_AT = 'Y'
+	      </if>
+  	        AND DLI.DELETE_AT = 'N'
+  	     ORDER BY LAST_CHANGE_DT DESC
+	</select>
+	
+	<!-- lot 번호로 의뢰번호 조회 -->
+	<select id="getReqestSeqno" parameterType="lims.dly.vo.DlivyMVo" resultType="String">
+		SELECT REQEST_SEQNO
+		  FROM IM_REQEST
+		 WHERE MTRIL_CODE = #{mtrilCode}
+           AND LOT_ID LIKE '%' || SUBSTR(#{batchNo},0,8) ||'%'
+           AND LOT_ID LIKE '%' || #{mtrilCode} ||'%'
+           AND DELETE_AT = 'N'
+           AND REQEST_DEPT_CODE IN(3974, 3975, 3976, 3977, 3978, 3980)
+	</select>
+
+
+	<!-- LOT ID 조회 -->
+	<select id="getLotId" parameterType="lims.dly.vo.DlivyMVo" resultType="String">
+		SELECT LOT_ID
+		  FROM IM_REQEST
+		 WHERE MTRIL_CODE = #{mtrilCode}
+           AND LOT_ID LIKE '%' || SUBSTR(#{batchNo},0,8) ||'%'
+           AND LOT_ID LIKE '%' || #{mtrilCode} ||'%'
+           AND DELETE_AT = 'N'
+           AND REQEST_DEPT_CODE IN(3974, 3975, 3976, 3977, 3978, 3980)
+	</select>
+	
+	<!-- 제조일자 조회 -->
+	<select id="getMnfcturDte" parameterType="lims.dly.vo.DlivyMVo" resultType="String">
+		SELECT TO_CHAR(TO_DATE(MNFCTUR_DTE), 'YYYYMMDD') AS MNFCTUR_DTE
+		  FROM IM_REQEST
+		 WHERE REQEST_SEQNO = #{reqestSeqno}
+		   AND DELETE_AT = 'N'
+	</select>
+	
+	<!-- 변경점, 기타 인지 조회 -->
+	<select id="getReqestSeCodeCnt" parameterType="lims.dly.vo.DlivyMVo" resultType="int">
+		SELECT COUNT(*) CNT
+          FROM IM_REQEST_SE
+         WHERE REQEST_SEQNO = #{reqestSeqno} 
+           AND REQEST_SE_CODE IN ('IM01000004','IM01000005')
+	</select>
+	
+	<!-- 의뢰정보조회 -->
+	<select id="getReqNtcnInfo" parameterType="lims.dly.vo.DlivyMVo" resultType="lims.dly.vo.DlivyMVo">
+		SELECT LOT_ID
+		      ,MTRIL_CODE
+		      ,PRDLST_NM AS MTRIL_NM
+		      ,FN_GET_INSPCT_INSTT(REQEST_DEPT_CODE) AS DEPT_NM
+		      ,REQEST_DEPT_CODE AS DEPT_CODE
+		      ,REQEST_SEQNO
+		  FROM IM_REQEST
+		 WHERE REQEST_SEQNO = #{reqestSeqno}
+		   AND DELETE_AT = 'N'
+	</select>
+	
+	<!-- 출고테이블 저장 -->
+	<insert id="insDlivy" parameterType="lims.dly.vo.DlivyMVo">
+		<selectKey keyProperty="dlivyOrdeSeqno" resultType="lims.dly.vo.DlivyMVo" order="BEFORE">
+			SELECT SQ_IM_DLIVY.NEXTVAL AS dlivyOrdeSeqno
+			FROM DUAL
+        </selectKey>
+		INSERT INTO IM_DLIVY(
+			 DLIVY_ORDE_SEQNO
+			,REQEST_SEQNO
+			,QLYHGH_DOC_NM
+			,DVYFG_ENTRPS_CODE
+			,DVYFG_ENTRPS_NM
+			,MTRIL_CODE
+			,CTMMNY_MTRIL_CODE
+			,PO_NO
+			,MTRIL_NM
+			,BATCH_NO
+			,DLIVY_QY
+			,UNIT_NM
+			,RM
+			,UPDT_CN
+			,EMAIL_SNDNG_AT
+			,EMAIL_SNDNG_TM
+			,DLIVY_DTE
+			,DLIVY_HM
+			<if test="emailSendDate != null and emailSendDate != '' and emailSendTime != null and emailSendTime != '' ">
+			,EMAIL_SNDNG_DT
+			</if>
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,DELETE_AT
+			,DEPT_CODE
+			,LOT_ID
+		)VALUES(
+			 #{dlivyOrdeSeqno}
+			,#{reqestSeqno}
+			,#{qlyhghDocNm}
+			,#{dvyfgEntrpsCode}
+			,#{dvyfgEntrpsNm}
+			,#{mtrilCode}
+			,#{ctmmnyMtrilCode}
+			,#{poNo}
+			,#{mtrilNm}
+			,#{batchNo}
+			,#{dlivyQy}
+			,#{unitNm}
+			,#{rm}
+			,#{updtCn}
+			,'N'
+			,#{emailSndngTm}
+			,#{dlivyDte}
+			,#{dlivyHm}
+			<if test="emailSendDate != null and emailSendDate != '' and emailSendTime != null and emailSendTime != '' ">
+			,TO_DATE( #{emailSendDate} ||' '|| #{emailSendTime}, 'YYYY-MM-DD HH24:MI:SS')
+			</if>
+			,'${@lims.util.GetUserSession@getUserId()}'
+			,SYSDATE
+			,'N'
+			,#{reqestDeptCode}
+			,#{mtrilCode}||#{batchNo}
+		)
+	</insert>
+	
+	<!-- 출고 이메일 사용자 저장 -->
+	<insert id="insDlivyEmailUser" parameterType="lims.dly.vo.DlivyMVo">
+		INSERT INTO IM_DLIVY_EMAIL_USER(
+			DLIVY_ORDE_SEQNO
+		   ,USER_ID
+		   ,LAST_CHANGER_ID
+		   ,LAST_CHANGE_DT 
+		)
+		SELECT #{dlivyOrdeSeqno} AS DLIVY_ORDE_SEQNO
+		      ,PSEU.USER_ID
+		      ,'${@lims.util.GetUserSession@getUserId()}' AS LAST_CHANGER_ID
+		      ,SYSDATE AS LAST_CHANGE_DT
+		FROM SY_PRDUCT_SE_EMAIL_USER PSEU
+		WHERE PSEU.PRDUCT_SEQNO = (
+									SELECT A.PRDUCT_SEQNO 
+									  FROM IM_REQEST A
+									      ,SY_PRDUCT B 
+									 WHERE A.PRDUCT_SEQNO = B.PRDUCT_SEQNO
+									   AND A.REQEST_SEQNO = #{reqestSeqno}
+								  )
+		  AND PSEU.SCHDUL_SE_CODE = 'SY16000007'
+		  AND PSEU.DELETE_AT = 'N'
+	</insert>
+	
+	
+	<!-- 출고 이메일 이용자 리스트 조회 -->
+	<select id="getEmailDlivyList" parameterType="lims.dly.vo.DlivyMVo" resultType="lims.dly.vo.DlivyMVo">
+		SELECT DEU.DLIVY_ORDE_SEQNO
+  			  ,USR.USER_ID
+  			  ,USR.LOGIN_ID
+		      ,USR.USER_NM
+        	  ,USR.EMAIL
+		  FROM IM_DLIVY_EMAIL_USER DEU
+              ,SY_USER USR
+    	 WHERE DEU.USER_ID = USR.USER_ID
+      	   AND DLIVY_ORDE_SEQNO = #{dlivyOrdeSeqno}
+	</select>
+	
+	<select id="getEmailSyDlivyList" parameterType="lims.dly.vo.DlivyMVo" resultType="lims.dly.vo.DlivyMVo">
+		SELECT DISTINCT		      
+			   SY.USER_ID,
+			   SU.USER_NM
+		  FROM SY_PRDUCT_SE_EMAIL_USER SY
+		  LEFT JOIN SY_USER SU ON SY.USER_ID = SU.USER_ID
+		  LEFT JOIN SY_PRDUCT PRD ON SY.PRDUCT_SEQNO = PRD.PRDUCT_SEQNO
+		 WHERE SY.DELETE_AT = 'N'
+		   AND SY.SCHDUL_SE_CODE = 'SY16000007'
+		   AND PRD.MTRIL_CODE =  #{mtrilCode}
+	</select>
+	
+	<!-- 출고테이블 저장 -->
+	<update id="delDlivyInfo" parameterType="lims.dly.vo.DlivyMVo">
+		UPDATE IM_DLIVY
+		   SET DELETE_AT = 'Y'
+		 WHERE DLIVY_ORDE_SEQNO = #{dlivyOrdeSeqno}
+	</update>
+	
+	<!-- 미등록 알림 리스트 수정 -->
+	<update id="updDlivyInfo" parameterType="lims.dly.vo.DlivyMVo">
+		UPDATE  IM_DLIVY
+		   SET  EMAIL_SNDNG_TM  = #{emailSndngTm}
+		       ,EMAIL_SNDNG_DT  = TO_DATE( #{emailSendDate} ||' '|| #{emailSendTime}, 'YYYY-MM-DD HH24:MI:SS')
+		       ,DLIVY_HM        = #{dlivyHm}
+		       ,REQEST_SEQNO    = #{reqestSeqno}
+		       ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+		       ,LAST_CHANGE_DT  = SYSDATE
+		 WHERE DLIVY_ORDE_SEQNO = #{dlivyOrdeSeqno}
+	</update>
+	
+	<!-- 출고 이메일 이용자 삭제 -->
+	<delete id="delDlivyEmailList" parameterType="lims.dly.vo.DlivyMVo">
+		DELETE 
+		  FROM IM_DLIVY_EMAIL_USER
+		 WHERE DLIVY_ORDE_SEQNO = #{dlivyOrdeSeqno}
+	</delete>
+	
+	<!-- 출고 이메일 이용자 저장 -->
+	<insert id="insAddDlivyEmail" parameterType="lims.dly.vo.DlivyMVo">
+		INSERT INTO IM_DLIVY_EMAIL_USER(
+		    DLIVY_ORDE_SEQNO
+		   ,USER_ID
+		   ,LAST_CHANGER_ID
+		   ,LAST_CHANGE_DT
+		)VALUES(
+		    #{dlivyOrdeSeqno}
+		   ,#{userId}
+		   ,'${@lims.util.GetUserSession@getUserId()}'
+		   ,SYSDATE
+		)
+	</insert>
+	
+	<!-- lot 유효성 체크 -->
+	<select id="getLotValidation" parameterType="lims.dly.vo.DlivyMVo" resultType="int">
+		SELECT COUNT(*) CNT
+		  FROM IM_REQEST 
+		 WHERE LOT_ID = #{lotId}
+		   AND DELETE_AT = 'N'
+	</select>
+	
+	<!-- lot로 의뢰일련번호 조회 -->
+	<select id="getLotToRequestSeqno" parameterType="lims.dly.vo.DlivyMVo" resultType="string">
+		SELECT MAX(REQEST_SEQNO) REQEST_SEQNO
+		  FROM IM_REQEST 
+		 WHERE LOT_ID = #{lotId}
+		   AND DELETE_AT = 'N'
+	</select>
+	
+	<update id="getInvoSeq" parameterType="lims.dly.vo.DlivyMVo">
+		UPDATE  IM_DLIVY_BRCD
+		   SET  INVOICE_NO  = #{invoice}
+		   	   ,FULL_INVOICE_NO =#{invoiceNo}
+		       ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+		       ,LAST_CHANGE_DT  = SYSDATE
+		 WHERE MTRIL_CODE = 
+		 (
+		 	CASE WHEN SUBSTR(#{mtrilCode},1,2) = '55' THEN '15'||SUBSTR(#{mtrilCode},3) 
+		 	ELSE #{mtrilCode}
+		 	END
+		 )
+		 AND PO_NO = #{poNo}
+		 AND BATCH_NO = #{batchNo}
+		 AND DELETE_AT = 'N'
+	</update>
+	
+	<update id="getInvoDeailSeq" parameterType="lims.dly.vo.DlivyMVo" >
+		UPDATE  IM_DLIVY_BRCD_DETAIL
+		   SET  FULL_INVOICE_NO  = #{invoiceNo}
+		       ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+		       ,LAST_CHANGE_DT  = SYSDATE
+		 WHERE DELETE_AT = 'N'
+		 AND DLIVY_BRCD_SEQNO IN(#{dlivyBrcdSeqno})
+		 AND DLIVY_BRCD_STTUS_CODE = 'IM16000001'
+	</update>
+	
+			
+	<select id="getVrfctChk" parameterType="lims.dly.vo.DlivyMVo" resultType="lims.dly.vo.DlivyMVo">
+	SELECT b.DLIVY_BRCD_SEQNO, a.DLIVY_BRCD_STTUS_CODE
+            FROM IM_DLIVY_BRCD_DETAIL a
+        inner join IM_DLIVY_BRCD b on  a.DLIVY_BRCD_SEQNO = b.DLIVY_BRCD_SEQNO
+        WHERE     1 = 1
+<!-- 		AND B.MTRIL_CODE=#{mtrilCode} -->
+AND B.MTRIL_CODE = 
+		 (
+		 	CASE WHEN SUBSTR(#{mtrilCode},1,2) = '55' THEN '15'||SUBSTR(#{mtrilCode},3) 
+		 	ELSE #{mtrilCode}
+		 	END
+		 )
+		AND B.PO_NO =#{poNo}
+		AND B.BATCH_NO=#{batchNo}
+		AND B.DELETE_AT='N'
+		AND A.DELETE_AT='N'
+	</select>
+	
+	<select id="vrfctDetail" parameterType="lims.dly.vo.DlivyMVo" resultType="lims.dly.vo.DlivyMVo">
+		SELECT DLIVY_BRCD_STTUS_CODE
+			FROM IM_DLIVY_BRCD_DETAIL
+		WHERE DLIVY_BRCD_SEQNO IN (#{dlivyBrcdSeqno})
+		AND DELETE_AT='N'
+	</select>
+	
+	<update id="getInvoDetail" parameterType="lims.dly.vo.DlivyMVo">
+		UPDATE  IM_DLIVY_BRCD_DETAIL
+		SET  DO_NO =#{doNo}
+		   	   ,PO_NO = #{poNo}
+		       ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+		       ,LAST_CHANGE_DT  = SYSDATE
+		WHERE 1=1
+		AND FULL_INVOICE_NO = #{invoiceNo}
+	</update>
+
+	<select id="getCmpResult" parameterType="lims.dly.vo.DlivyMVo" resultType="int">
+		SELECT COUNT(DLIVY_BRCD_SEQNO)
+		FROM IM_DLIVY_BRCD_DETAIL 
+		WHERE 1=1
+		AND DELETE_AT='N'
+		AND FULL_INVOICE_NO = #{invoiceNo}
+	</select>
+
+	
+	
+</mapper>

@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.sys.dao.InsttMDao">
+	<select id="getInsttMList" parameterType="lims.sys.vo.InsttMVo"
+		resultType="lims.sys.vo.InsttMVo">
+		SELECT 
+			INSPCT_INSTT_CODE
+			, BEST_INSPCT_INSTT_CODE
+			, INSPCT_INSTT_NM
+			, TELNO
+			, FXNUM
+			, EMAIL
+			, HMPG
+			, DELNG_BANK_NM
+			, ACNUT_NO
+			, DPSTR_NM
+			, RPRSNTV_NM
+			, BSNM_REGIST_NO
+			, ZIP
+			, ADRES
+			, DETAIL_ADRES
+			, DC
+			, DELNG_BANK_NM
+			, PRQUDO_RM
+			, OFFCS_FILE_SEQNO
+			, LOGO_FILE_SEQNO
+			, OCSL_FILE_SEQNO  
+			, USE_AT				
+		FROM 
+				SY_INSPCT_INSTT A		
+		WHERE 	
+			1=1
+		<if test="inspctInsttNm != null and inspctInsttNm != ''">
+			and INSPCT_INSTT_NM like '%' || #{inspctInsttNm} ||'%'	
+		</if>
+	</select>
+	<insert id="insInsttM" parameterType="lims.sys.vo.InsttMVo">
+		INSERT INTO
+			SY_INSPCT_INSTT(
+			INSPCT_INSTT_CODE
+			,BEST_INSPCT_INSTT_CODE
+	<!-- 		,UPPER_INSPCT_INSTT_CODE -->
+			,INSPCT_INSTT_NM
+			,TELNO
+			,FXNUM
+			,EMAIL
+			,HMPG
+			,ZIP
+			,ADRES
+			,DETAIL_ADRES
+			,DC
+			,USE_AT
+			,SORT_ORDR
+			,LOGO_FILE_SEQNO
+			,OFFCS_FILE_SEQNO
+			,DELNG_BANK_NM
+			,ACNUT_NO
+			,DPSTR_NM
+			,RPRSNTV_NM
+			,BSNM_REGIST_NO
+			,RQSTDOC_RM
+			,PRQUDO_RM
+			,RDMS_GROUP_ID
+			,DPRLR_ID
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,STBLT_JDGMNT_NM
+			,IMPROPT_JDGMNT_NM
+			,CNFIRM_JDGMNT_NM
+		)VALUES(
+			(select 'I' || LPAD(NVL (SUBSTR(MAX (INSPCT_INSTT_CODE),7,1), 0)+1,6,0) from sy_inspct_instt)
+			, (select 'I' || LPAD(NVL (SUBSTR(MAX (INSPCT_INSTT_CODE),7,1), 0)+1,6,0) from sy_inspct_instt)
+	<!-- 		, #{upperInspctInsttCode} -->
+			, #{inspctInsttNm}
+			, #{telno}
+			, #{fxnum}
+			, #{email}
+			, #{hmpg}
+			, #{zip}
+			, #{adres}
+			, #{detailAdres}
+			, #{dc}
+			, #{useAt}
+			, #{sortOrdr}
+			, #{logoFileSeqno}
+			, #{offcsFileSeqno}
+			, #{delngBankNm}
+			, #{acnutNo}
+			, #{dpstrNm}
+			, #{rprsntvNm}
+			, #{bsnmRegistNo}
+			, #{rqstdocRm}
+			, #{prqudoRm}
+			, #{rdmsGroupId}
+			, #{dprlrId}
+			, #{lastChangerId}
+			, SYSDATE
+			, #{stbltJdgmntNm}
+			, #{improptJdgmntNm}
+			, #{cnfirmJdgmntNm})
+	</insert>
+	
+	<update id="updInsttM" parameterType="lims.sys.vo.InsttMVo">
+		UPDATE SY_INSPCT_INSTT SET
+			INSPCT_INSTT_NM = #{inspctInsttNm}
+			, TELNO = #{telno}
+			, FXNUM = #{fxnum}
+			, EMAIL = #{email}
+			, HMPG = #{hmpg}
+			, ZIP = #{zip}
+			, ADRES = #{adres}
+			, DETAIL_ADRES = #{detailAdres}
+			, DC = #{dc}
+			, SORT_ORDR = #{sortOrdr}
+			, LOGO_FILE_SEQNO = #{logoFileSeqno}
+			, OFFCS_FILE_SEQNO = #{offcsFileSeqno}
+			, OCSL_FILE_SEQNO = #{ocslFileSeqno}
+			, DELNG_BANK_NM = #{delngBankNm}
+			, ACNUT_NO = #{acnutNo}
+			, DPSTR_NM = #{dpstrNm}
+			, RPRSNTV_NM = #{rprsntvNm}
+			, BSNM_REGIST_NO = #{bsnmRegistNo}
+			, RQSTDOC_RM = #{rqstdocRm}
+			, PRQUDO_RM = #{prqudoRm}
+			, RDMS_GROUP_ID = #{rdmsGroupId}
+			, DPRLR_ID = #{dprlrId}
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+			, STBLT_JDGMNT_NM = #{stbltJdgmntNm}
+			, IMPROPT_JDGMNT_NM = #{improptJdgmntNm}
+			, CNFIRM_JDGMNT_NM = #{cnfirmJdgmntNm}
+		where INSPCT_INSTT_CODE = #{inspctInsttCode}
+	</update>
+</mapper>

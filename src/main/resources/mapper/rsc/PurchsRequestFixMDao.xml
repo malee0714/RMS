@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.rsc.dao.PurchsRequestFixMDao">
+
+	<!-- 구매 요청 확정 정보 조회 -->
+	<select id="getPurchsRequestFixMList" parameterType="lims.rsc.vo.PurchsRequestFixMVo" resultType="lims.rsc.vo.PurchsRequestFixMVo" >
+		SELECT RP.PURCHS_SEQNO
+            ,RP.PURCHS_NM
+            ,RP.PURCHS_DTE
+            ,SII.INSPCT_INSTT_NM AS REQUSTDEPTNM
+            ,RP.PURCHS_DEPT_CODE
+            ,RP.PURCHSR_ID
+            ,SU.USER_NM AS RQESTERNM
+            ,SU.LOGIN_ID
+            ,RP.TOT_AMOUNT
+            ,RP.ACPTNC_COMPT_AT
+            ,RP.RGNT_PROGRS_SITTN_CODE
+            ,RP.RM
+            ,RP.LAST_CHANGER_ID
+            ,RP.LAST_CHANGE_DT
+            ,SII.INSPCT_INSTT_NM AS REQUSTDEPTNM
+            ,SU.LOGIN_ID AS RQESTERNM
+            ,(SELECT NVL(MAX(ROWNUM), 0) 
+              FROM RS_PURCHS_ISESTATN 
+              WHERE RP.PURCHS_SEQNO = PURCHS_SEQNO) AS REQUSTNUM
+            ,SCC.CMMN_CODE_NM AS RGNTPROGRSSITTNNM
+        FROM RS_PURCHS RP
+        LEFT OUTER JOIN SY_INSPCT_INSTT SII ON SII.INSPCT_INSTT_CODE = RP.PURCHS_DEPT_CODE
+        LEFT OUTER JOIN SY_USER SU ON SU.USER_ID = RP.PURCHSR_ID
+        LEFT OUTER JOIN SY_CMMN_CODE SCC ON SCC.CMMN_CODE = RP.RGNT_PROGRS_SITTN_CODE
+        WHERE 1=1
+		<if test="requstDteStart != null and requstDteStart != '' ">
+			AND TO_DATE(RP.PURCHS_DTE) <![CDATA[>=]]> TO_DATE( #{requstDteStart} ,'YYYY-MM-DD')
+		</if>
+		<if test="requstDteFinish != null and requstDteFinish != '' ">
+			AND TO_DATE(RP.PURCHS_DTE) <![CDATA[<]]> TO_DATE( #{requstDteFinish} , 'YYYY-MM-DD') +1
+		</if>
+        <if test="purchsNmSch != null and purchsNmSch != '' ">
+        	AND RP.PURCHS_NM LIKE '%'||#{purchsNmSch}||'%'
+        </if>
+		<if test="rgntProgrsSittnCodeSch != null and rgntProgrsSittnCodeSch != '' ">
+        	AND RP.RGNT_PROGRS_SITTN_CODE = #{rgntProgrsSittnCodeSch}
+        </if>
+        <if test="requstDeptCodeSch != null and requstDeptCodeSch != '' ">
+        	AND RP.PURCHS_DEPT_CODE = #{requstDeptCodeSch}
+        </if>
+        <if test="inspctInsttCode != null and inspctInsttCode != '' "> <!-- 기관코드 -->
+        	AND RP.PURCHS_DEPT_CODE = #{inspctInsttCode}
+	   </if>
+        ORDER BY RP.PURCHS_DTE ASC, RP.PURCHS_NM ASC
+	</select>
+	
+	<!-- 구매요청 목록 그리드(제품목록 Detail 그리드) 조회 -->
+	<select id="getRequstIsestatnFixMList" parameterType="lims.rsc.vo.PurchsRequestMVo" resultType="lims.rsc.vo.PurchsRequestMVo" >
+		SELECT  
+            A.MYSEQNO
+            ,A.PURCHS_SEQNO
+            ,A.PURCHS_REQUST_SEQNO
+            ,A.PRDUCT_SEQNO
+            ,A.REQUST_QTT
+            ,A.LAST_CHANGER_ID
+            ,A.LAST_CHANGE_DT
+            ,B.PURCHS_REQUST_NM
+            ,B.PURCHS_REQUST_DTE
+            ,D.PRDUCT_CL_NM
+            ,C.PRDUCT_NM
+            ,NVL(C.PC,0) UNTPC
+            , (SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE C.PRPOS_CODE = CMMN_CODE) AS PRPOSNM
+            , (SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE C.CSTDY_STTUS_CODE = CMMN_CODE) AS CSTDYSTTUSNM
+            , (SELECT UNIT_NM FROM SY_UNIT WHERE C.PRDUCT_UNIT_CODE = UNIT_SEQNO) AS PRDUCTUNITNM
+            , (SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE D.PRDUCT_SE_CODE = CMMN_CODE) AS PRDUCTSENM
+         FROM (
+                    SELECT 
+                        PURCHS_SEQNO
+                        ,PURCHS_REQUST_SEQNO
+                        ,PRDUCT_SEQNO
+                        ,REQUST_QTT
+                        ,LAST_CHANGER_ID
+                        ,LAST_CHANGE_DT
+                        ,PURCHS_REQUST_SEQNO||':'||PRDUCT_SEQNO AS MYSEQNO
+                    FROM RS_PURCHS_REQUST_ISESTATN
+         ) A
+         INNER  JOIN RS_PURCHS_REQUST B ON B.PURCHS_REQUST_SEQNO = A.PURCHS_REQUST_SEQNO
+         INNER  JOIN RS_PRDUCT C ON C.PRDUCT_SEQNO = A.PRDUCT_SEQNO
+         INNER  JOIN RS_PRDUCT_CL D ON D.PRDUCT_CL_SEQNO = C.PRDUCT_CL_SEQNO
+         WHERE B.RGNT_PROGRS_SITTN_CODE >= 'RS05000002'
+         AND A.PURCHS_SEQNO IS NULL
+        <if test="requstDteStart != null and requstDteStart != '' ">
+			AND TO_DATE(B.PURCHS_REQUST_DTE) <![CDATA[>=]]> TO_DATE( #{requstDteStart} ,'YYYY-MM-DD')
+		</if>
+		<if test="requstDteFinish != null and requstDteFinish != '' ">
+			AND TO_DATE(B.PURCHS_REQUST_DTE) <![CDATA[<]]> TO_DATE( #{requstDteFinish} , 'YYYY-MM-DD') +1
+		</if>
+        <if test="purchsRequstNmSch != null and purchsRequstNmSch != '' ">
+        	AND B.PURCHS_REQUST_NM LIKE '%'||#{purchsRequstNmSch}||'%'
+        </if>
+        <if test="purchsSeqno != null and purchsSeqno != '' ">
+			AND (A.PURCHS_REQUST_SEQNO, A.PRDUCT_SEQNO) 
+					NOT IN (SELECT PURCHS_REQUST_SEQNO, PRDUCT_SEQNO
+                    			FROM RS_PURCHS_ISESTATN
+                        		WHERE PURCHS_SEQNO = #{purchsSeqno})
+         </if>
+         <if test="mySeqno != null and mySeqno != '' ">
+         	AND A.MYSEQNO NOT IN (${mySeqno})
+         </if>
+         ORDER BY B.PURCHS_REQUST_DTE ASC, B.PURCHS_REQUST_NM ASC
+	</select>
+	
+	<!-- 구매목록 그리드(Detail 그리드) 조회 -->
+	<select id="getPurchsIsestatnFixMList" parameterType="lims.rsc.vo.PurchsRequestFixMVo" resultType="lims.rsc.vo.PurchsRequestFixMVo" >	
+		SELECT RPI.PURCHS_SEQNO
+            ,RPI.PRDUCT_SEQNO
+            ,RPI.PURCHS_REQUST_SEQNO
+            ,RPI.REQUST_QTT
+            ,RPI.PURCHS_QTT
+            ,RPI.UNTPC
+            ,RPI.ACPTNC_QTT
+            ,RPI.ACPTNC_DTE
+            ,RPI.ACPTNC_RM
+            ,RPI.LAST_CHANGER_ID
+            ,RPI.LAST_CHANGE_DT
+            ,RP.PRDUCT_NM
+            ,RPC.PRDUCT_CL_NM
+            ,SCC.CMMN_CODE_NM AS PRPOSNM
+            ,SCC2.CMMN_CODE_NM AS CSTDYSTTUSNM
+            ,SU.UNIT_NM AS PRDUCTUNITNM
+            ,SCC4.CMMN_CODE_NM AS PRDUCTSENM
+            ,RPI.UNTPC*RPI.PURCHS_QTT AS PRICE
+        FROM RS_PURCHS_ISESTATN RPI
+        LEFT OUTER JOIN RS_PRDUCT RP ON RP.PRDUCT_SEQNO = RPI.PRDUCT_SEQNO
+        LEFT OUTER JOIN RS_PRDUCT_CL RPC ON RPC.PRDUCT_CL_SEQNO = RP.PRDUCT_CL_SEQNO
+        LEFT OUTER JOIN SY_CMMN_CODE SCC ON RP.PRPOS_CODE = SCC.CMMN_CODE
+        LEFT OUTER JOIN SY_CMMN_CODE SCC2 ON RP.CSTDY_STTUS_CODE = SCC2.CMMN_CODE
+        LEFT OUTER JOIN SY_UNIT SU ON RP.PRDUCT_UNIT_CODE = SU.UNIT_SEQNO
+        LEFT OUTER JOIN SY_CMMN_CODE SCC4 ON RPC.PRDUCT_SE_CODE = SCC4.CMMN_CODE
+        WHERE 1=1
+        <if test="purchsSeqno != null and purchsSeqno != '' ">
+        	AND RPI.PURCHS_SEQNO = #{purchsSeqno}
+        </if>
+	</select>
+	
+	<!-- 구매 요청 확정 정보 저장 -->
+	<insert id="insPurchsRequestFixM" parameterType="lims.rsc.vo.PurchsRequestFixMVo">
+		<selectKey keyProperty="purchsSeqno" resultType="java.lang.String" order="BEFORE">
+			SELECT SQ_RS_PURCHS.NEXTVAL AS PURCHSSEQNO FROM DUAL
+		</selectKey>
+
+		INSERT INTO RS_PURCHS(
+			PURCHS_SEQNO
+			,PURCHS_NM
+			,PURCHS_DTE
+			,PURCHS_DEPT_CODE
+			,PURCHSR_ID
+			,TOT_AMOUNT
+			,RGNT_PROGRS_SITTN_CODE
+			,RM
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) VALUES (
+			#{purchsSeqno}
+			, #{purchsNm}
+			, #{purchsDte}
+			, #{purchsDeptCode}
+			, #{purchsrId}
+			, #{totAmount}
+			, #{rgntProgrsSittnCode}
+			, #{rm}
+			, #{lastChangerId}
+			, SYSDATE
+		)
+	</insert>
+	
+	<!-- 구매목록 Detail 저장 -->
+	<insert id="insRequstIsestatnFixM" parameterType="lims.rsc.vo.PurchsRequestFixMVo">
+		INSERT INTO RS_PURCHS_ISESTATN(
+			PURCHS_SEQNO
+			,PRDUCT_SEQNO
+			,PURCHS_REQUST_SEQNO
+			,REQUST_QTT
+			,PURCHS_QTT
+			,UNTPC
+			,ACPTNC_QTT
+			,ACPTNC_DTE
+			,ACPTNC_RM
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) VALUES (
+			#{purchsSeqno}
+			, #{prductSeqno}
+			, #{purchsRequstSeqno}
+			, #{requstQtt}
+			, #{purchsQtt}
+			, #{untpc}
+			, #{acptncQtt}
+			, #{acptncDte}
+			, #{acptncRm}
+			, #{lastChangerId}
+			, SYSDATE
+		)
+	</insert>
+	
+	<!-- 구매 요청 확정 정보 수정 -->
+	<update id="updPurchsRequestFixM" parameterType="lims.rsc.vo.PurchsRequestFixMVo">
+		UPDATE RS_PURCHS SET
+			 PURCHS_NM = #{purchsNm}
+			, PURCHS_DTE = #{purchsDte}
+			, PURCHS_DEPT_CODE = #{purchsDeptCode}
+			, PURCHSR_ID = #{purchsrId}
+			, TOT_AMOUNT = #{totAmount}
+			, RGNT_PROGRS_SITTN_CODE = #{rgntProgrsSittnCode}
+			, RM = #{rm}
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE PURCHS_SEQNO = #{purchsSeqno}
+	</update>
+	
+	<!-- 구매목록 Detail 수정 -->
+	<update id="updRequstIsestatnFixM" parameterType="lims.rsc.vo.PurchsRequestFixMVo">
+		UPDATE RS_PURCHS_ISESTATN SET
+			REQUST_QTT = #{requstQtt}
+			, PURCHS_QTT = #{purchsQtt}
+			, UNTPC = #{untpc}
+			, ACPTNC_QTT = #{acptncQtt}
+			, ACPTNC_DTE = #{acptncDte}
+			, ACPTNC_RM = #{acptncRm}
+			, LAST_CHANGER_ID = #{lastChangerId}
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE PURCHS_SEQNO = #{purchsSeqno}
+		AND PRDUCT_SEQNO = #{prductSeqno}
+	</update>
+	
+	<!-- 구매요청 수정 (마스터 테이블 시약 진행 상황코드, 일련번호값 채우기) -->
+	<update id="updMasterPurchsRequstSeqno" parameterType="lims.rsc.vo.PurchsRequestFixMVo">
+			UPDATE RS_PURCHS_REQUST SET
+                  RGNT_PROGRS_SITTN_CODE = #{rgntProgrsSittnCode}
+                  , PURCHS_SEQNO = #{purchsSeqno}
+            WHERE PURCHS_REQUST_SEQNO = #{purchsRequstSeqno}
+            AND RGNT_PROGRS_SITTN_CODE NOT IN 'RS05000004'
+    </update>
+
+	<!-- 구매요청 수정 (마스터 테이블 시약 진행 상황코드, 일련번호값 삭제)  -->
+	<update id="updMasterBeforeDelSeqno"  parameterType="lims.rsc.vo.PurchsRequestFixMVo" >
+			UPDATE RS_PURCHS_REQUST SET
+                  RGNT_PROGRS_SITTN_CODE = #{rgntProgrsSittnCode}
+                  , PURCHS_SEQNO = ''
+             WHERE PURCHS_SEQNO = #{purchsSeqno}
+			AND RGNT_PROGRS_SITTN_CODE NOT IN 'RS05000004'
+    </update>
+    
+	<!-- 구매요청 수정 (마스터 테이블 시약 진행 상황코드, 일련번호값 부분 삭제)  -->
+	<update id="updMasterBeforeDelSeqnoPart"  parameterType="lims.rsc.vo.PurchsRequestFixMVo" >
+		UPDATE RS_PURCHS_REQUST SET
+            RGNT_PROGRS_SITTN_CODE = #{rgntProgrsSittnCode}
+            , PURCHS_SEQNO = ''
+        WHERE PURCHS_REQUST_SEQNO = #{purchsRequstSeqno}
+        AND PURCHS_SEQNO  = (
+        	SELECT NVL(MAX(PURCHS_SEQNO), 0)
+            FROM RS_PURCHS_REQUST_ISESTATN 
+            WHERE PURCHS_SEQNO IS NOT NULL 
+            AND PURCHS_SEQNO =  #{purchsSeqno}
+        )
+        AND RGNT_PROGRS_SITTN_CODE NOT IN 'RS05000004'
+    </update>
+
+
+	<!-- 구매요청 수정(디테일 테이블 구매 일련번호값 채우기) -->
+     <update id="updPurchsRequstSeqno" parameterType="lims.rsc.vo.PurchsRequestFixMVo">
+			UPDATE RS_PURCHS_REQUST_ISESTATN SET
+                  PURCHS_SEQNO = #{purchsSeqno}
+            WHERE PURCHS_REQUST_SEQNO = #{purchsRequstSeqno}
+            AND PRDUCT_SEQNO = #{prductSeqno}
+     </update>
+	
+	<!-- 구매 번호 삭제 쿼리 (전체 삭제) -->
+    <update id="updBeforeDelSeqno"  parameterType="lims.rsc.vo.PurchsRequestFixMVo" >
+             UPDATE RS_PURCHS_REQUST_ISESTATN SET
+                       PURCHS_SEQNO = ''
+             WHERE PURCHS_SEQNO = #{purchsSeqno}
+    </update>
+    
+    <!-- 구매 번호 삭제 쿼리 (부분 삭제) -->
+    <update id="updBeforeDelSeqnoPart"  parameterType="lims.rsc.vo.PurchsRequestFixMVo" >   
+             UPDATE RS_PURCHS_REQUST_ISESTATN SET
+                       PURCHS_SEQNO = ''
+             WHERE PURCHS_SEQNO = #{purchsSeqno}
+             
+             <if test="prductSeqno != null and prductSeqno != '' ">
+					AND PRDUCT_SEQNO = #{prductSeqno}
+             </if>
+             <if test="purchsRequstSeqno != null and purchsRequstSeqno != '' ">
+					AND PURCHS_REQUST_SEQNO = #{purchsRequstSeqno}
+             </if>
+    </update>
+
+	<!-- 구매 요청 확정 정보(Master) 삭제 -->
+	<delete id="delRequestFixM" parameterType="lims.rsc.vo.PurchsRequestFixMVo">
+		DELETE FROM RS_PURCHS
+		WHERE PURCHS_SEQNO = #{purchsSeqno}
+	</delete>
+	
+	<!-- 구매목록 Detail 삭제 -->
+	<delete id="delRequestFixMDetail" parameterType="lims.rsc.vo.PurchsRequestFixMVo">
+		DELETE FROM RS_PURCHS_ISESTATN
+		WHERE 1=1
+		<if test="purchsSeqno != null and purchsSeqno != '' ">
+			AND PURCHS_SEQNO = #{purchsSeqno}
+		</if>
+		<if test="prductSeqno != null and prductSeqno != '' ">
+			AND PRDUCT_SEQNO = #{prductSeqno}
+		</if>
+		<if test="purchsRequstSeqno != null and purchsRequstSeqno != '' ">
+			AND PURCHS_REQUST_SEQNO = #{purchsRequstSeqno}
+		</if>
+	</delete>
+
+</mapper>

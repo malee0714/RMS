@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.PrductUpperFMDao">
+
+<select id="chkPrductUpp" parameterType="lims.wrk.vo.PrductUpperMVo"
+		resultType="lims.wrk.vo.PrductUpperMVo" >
+		
+SELECT * FROM SY_PRDUCT_UPPER	WHERE PRDUCT_NM = #{prductNm} AND MMNY_SE_CODE = #{mmnySeCode}
+
+
+</select>
+
+	<select id="getPrductUppFM" parameterType="lims.wrk.vo.PrductUpperMVo"
+		resultType="lims.wrk.vo.PrductUpperMVo">
+		SELECT
+		PRDUCT_UPPER_SEQNO
+		,MMNY_SE_CODE
+		,FN_GET_CDDTLNM(MMNY_SE_CODE) AS
+		MMNY_SE_NM
+		,PRDUCT_NM
+		,PRDUCT_DETAIL_NM
+		,PRDUCT_NO
+		,USE_AT
+		,DELETE_AT
+		,LAST_CHANGER_ID
+		,LAST_CHANGE_DT
+		,FN_GET_CDDTLNM(MMNY_SE_CODE) MMNY_SE
+		FROM SY_PRDUCT_UPPER
+		WHERE DELETE_AT ='N'
+		<if test=" mmnySeCodeSch != null and mmnySeCodeSch != '' ">
+			AND MMNY_SE_CODE = #{mmnySeCodeSch}
+		</if>
+
+		<if test=" prductNmSch != null and prductNmSch != '' ">
+			AND UPPER(PRDUCT_NM) LIKE '%'||UPPER(#{prductNmSch})||'%'
+		</if>
+
+		<if test=" prductNoSch != null and prductNoSch != '' ">
+			AND UPPER(PRDUCT_NO) LIKE '%'||UPPER(#{prductNoSch})||'%'
+		</if>
+
+		<if test=" useAtSch != null and useAtSch != '' ">
+			AND USE_AT = #{useAtSch}
+		</if>
+
+		<if test=" popProductNmSearch != null and popProductNmSearch != '' ">
+			AND UPPER(PRDUCT_NM) LIKE
+			'%'||UPPER(#{popProductNmSearch})||'%'
+		</if>
+	</select>
+
+	<!-- 중복체크 -->
+	<select id="chkNo" parameterType="lims.wrk.vo.PrductUpperMVo"
+		resultType="int">
+		
+		SELECT COUNT(*) FROM SY_PRDUCT_UPPER
+		WHERE PRDUCT_NM = #{prductNm}
+		AND MMNY_SE_CODE = #{mmnySeCode}
+	</select>
+
+
+	<insert id="savePrductUppFM" parameterType="lims.wrk.vo.PrductUpperMVo">
+		INSERT INTO
+		SY_PRDUCT_UPPER(
+		PRDUCT_UPPER_SEQNO
+		,MMNY_SE_CODE
+		,PRDUCT_NM
+		,PRDUCT_DETAIL_NM
+		,PRDUCT_NO
+		,USE_AT
+		,DELETE_AT
+		,LAST_CHANGER_ID
+		,LAST_CHANGE_DT
+		) VALUES (
+		SQ_SY_PRDUCT_UPPER.NEXTVAL
+		, #{mmnySeCode}
+		, #{prductNm}
+		, #{prductDetailNm}
+		, #{prductNo}
+		, #{useAt}
+		, 'N'
+		, #{lastChangerId}
+		, SYSDATE
+		)
+	</insert>
+
+
+	<update id="upPrductUppFM" parameterType="lims.wrk.vo.PrductUpperMVo">
+		UPDATE SY_PRDUCT_UPPER
+		SET
+		MMNY_SE_CODE = #{mmnySeCode}
+		, PRDUCT_NM = #{prductNm}
+		, PRDUCT_DETAIL_NM = #{prductDetailNm}
+		, PRDUCT_NO = #{prductNo}
+		, USE_AT = #{useAt}
+		, DELETE_AT = 'N'
+		, LAST_CHANGER_ID = #{lastChangerId}
+		, LAST_CHANGE_DT = SYSDATE
+		WHERE PRDUCT_UPPER_SEQNO =
+		#{prductUpperSeqno}
+	</update>
+
+
+	<update id="delPrductUppFM" parameterType="lims.wrk.vo.PrductUpperMVo">
+		UPDATE SY_PRDUCT_UPPER
+		SET
+		DELETE_AT = 'Y'
+		,USE_AT = 'N'
+		WHERE PRDUCT_UPPER_SEQNO = #{prductUpperSeqno}
+		AND DELETE_AT =
+		'N'
+	</update>
+
+
+
+
+
+
+
+
+
+</mapper>

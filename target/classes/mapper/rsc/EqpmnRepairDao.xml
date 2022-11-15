@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.rsc.dao.EqpmnRepairDao">
+
+    <sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+    <sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+
+    <!-- 수리이력 조회 -->
+    <select id="getEqpRepairHist" parameterType="lims.rsc.vo.EqpmnRepairDto" resultType="lims.rsc.vo.EqpmnRepairDto">
+        SELECT
+            A.EQPMN_REPAIR_HIST_SEQNO
+            , A.EQPMN_SEQNO
+            , FN_GET_CDDTLNM(B.EQPMN_CL_CODE) EQPMN_CL_NM
+            , B.EQPMN_MANAGE_NO
+            , B.EQPMN_NM
+            , B.SERIAL_NO
+            , B.MODL_NM
+            , TO_CHAR(A.REPAIR_BEGIN_DT, 'YYYY-MM-DD HH24:MI:SS') AS REPAIR_BEGIN_DT
+            , TO_CHAR(A.REPAIR_END_DT, 'YYYY-MM-DD HH24:MI:SS') AS REPAIR_END_DT
+            , A.INNER_REPAIR_AT
+            , DECODE(A.INNER_REPAIR_AT, 'Y', '내부', 'N', '외부') AS INNER_REPAIR_NM
+            , A.RM
+            , A.OCCRRNC_CAUSE_CODE
+            , A.REPAIRMAN_NM
+            , A.EQPMN_REPAIR_RESULT_CODE
+            , A.REPAIR_CN
+            , A.ATCHMNFL_SEQNO
+            , A.DELETE_AT
+            , A.LAST_CHANGER_ID
+            , A.LAST_CHANGE_DT
+            , B.OPR_AT
+        FROM RS_EQPMN_REPAIR_HIST A
+        JOIN RS_EQPMN B ON B.EQPMN_SEQNO = A.EQPMN_SEQNO AND B.DELETE_AT = 'N' AND B.USE_AT = 'Y'
+        WHERE A.BPLC_CODE = <include refid="bplcCode"/>
+          AND A.DELETE_AT = 'N'
+        <if test='schEqpmnClCode != null and schEqpmnClCode != ""'>
+            AND B.EQPMN_CL_CODE = #{schEqpmnClCode}
+        </if>
+        <if test='schCustlabSeqno != null and schCustlabSeqno != ""'>
+            AND B.CUSTLAB_SEQNO = #{schCustlabSeqno}
+        </if>
+        <if test='schEqpmnNm != null and schEqpmnNm != ""'>
+            AND UPPER(B.EQPMN_NM) LIKE '%'|| UPPER(TRIM(#{schEqpmnNm})) ||'%'
+        </if>
+        <if test='schRepairBeginDte != null and schRepairBeginDte != ""'>
+            <if test='schRepairEndDte != null and schRepairEndDte != ""'>
+                AND TO_DATE(A.REPAIR_BEGIN_DT) BETWEEN #{schRepairBeginDte} AND #{schRepairEndDte}
+            </if>
+
+            <if test='schRepairEndDte == null or schRepairEndDte == ""'>
+                AND TO_DATE(A.REPAIR_BEGIN_DT) <![CDATA[>=]]> #{schRepairBeginDte}
+            </if>
+        </if>
+        <if test='schRepairEndDte != null and schRepairEndDte != ""'>
+            <if test='schRepairBeginDte == null or schRepairBeginDte == ""'>
+                AND TO_DATE(A.REPAIR_BEGIN_DT) <![CDATA[<=]]> #{schRepairEndDte}
+            </if>
+        </if>
+        ORDER BY A.REPAIR_BEGIN_DT DESC
+    </select>
+   
+    <!-- 수리이력 등록 -->
+    <insert id="insEqpRepairHist" parameterType="lims.rsc.vo.EqpmnRepairDto">
+        <selectKey keyProperty="eqpmnRepairHistSeqno" resultType="lims.rsc.vo.EqpmnRepairDto" order="BEFORE">
+            SELECT SQ_RS_EQPMN_REPAIR_HIST.NEXTVAL AS eqpmnRepairHistSeqno FROM DUAL
+        </selectKey>
+
+        INSERT INTO RS_EQPMN_REPAIR_HIST (
+            EQPMN_REPAIR_HIST_SEQNO
+            , BPLC_CODE
+            , EQPMN_SEQNO
+            , OCCRRNC_CAUSE_CODE
+            , INNER_REPAIR_AT
+            , REPAIRMAN_NM
+            , REPAIR_BEGIN_DT
+            , REPAIR_END_DT
+            , EQPMN_REPAIR_RESULT_CODE
+            , REPAIR_CN
+            , ATCHMNFL_SEQNO
+            , RM
+            , DELETE_AT
+            , LAST_CHANGER_ID
+            , LAST_CHANGE_DT
+        ) VALUES (
+            #{eqpmnRepairHistSeqno}
+            , <include refid="bplcCode"/>
+            , #{eqpmnSeqno}
+            , #{occrrncCauseCode}
+            , #{innerRepairAt}
+            , #{repairmanNm}
+            , TO_DATE(#{repairBeginDt}, 'YYYY-MM-DD HH24:MI:SS')
+            , TO_DATE(#{repairEndDt}, 'YYYY-MM-DD HH24:MI:SS')
+            , #{eqpmnRepairResultCode}
+            , #{repairCn}
+            , #{atchmnflSeqno}
+            , #{rm}
+            , 'N'
+            , <include refid="loginId"/>
+            , SYSDATE
+        )
+    </insert>
+   
+    <!-- 수리이력 수정 -->
+    <update id="updEqpRepairHist" parameterType="lims.rsc.vo.EqpmnRepairDto">
+        UPDATE RS_EQPMN_REPAIR_HIST
+           SET OCCRRNC_CAUSE_CODE       = #{occrrncCauseCode}
+             , INNER_REPAIR_AT          = #{innerRepairAt}
+             , REPAIRMAN_NM             = #{repairmanNm}
+             , REPAIR_BEGIN_DT          = TO_DATE(#{repairBeginDt}, 'YYYY-MM-DD HH24:MI:SS')
+             , REPAIR_END_DT            = TO_DATE(#{repairEndDt}, 'YYYY-MM-DD HH24:MI:SS')
+             , EQPMN_REPAIR_RESULT_CODE = #{eqpmnRepairResultCode}
+             , REPAIR_CN                = #{repairCn}
+             , ATCHMNFL_SEQNO	        = #{atchmnflSeqno}
+             , RM				        = #{rm}
+             , DELETE_AT                = #{deleteAt}
+             , LAST_CHANGER_ID	        = <include refid="loginId"/>
+             , LAST_CHANGE_DT	        = SYSDATE
+         WHERE EQPMN_REPAIR_HIST_SEQNO = #{eqpmnRepairHistSeqno}
+    </update>
+
+    <!-- 가장 최근의 수리이력 -->
+    <select id="getMostRecentRepairHist" parameterType="lims.rsc.vo.EqpmnRepairDto" resultType="Integer">
+        SELECT EQPMN_REPAIR_HIST_SEQNO FROM (
+            SELECT A.EQPMN_REPAIR_HIST_SEQNO FROM RS_EQPMN_REPAIR_HIST A
+             WHERE A.DELETE_AT= 'N'
+               AND A.EQPMN_SEQNO = #{eqpmnSeqno}
+             ORDER BY A.EQPMN_REPAIR_HIST_SEQNO DESC
+        ) WHERE ROWNUM = 1
+    </select>
+
+    <!-- 장비가동여부 수정 -->
+    <update id="updEqpmnOprAt" parameterType="lims.rsc.vo.EqpmnRepairDto">
+        UPDATE RS_EQPMN
+           SET OPR_AT          = #{oprAt}
+             , LAST_CHANGER_ID = <include refid="loginId"/>
+             , LAST_CHANGE_DT  = SYSDATE
+         WHERE EQPMN_SEQNO = #{eqpmnSeqno}
+    </update>
+
+</mapper>

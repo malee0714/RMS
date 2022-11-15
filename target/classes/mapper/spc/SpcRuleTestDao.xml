@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.spc.dao.SpcRuleTestDao">
+
+	<select id="getMtrilSdpcList" parameterType="lims.spc.vo.SpcRuleTestDto" resultType="lims.spc.vo.SpcMtrilExpriem">
+		/* 자재별 기준규격 select */
+		SELECT  A.MTRIL_SEQNO
+				,A.MTRIL_SDSPC_SEQNO
+				,B.EXPRIEM_NM
+		FROM SY_MTRIL_SDSPC A
+		INNER JOIN SY_EXPRIEM B ON A.EXPRIEM_SEQNO = B.EXPRIEM_SEQNO
+		WHERE   A.MTRIL_SEQNO = #{mtrilSeqno}
+	        AND A.USE_AT = 'Y' 
+	        AND A.DELETE_AT = 'N'
+	</select>
+	
+	<select id="getMtrilClManage" parameterType="lims.spc.vo.SpcRuleTestDto" resultType="lims.wrk.vo.CLManageMVo">
+		/* 자재별 CL 산정기준 관리목록 조회 */
+		SELECT  B.MTRIL_CL_MANAGE_SEQNO
+		        ,A.MTRIL_SEQNO
+		        ,A.MTRIL_CODE
+		        ,A.MTRIL_NM
+		        ,A.MMNY_SE_CODE
+		        ,B.LOT_NUM
+		        ,B.SEARCH_CYCLE
+		        ,TO_CHAR(ADD_MONTHS(SYSDATE, '-' || B.SEARCH_CYCLE),'YYYY-MM-DD') AS SEARCH_BEGIN_DTE
+		        ,TO_CHAR(SYSDATE,'YYYY-MM-DD') AS SEARCH_END_DTE
+		        ,B.SGM_LEVL
+		        ,B.LAST_EXECUT_DTE
+		        ,B.NEXT_EXECUT_DTE
+		        ,B.EXECUT_CYCLE
+		        ,B.CYCLE_CODE
+		        ,B.USE_AT
+		FROM SY_MTRIL A
+		LEFT JOIN SY_MTRIL_CL_MANAGE B ON A.MTRIL_SEQNO = B.MTRIL_SEQNO
+		WHERE   A.MTRIL_SEQNO = #{mtrilSeqno}
+			AND A.DELETE_AT = 'N'
+			AND A.USE_AT = 'Y'
+			AND B.USE_AT = 'Y'
+	</select>
+	
+	<select id="getSpcRules" parameterType="lims.spc.vo.SpcParam" resultType="lims.wrk.vo.TrendSpcRuleVO">
+		/* spc 8대 룰을 조회한다. */
+		SELECT   A.SPC_MANAGE_SEQNO
+				,B.SPC_RULE_CODE
+				,B.N_VALUE
+				,B.ORDR
+		FROM SY_SPC_MANAGE A
+		INNER JOIN SY_SPC_RULE B ON A.SPC_MANAGE_SEQNO = B.SPC_MANAGE_SEQNO
+		INNER JOIN SY_CMMN_CODE CD ON B.SPC_RULE_CODE = CD.CMMN_CODE AND CD.USE_AT = 'Y' AND CD.UPPER_CMMN_CODE = 'SY04' /* 공통코드 사용여부 Y인 SPC RULE만 조회 */
+		INNER JOIN SY_SPC_MANAGE_EXPRIEM C ON A.SPC_MANAGE_SEQNO = C.SPC_MANAGE_SEQNO
+		WHERE   A.MTRIL_SEQNO = #{spcMtrilExpriem.mtrilSeqno}
+			AND C.MTRIL_SDSPC_SEQNO = #{spcMtrilExpriem.mtrilSdspcSeqno}
+			AND B.N_VALUE IS NOT NULL
+		<if test="!spcRuleTestDto.chartData">
+			/* 차트 메뉴가 아니면 1번룰은 조회하지 않는다. */
+			AND B.SPC_RULE_CODE != 'SY04000001'
+		</if>
+		    /* 업체 있으면 조회조건에 들어가면 되고 없으면 없는 spc rule만 뽑아야됨 */
+		<choose>
+			<when test=" spcRuleTestDto.entrpsSeqno != null and spcRuleTestDto.entrpsSeqno != '' ">
+			AND A.ENTRPS_SEQNO = #{spcRuleTestDto.entrpsSeqno}
+			</when>
+			<otherwise>
+			AND A.ENTRPS_SEQNO IS NULL
+			</otherwise>
+		</choose>
+			<if test=" spcRuleTestDto.inspctTyCode != null and spcRuleTestDto.inspctTyCode != '' ">
+			/* 검사유형 */
+			AND A.INSPCT_TY_CODE = #{spcRuleTestDto.inspctTyCode}
+			</if>
+	<choose>
+		<when test="spcRuleTestDto.chartData">
+		/* chart 메뉴에서의 spc rule test는 oreder by desc. chart메뉴 에서는 우선순위가 거꾸로 검사되어야한다. chart point 색깔표시를 덮어쓰기위해. */
+		ORDER BY B.ORDR DESC
+		</when>
+		<otherwise>
+		/* 결과입력, roa spc rule test는 oreder by asc */
+		ORDER BY B.ORDR
+		</otherwise>
+	</choose>
+	</select>
+	
+	<select id="getSpcSampleStats" parameterType="lims.spc.vo.SpcParam" resultType="lims.spc.vo.SpcSampleStats">
+		SELECT  T.MTRIL_SEQNO
+		        ,T.MTRIL_SDSPC_SEQNO
+		        ,T.SGM_LEVL
+		        /* RESULT_VALUE 통계 */
+		        ,ROUND(T.CL, 3) AS CL /* CL */
+		        ,ROUND(T.STANDARD_DEVIATION, 3) AS STDEV /* 표준편차 */
+		        ,ROUND((T.CL + ( T.SGM_LEVL * T.STANDARD_DEVIATION)), 3) AS UCL /* 평균 + (시그마수준 x 표준편차) */
+		        ,ROUND((T.CL - ( T.SGM_LEVL * T.STANDARD_DEVIATION)), 3) AS LCL /* 평균 - (시그마수준 x 표준편차) */
+				/* QC_RESULT_VALUE 통계 */
+		        ,ROUND(T.QC_CL, 3) AS QC_CL /* QC CL */
+		        ,ROUND(T.QC_STANDARD_DEVIATION, 3) AS QC_STDEV /* QC 표준편차 */
+		        ,ROUND((T.QC_CL + ( T.SGM_LEVL * T.QC_STANDARD_DEVIATION)), 3) AS QC_UCL /* QC 평균 - (시그마수준 x 표준편차) */
+		        ,ROUND((T.QC_CL - ( T.SGM_LEVL * T.QC_STANDARD_DEVIATION)), 3) AS QC_LCL /* QC 평균 - (시그마수준 x 표준편차) */
+		FROM(
+		    SELECT  R.MTRIL_SEQNO
+		            ,MC.SGM_LEVL
+		            ,MS.MTRIL_SDSPC_SEQNO
+		            ,AVG(RER.RESULT_VALUE) AS CL
+		            ,STDDEV(RER.RESULT_VALUE) AS STANDARD_DEVIATION
+		            ,AVG(RER.QC_RESULT_VALUE) AS QC_CL
+		            ,STDDEV(RER.QC_RESULT_VALUE) AS QC_STANDARD_DEVIATION
+		    FROM IM_REQEST R
+		    LEFT JOIN SY_MTRIL_CL_MANAGE MC ON R.MTRIL_SEQNO = MC.MTRIL_SEQNO
+		    INNER JOIN SY_MTRIL_SDSPC MS ON R.MTRIL_SEQNO = MS.MTRIL_SEQNO
+		    INNER JOIN IM_REQEST_EXPRIEM RE ON R.REQEST_SEQNO = RE.REQEST_SEQNO AND MS.MTRIL_SDSPC_SEQNO = RE.MTRIL_SDSPC_SEQNO
+		    INNER JOIN IM_REQEST_EXPRIEM_RESULT RER ON RE.REQEST_EXPRIEM_SEQNO = RER.REQEST_EXPRIEM_SEQNO AND RE.LAST_EXPR_ODR = RER.EXPR_ODR /* 최종 시험 차수 인것만 join */
+		    WHERE   R.DELETE_AT = 'N'
+		        AND R.VENDOR_REQEST_AT = 'N'
+	            AND RE.DELETE_AT = 'N'
+	            AND RE.JDGMNT_FOM_CODE = 'IM06000001'
+	            AND R.MTRIL_SEQNO = #{spcMtrilExpriem.mtrilSeqno}
+	            AND MS.MTRIL_SDSPC_SEQNO = #{spcMtrilExpriem.mtrilSdspcSeqno}
+		<choose>
+			<when test="!spcRuleTestDto.qc">
+				AND RER.RESULT_VALUE IS NOT NULL
+			</when>
+			<otherwise>
+				AND RER.QC_RESULT_VALUE IS NOT NULL
+			</otherwise>
+		</choose>
+		<choose>
+			<when test=" !spcRuleTestDto.chartData and spcRuleTestDto.qc ">
+				/* 
+				*	chart메뉴에서 호출한게 아니면서 qc가 true인경우 진행상황은 COA대기 이후 시험항목
+				*   or 현재 의뢰건에 해당하는 시험항목 두 조건 모두 조회
+				*   ROA메뉴에서 SPC rule test한다고 보는 조건이다. 결과입력, chart메뉴에서는 ROA대기 이후로 조회.
+				*/
+				AND ( RE.PROGRS_SITTN_CODE >= 'IM03000005' OR R.REQEST_SEQNO = #{spcRuleTestDto.reqestSeqno} )
+			</when>
+			<otherwise>
+				AND RE.PROGRS_SITTN_CODE >= 'IM03000004' /* ROA대기 이후인 시험항목만 */
+			</otherwise>
+		</choose>
+			<if test=" spcRuleTestDto.mnfcturStartDte != null and spcRuleTestDto.mnfcturStartDte != '' ">
+				AND R.MNFCTUR_DTE  <![CDATA[>=]]> #{spcRuleTestDto.mnfcturStartDte} /* 제조일자 검색범위 시작일 */
+			</if>
+			<if test=" spcRuleTestDto.mnfcturEndDte != null and spcRuleTestDto.mnfcturEndDte != '' ">
+				AND R.MNFCTUR_DTE  <![CDATA[<=]]> #{spcRuleTestDto.mnfcturEndDte} /* 제조일자 검색범위 종료일 */
+			</if>
+			<if test=" spcRuleTestDto.inspctTyCode != null and spcRuleTestDto.inspctTyCode != '' ">
+				/* 검사유형 */
+				AND R.INSPCT_TY_CODE = #{spcRuleTestDto.inspctTyCode}
+			</if>
+		    GROUP BY R.MTRIL_SEQNO, MC.SGM_LEVL, MS.MTRIL_SDSPC_SEQNO
+		) T
+	</select>
+	
+	<select id="getSpcSample" parameterType="lims.spc.vo.SpcParam" resultType="lims.spc.vo.SpcResultExpriem">
+		/* spc rule test를 위한 표본 검색 lotNo, 자재, 자재기준규격시험항목에 대해 lot들을 조회한다. */
+		SELECT  R.REQEST_SEQNO
+				,R.SPLORE_NM || '-' || R.REQEST_SEQNO as SPLORE_NM 
+				,R.MTRIL_SEQNO
+		        ,MS.MTRIL_SDSPC_SEQNO
+		        ,RE.UCL_VALUE
+		        ,RE.LCL_VALUE
+		        ,RE.USL_VALUE
+		        ,RE.LSL_VALUE
+				,RER.RESULT_VALUE
+				,RER.QC_RESULT_VALUE
+				,E.EXPRIEM_NM
+				,RE.UCL_VALUE_SE_CODE
+		        ,RE.LCL_VALUE_SE_CODE
+				<if test='spcRuleTestDto.chartData and "Y".equalsIgnoreCase(spcRuleTestDto.coaAt)'>
+		        /* chart 메뉴에서 협력사 결과값이 조회조건에 따라 보여지고 안보여지고 한다. */
+				,V.RESULT_VALUE AS VENDER_RESULT_VALUE
+				,V.QC_RESULT_VALUE AS QC_VENDER_RESULT_VALUE
+				</if>
+		FROM IM_REQEST R
+		INNER JOIN SY_MTRIL_SDSPC MS ON R.MTRIL_SEQNO = MS.MTRIL_SEQNO
+		INNER JOIN IM_REQEST_EXPRIEM RE ON R.REQEST_SEQNO = RE.REQEST_SEQNO AND MS.MTRIL_SDSPC_SEQNO = RE.MTRIL_SDSPC_SEQNO
+		INNER JOIN SY_EXPRIEM E ON RE.EXPRIEM_SEQNO = E.EXPRIEM_SEQNO
+		INNER JOIN IM_REQEST_EXPRIEM_RESULT RER ON RE.REQEST_EXPRIEM_SEQNO = RER.REQEST_EXPRIEM_SEQNO AND RE.LAST_EXPR_ODR = RER.EXPR_ODR /* 최종 시험 차수 인것만 join */
+		<if test='spcRuleTestDto.chartData and "Y".equalsIgnoreCase(spcRuleTestDto.coaAt)'>
+		LEFT JOIN (
+			/* chart메뉴에서 호출하면서 coa 협력사여부 Y인경우 협력사 coa result value 데이터를 위해 join */
+		    SELECT  IR.REQEST_SEQNO
+		            ,IRE.REQEST_EXPRIEM_SEQNO
+		            ,IRE.EXPRIEM_SEQNO
+		            ,IRER.RESULT_VALUE
+		            ,IRER.QC_RESULT_VALUE
+			FROM IM_REQEST IR
+			LEFT JOIN IM_REQEST_EXPRIEM IRE ON IR.REQEST_SEQNO = IRE.REQEST_SEQNO
+			LEFT JOIN IM_REQEST_EXPRIEM_RESULT IRER ON IRE.REQEST_EXPRIEM_SEQNO = IRER.REQEST_EXPRIEM_SEQNO
+		) V ON R.VENDOR_COA_REQEST_SEQNO = V.REQEST_SEQNO AND RE.EXPRIEM_SEQNO = V.EXPRIEM_SEQNO
+		</if>
+		WHERE   R.DELETE_AT = 'N'
+			AND R.VENDOR_REQEST_AT = 'N'
+	        AND RE.DELETE_AT = 'N'
+			AND RE.JDGMNT_FOM_CODE = 'IM06000001' /* 판정형식 최대최소 */
+	        AND R.MTRIL_SEQNO = #{spcMtrilExpriem.mtrilSeqno}
+			AND MS.MTRIL_SDSPC_SEQNO = #{spcMtrilExpriem.mtrilSdspcSeqno}
+	<choose>
+		<when test="!spcRuleTestDto.qc">
+			AND RER.RESULT_VALUE IS NOT NULL
+		</when>
+		<otherwise>
+			AND RER.QC_RESULT_VALUE IS NOT NULL
+		</otherwise>
+	</choose>
+	<choose>
+		<when test=" !spcRuleTestDto.chartData and spcRuleTestDto.qc ">
+			/* 
+			*	chart메뉴에서 호출한게 아니면서 qc가 true인경우 진행상황은 COA대기 이후 시험항목,
+			*   or 현재 의뢰건에 해당하는 시험항목 두 조건 모두 조회.
+			*   ROA메뉴에서 SPC rule test한다고 보는 조건이다. 결과입력, chart메뉴에서는 ROA대기 이후로 조회.
+			*/
+			AND (RE.PROGRS_SITTN_CODE >= 'IM03000005' OR R.REQEST_SEQNO = #{spcRuleTestDto.reqestSeqno})
+		</when>
+		<otherwise>
+			AND RE.PROGRS_SITTN_CODE >= 'IM03000004' /* ROA대기 이후인 시험항목만 */
+		</otherwise>
+	</choose>
+        <if test=" spcRuleTestDto.mnfcturStartDte != null and spcRuleTestDto.mnfcturStartDte != '' ">
+			AND R.MNFCTUR_DTE  <![CDATA[>=]]> #{spcRuleTestDto.mnfcturStartDte} /* 제조일자 검색범위 시작일 */
+        </if>
+        <if test=" spcRuleTestDto.mnfcturEndDte != null and spcRuleTestDto.mnfcturEndDte != '' ">
+			AND R.MNFCTUR_DTE  <![CDATA[<=]]> #{spcRuleTestDto.mnfcturEndDte} /* 제조일자 검색범위 종료일 */
+        </if>
+        <if test=" spcRuleTestDto.inspctTyCode != null and spcRuleTestDto.inspctTyCode != '' ">
+	        /* 검사유형 */
+			AND R.INSPCT_TY_CODE = #{spcRuleTestDto.inspctTyCode}
+        </if>
+	<choose>
+		<when test="spcRuleTestDto.chartData">
+		/* chart 메뉴에서의 spc rule test는 oreder by asc */
+		ORDER BY R.MNFCTUR_DTE, R.REQEST_NO
+		</when>
+		<otherwise>
+		/* 결과입력 spc rule test는 oreder by DESC */
+		ORDER BY R.MNFCTUR_DTE DESC, R.REQEST_NO DESC
+		</otherwise>
+	</choose>
+	</select>
+
+</mapper>

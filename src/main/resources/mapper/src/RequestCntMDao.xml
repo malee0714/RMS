@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.src.dao.RequestCntMDao">
+	
+	<!-- 부서별 의뢰건수 조회 -->
+	<select id="getRequestCntList" parameterType="lims.src.vo.RequestCntMVo" resultType="lims.src.vo.RequestCntMVo">
+			SELECT 
+			<if test="type=='list'">
+				REQEST_DEPT_CODE,
+		       	REQEST_DEPT_NM,                <!-- 의뢰 부서 -->
+		       	SUM(REQEST_CNT) AS REQEST_CNT, <!-- 의뢰 건수 -->
+		       	REQEST_DTE			           <!-- 의뢰 일자 -->
+			</if>
+			<if test="type=='listDate'">
+				DISTINCT REQEST_DTE            <!-- 범례: 의뢰 일자(중복 제거) -->	
+			</if>
+			 FROM(
+				  SELECT
+				  	   A.REQEST_DEPT_CODE,
+				       B.INSPCT_INSTT_NM AS REQEST_DEPT_NM,
+				       COUNT(A.REQEST_DTE) AS REQEST_CNT,
+					   SUBSTR(A.REQEST_DTE,0,7) AS REQEST_DTE
+				  FROM IM_REQEST A
+				  LEFT JOIN SY_INSPCT_INSTT B ON A.REQEST_DEPT_CODE = B.INSPCT_INSTT_CODE
+				  LEFT JOIN SY_MTRIL C ON A.MTRIL_SEQNO = C.MTRIL_SEQNO
+				  WHERE 1=1
+				  <if test="authorSeCode == 'SY09000004'">
+				  	AND A.CTMMNY_OTHBC_AT = 'Y'  <!-- 고객사 공개 여부 -->
+				  </if>
+				  <if test="shrDeptCode != null and shrDeptCode != ''">
+				  	AND A.REQEST_DEPT_CODE = #{shrDeptCode}
+				  </if>					  
+				  <if test="shrReqestBeginDte != null and shrReqestBeginDte != '' and shrReqestEndDte != null and shrReqestEndDte != ''">
+			      	AND A.REQEST_DTE BETWEEN TO_DATE(#{shrReqestBeginDte}) AND TO_DATE(#{shrReqestEndDte})
+			  	  </if>
+			  	  <if test="shrInspctTyCode != null and shrInspctTyCode != ''">
+			      	AND A.INSPCT_TY_CODE = #{shrInspctTyCode}
+			  	  </if>
+			  	  <if test= "bplcCodeSch != null and bplcCodeSch!=''">
+			  	   	AND A.BPLC_CODE = #{bplcCodeSch}
+			  	  </if>
+			  	  <if test= "shrMtrilNm != null and shrMtrilNm !=''">
+			  	   	AND C.MTRIL_NM LIKE '%' || #{shrMtrilNm} || '%'
+			  	  </if>
+				  GROUP BY A.REQEST_DEPT_CODE, A.REQEST_DTE, B.INSPCT_INSTT_NM
+				  )  
+	      	GROUP BY REQEST_DEPT_CODE, REQEST_DEPT_NM, REQEST_DTE   
+			<if test="type == 'list'">
+				ORDER BY REQEST_DEPT_CODE, REQEST_DTE	
+			</if>
+			<if test="type == 'listDate'">
+				ORDER BY REQEST_DTE
+			</if>
+	</select>
+	
+</mapper>

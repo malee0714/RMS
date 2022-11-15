@@ -1,0 +1,401 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="rdms.ca.dao.RdmsCAMDao">
+	 <!-- RDMS 뷰어 리스트  생성 -->
+	<insert id="insertRDMSViewer" parameterType="hashmap" >
+		INSERT INTO VIEWERLIST(DOCGUID, OTHERDB, DOCID1, DOCID2, DOCID3, READUSER, CREATEDATE)
+		VALUES(#{uuid}, 'InterfaceIT_RDMS', #{docIDs},'','',#{userID},SYSDATE)
+	</insert>
+
+	<resultMap id="resultMap" type="HashMap">
+	  <result property="TEST" column="TEST" />
+	  <result property="LOGIN_ID" column="LOGIN_ID" />
+	  <result property="BINDERITEMVALUE_ID" column="BINDERITEMVALUE_ID" />
+	  <result property="BPLC_CODE" column="BPLC_CODE"/>
+	  <result property="REQEST_SEQNO" column="REQEST_SEQNO"/>
+	  <result property="REQEST_EXPRIEM_SEQNO" column="REQEST_EXPRIEM_SEQNO"/>
+	  <result property="EXPR_NUMOT" column="EXPR_NUMOT"/>
+	  <result property="EQPMN_SEQNO" column="EQPMN_SEQNO"/>
+	  <result property="TEMPLATE_NM" column="TEMPLATE_NM"/>
+	  <result property="LOT_NO" column="LOT_NO"/>
+	  <result property="EQPMN_NM" column="EQPMN_NM"/>
+	  <result property="EXPRIEM_NM" column="EXPRIEM_NM"/>
+	  <result property="EXCEL_AT" column="EXCEL_AT"/>
+	  <result property="ORIGINAL_BINDER" column="ORIGINAL_BINDER"/>
+	  <result property="COPY_BINDER" column="COPY_BINDER"/>
+      <result property="RDMS_DATA" column="RDMS_DATA" jdbcType="CLOB" javaType="java.lang.String" />
+      <result property="RDMS_DT" column="RDMS_DT" jdbcType="CLOB" javaType="java.lang.String" />
+      <result property="RDMS_LOT" column="RDMS_LOT" jdbcType="CLOB" javaType="java.lang.String" />
+   </resultMap>
+   <select id="chkExistRdmsUser" parameterType="lims.sys.vo.UserMVo" resultType="int">
+   		SELECT
+   			COUNT(*)
+   		FROM USERINFO A
+   		WHERE USER_ID = #{loginId}
+   </select>
+   <update id="resetRdmsPassword" parameterType="lims.sys.vo.UserMVo">
+	   	UPDATE USERINFO A SET
+	   		USER_PASSWORD = #{basePassword}
+	   	WHERE USER_ID = #{loginId}
+   </update>
+   <update id="deleteRdmsUserInfo" parameterType="lims.sys.vo.UserMVo">
+   		UPDATE USERINFO A SET
+   			DELETESTATE = 'Y'
+   		WHERE USER_ID = #{loginId}
+   </update>
+	<update id="updateDelRdmsUserInfo" parameterType="lims.sys.vo.UserMVo">
+		UPDATE USERINFO A SET
+			DELETESTATE = 'N',
+			USER_ID = #{loginId},
+			GROUP_ID = DECODE(#{loginId},'admin',A.GROUP_ID,NVL(#{rdmsGroupId},'00001')),
+			USER_PASSWORD = #{basePassword},
+			USER_NAME = #{userNm},
+			USER_EMAIL = #{email},
+			USER_PHONE = #{moblphon},
+			USING_STATUS = #{useAt},
+			MODIFY_USER = '${@lims.util.GetUserSession@getUserId()}',
+			MODIFY_DATE = SYSDATE
+		WHERE USER_ID = #{loginId}
+	</update>
+   <update id="updateRdmsUserInfo" parameterType="lims.sys.vo.UserMVo">
+		UPDATE USERINFO A SET
+			USER_ID = #{loginId},
+			GROUP_ID = DECODE(#{loginId},'admin',A.GROUP_ID,NVL(#{rdmsGroupId},'00001')),
+			USER_PASSWORD = #{basePassword},
+			USER_NAME = #{userNm},
+			USER_EMAIL = #{email},
+			USER_PHONE = #{moblphon},
+			USING_STATUS = #{useAt},
+			MODIFY_USER = '${@lims.util.GetUserSession@getUserId()}',
+			MODIFY_DATE = SYSDATE
+		WHERE USER_ID = #{loginId}
+	</update>
+	<insert id="insertRdmsUserInfo" parameterType="lims.sys.vo.UserMVo">
+		INSERT INTO USERINFO(
+			USER_ID,
+			GROUP_ID,
+			USER_PASSWORD,
+			USER_NAME,
+			USER_EMAIL,
+			USER_PHONE,
+			LISTOPTION,
+			DELETESTATE,
+			USING_STATUS,
+			CREATE_USER,
+			CREATE_DATE,
+			MODIFY_USER,
+			MODIFY_DATE
+		)VALUES(
+			#{loginId},
+			NVL(#{rdmsGroupId},'00001'),
+			#{basePassword},
+			#{userNm},
+			#{email},
+			#{moblphon},
+			'30',
+			'N',
+			'Y',
+			'NEW USER JOIN',
+			SYSDATE,
+			'NEW USER JOIN',
+			SYSDATE
+		)
+	</insert>
+	<select id="getRdmsResultData" parameterType="lims.com.vo.RdmsMVo" resultMap="resultMap">
+		SELECT
+			'1' AS TEST,
+            B.BDF4_USERID AS LOGIN_ID, <!-- RDMS등록 사용자 -->
+            B.BINDERITEMVALUE_ID,
+            B.KEY1 AS BPLC_CODE, <!-- 사업장 일련번호 -->
+            B.KEY2 AS REQEST_SEQNO, <!-- 의뢰 일련번호 -->
+            B.KEY3 REQEST_EXPRIEM_SEQNO,<!-- 시험항목 일련번호 -->
+            B.KEY5 EXPR_NUMOT,<!-- 분석횟수 -->
+            B.KEY6 EQPMN_SEQNO,<!-- 기기 일련번호 -->
+            B.UDF6 EQPMN_NM,<!-- 기기 명 -->
+            B.UDF10 TEMPLATE_NM,<!-- 템플릿 명 -->
+            B.UDF2 LOT_NO,<!-- LOT NO -->
+            B.UDF3 EXPRIEM_NM,<!-- 시험항목 명 -->
+			B.UDF7 EXCEL_AT, <!-- EXCEL여부 -->
+            C1.RDF AS RDMS_DATA, <!-- RDMS에서 추출된 결과 값 정보 -->
+            C2.RDF AS RDMS_DT, <!-- RDMS에서 추출된 날짜 정보 -->
+            C3.RDF AS RDMS_LOT, <!-- RDMS에서 추출된 LOT_NO 정보 -->
+            #{binderItemValueA} AS ORIGINAL_BINDER,
+            #{binderItemValueB} AS COPY_BINDER
+        FROM BINDERITEMVALUE B
+        LEFT OUTER JOIN BINDERITEMVALUE_C_RESULT C1 ON B.BINDERITEMVALUE_ID = C1.BINDERITEMVALUE_ID AND C1.ITEM_NAME = 'R01'
+        LEFT OUTER JOIN BINDERITEMVALUE_C_RESULT C2 ON B.BINDERITEMVALUE_ID = C2.BINDERITEMVALUE_ID AND C2.ITEM_NAME = 'R03'
+        LEFT OUTER JOIN BINDERITEMVALUE_C_RESULT C3 ON B.BINDERITEMVALUE_ID = C3.BINDERITEMVALUE_ID AND C3.ITEM_NAME = 'R02'
+        WHERE B.BINDERITEMVALUE_ID IN (#{binderItemValueA}, #{binderItemValueB})
+        AND B.KEY5 IS NOT NULL <!-- 장비 NOT NULL --> 
+        AND B.UDF10 IS NOT NULL <!-- 템플릿 NOT NULL -->
+        ORDER BY BINDERITEMVALUE_ID
+	</select>
+
+	<!-- RDMS 뷰어 조회 -->
+	<select id="selectRDMSViwer" parameterType="lims.com.vo.RdmsMVo" resultType="String">
+		<if test='gridData != null'>
+	      	SELECT
+				A.BINDERITEMVALUE_ID
+			FROM BINDERITEMVALUE A
+	        JOIN DOCUMENT B ON A.DOCUMENT_ID = B.DOCUMENT_ID
+	        WHERE 1 = 1 AND LENGTH(B.FILE_DATA) <![CDATA[>]]>  0
+		    AND A.KEY3 IN
+		    <foreach collection="gridData" item="gridData" index="index" open="("
+			close=")" separator=",">
+				#{gridData}
+			</foreach>
+				AND A.ISORIGIN = 'Y'
+		</if>
+
+		<if test='gridData != null and gridData2 != null'>
+			UNION
+		</if>
+
+		<if test='gridData2 != null'>
+			SELECT
+				A.BINDERITEMVALUE_ID
+			FROM BINDERITEMVALUE A
+	        JOIN DOCUMENT B ON A.DOCUMENT_ID = B.DOCUMENT_ID
+	        WHERE 1 = 1 AND LENGTH(B.FILE_DATA) <![CDATA[>]]> 0
+		    AND A.BINDERITEMVALUE_ID IN
+		    <foreach collection="gridData2" item="gridData2" index="index" open="("
+			close=")" separator=",">
+				#{gridData2}
+			</foreach>
+	        <if test='showGbn == "1"'>
+				AND A.ISORIGIN = 'Y'
+			</if>
+			<if test='showGbn == "2"'>
+				AND A.ISORIGIN = 'N'
+			</if>
+		</if>
+	</select>
+
+	<update id="updRdmsInfo" parameterType="hashmap">
+		UPDATE BINDERITEMVALUE
+		SET	KEY2 = #{reqestSeqno},
+		KEY4 = #{exprOdr},
+		KEY5 = #{exprNumot}
+		WHERE BINDERITEMVALUE_ID IN(#{binderitemvalueId}, #{updtBinderitemvalueId})
+	</update>
+
+	<update id="updateCloseCnvt" parameterType="lims.com.vo.RdmsMVo">
+		UPDATE OPTIONALINSTALL SET
+			INSTALL_STATUS = #{installStatus}
+		WHERE OPTION_NAME = 'CanUserClose'
+		AND PROGRAM_ID = '0000000003'
+	</update>
+
+	<select id="getblobPdfViewer" parameterType="lims.com.vo.RdmsMVo" resultType="lims.com.vo.FileDetailMVo">
+		SELECT
+			B.FILE_SIZE AS FILE_MG
+			, B.FILE_DATA
+	  		, B.DOCUMENT_NAME AS ORGINL_FILE_NM
+		FROM BINDERITEMVALUE A
+		LEFT OUTER JOIN DOCUMENT B ON B.DOCUMENT_ID = A.DOCUMENT_ID
+		WHERE A.BINDERITEMVALUE_ID = #{binderitemvalueId}
+	</select>
+
+	<select id="getCheckBlobPdfViewer" parameterType="java.util.ArrayList" resultType="lims.com.vo.FileDetailMVo">
+		SELECT
+			B.FILE_SIZE AS FILE_MG
+			, B.FILE_DATA
+	  		, B.DOCUMENT_NAME AS ORGINL_FILE_NM
+		FROM BINDERITEMVALUE A
+		LEFT OUTER JOIN DOCUMENT B ON B.DOCUMENT_ID = A.DOCUMENT_ID
+		WHERE A.BINDERITEMVALUE_ID IN
+			<foreach collection="array" item="item" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+	</select>
+	
+	<select id="getPdfViewerGridData" parameterType="Map" resultType="lims.com.vo.RdmsMVo">
+		SELECT
+			A.BINDERITEMVALUE_ID
+			<foreach collection="columnInfoMap" item="item">
+				<if test='item == "B01"'>
+					, A.BDF1_DOCNAME AS B01
+				</if>
+				<if test='item == "B02"'>
+					, A.BDF2_APPNAME AS B02
+				</if>
+				<if test='item == "B03"'>
+					, A.BDF3_WSNAME AS B03
+				</if>
+				<if test='item == "B04"'>
+					, A.BDF4_USERID AS B04
+				</if>
+				<if test='item == "B05"'>
+					, A.BDF5_DATE AS B05
+				</if>
+				<if test='item == "B06"'>
+					, A.BDF6_PAGENUM AS B06
+				</if>
+<!-- 컨버터가 아닌 RDMS 실행시 보여지는 그리드에서도 사용자에게 값을 보여주지 않아서 주석처리
+				<if test='item == "R01"'>
+					, C.RDF01 AS R01
+				</if>
+				<if test='item == "R02"'>
+					, C.RDF02 AS R02
+				</if>
+				<if test='item == "R03"'>
+					, C.RDF03 AS R03
+				</if>
+-->
+				<if test='item == "U01"'>
+					, A.UDF1 AS U01
+				</if>
+				<if test='item == "U02"'>
+					, A.UDF2 AS U02
+				</if>
+				<if test='item == "U03"'>
+					, A.UDF3 AS U03
+				</if>
+				<if test='item == "U04"'>
+					, A.UDF4 AS U04
+				</if>
+				<if test='item == "U05"'>
+					, A.UDF5 AS U05
+				</if>
+				<if test='item == "U06"'>
+					, A.UDF6 AS U06
+				</if>
+				<if test='item == "U07"'>
+					, A.UDF7 AS U07
+				</if>
+				<if test='item == "U08"'>
+					, A.UDF8 AS U08
+				</if>
+				<if test='item == "U09"'>
+					, A.UDF9 AS U09
+				</if>
+				<if test='item == "U10"'>
+					, A.UDF10 AS U10
+				</if>
+				<if test='item == "U11"'>
+					, A.UDF11 AS U11
+				</if>
+				<if test='item == "U12"'>
+					, A.UDF12 AS U12
+				</if>
+				<if test='item == "U13"'>
+					, A.UDF13 AS U13
+				</if>
+				<if test='item == "U14"'>
+					, A.UDF14 AS U14
+				</if>
+				<if test='item == "U15"'>
+					, A.UDF15 AS U15
+				</if>
+				<if test='item == "U16"'>
+					, A.UDF16 AS U16
+				</if>
+				<if test='item == "U17"'>
+					, A.UDF17 AS U17
+				</if>
+				<if test='item == "U18"'>
+					, A.UDF18 AS U18
+				</if>
+				<if test='item == "U19"'>
+					, A.UDF19 AS U19
+				</if>
+				<if test='item == "U20"'>
+					, A.UDF20 AS U20
+				</if>
+				<if test='item == "U21"'>
+					, A.UDF21 AS U21
+				</if>
+				<if test='item == "U22"'>
+					, A.UDF22 AS U22
+				</if>
+				<if test='item == "U23"'>
+					, A.UDF23 AS U23
+				</if>
+				<if test='item == "U24"'>
+					, A.UDF24 AS U24
+				</if>
+				<if test='item == "U25"'>
+					, A.UDF25 AS U25
+				</if>
+				<if test='item == "U26"'>
+					, A.UDF26 AS U26
+				</if>
+				<if test='item == "U27"'>
+					, A.UDF27 AS U27
+				</if>
+				<if test='item == "U28"'>
+					, A.UDF28 AS U28
+				</if>
+				<if test='item == "U29"'>
+					, A.UDF29 AS U29
+				</if>
+				<if test='item == "U30"'>
+					, A.UDF30 AS U30
+				</if>
+			</foreach>
+		FROM BINDERITEMVALUE A
+		LEFT OUTER JOIN BINDERITEMVALUE_RESULT B
+			ON B.BINDERITEMVALUE_ID = A.BINDERITEMVALUE_ID
+		LEFT OUTER JOIN BINDERITEMVALUE_RESULT_SUB C
+			ON C.BINDERITEMVALUE_RESULT = B.BINDERITEMVALUE_RESULT
+				WHERE A.BINDERITEMVALUE_ID IN
+			<foreach collection="binderitemvalueIdMap" item="item" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+	</select>
+	
+	<select id="getBinderColumnInfo" parameterType="string" resultType="lims.com.vo.RdmsMVo">
+		SELECT
+			A.ITEM_NAME
+			, A.ITEM_LABELNAME
+		FROM BINDERITEM A
+		WHERE A.BINDER_ID = (SELECT XA.BINDER_ID FROM BINDERITEMVALUE XA WHERE XA.BINDERITEMVALUE_ID = #{binderitemvalueId})
+		AND A.ITEM_USING = 'Y'
+		ORDER BY A.ORDERBY
+	</select>
+	
+	<update id="delRdmsResultData" parameterType="lims.com.vo.RdmsMVo" >
+	DECLARE AT_id INTEGER; 
+ 	cntBIVResult INTEGER; 
+ 	bivR_id CHAR(10); 
+ 	vCabinet_ID CHAR(10); 
+ 	vDrawer_ID CHAR(10); 
+	vBinder_ID CHAR(10); 
+	vDoc_ID CHAR(10); 
+ 	cntBIV INTEGER; 
+	 BEGIN 
+
+		SELECT Cabinet_ID, Drawer_ID, Binder_ID INTO vCabinet_ID, vDrawer_ID, vBinder_ID FROM BinderItemValue WHERE BinderItemValue_ID = #{binderitemvalueId};
+		SELECT Nvl(Max(AuditTrail_ID),0)+1 into AT_id FROM AuditTrail;
+
+		INSERT INTO AuditTrail(AuditTrail_ID, Who, WHEN, WHERE_Code, What_Code, How, Why, IP) 
+   		VALUES (AT_id, #{userId}, SYSDATE, '04', '10', 'D',#{reason}, #{loginIp}); 
+
+		INSERT INTO B_Document(AuditTrail_ID, document_id, cabinet_id, drawer_id, binder_id, Cabinet_Name, Drawer_Name, Binder_Name, document_name, description, access_number, file_name, file_size, file_createdate, text_info, file_data, BEFORE_AFTER)
+			(SELECT AT_ID, doc.document_id, doc.cabinet_id, doc.drawer_id, doc.binder_id, c.Cabinet_Name, d.Drawer_Name, b.Binder_Name, doc.document_name, doc.description, doc.access_number, doc.file_name, doc.file_size, doc.file_createdate, Empty_Clob(), doc.file_data, 'B' 
+		FROM Document doc, Cabinet c, Drawer d, Binder b WHERE doc.Cabinet_ID = c.Cabinet_ID(+) AND doc.Drawer_ID = d.Drawer_ID(+) AND doc.Binder_ID = b.Binder_ID(+) AND doc.Document_ID IN (SELECT Document_ID FROM BinderItemValue WHERE BinderItemValue_ID =  #{binderitemvalueId}));
+
+		INSERT INTO B_BinderItemValue(AuditTrail_ID, binderitemvalue_id , document_id, cabinet_id, drawer_id, binder_id, Cabinet_Name, Drawer_Name, Binder_Name, bdf1_docname, bdf2_appname, bdf3_wsname, bdf4_userid, bdf5_date, bdf6_pagenum, udf1, udf2, udf3, udf4, udf5, udf6, udf7, udf8, udf9, udf10, access_number, BEFORE_AFTER)
+		(SELECT AT_ID, bi.binderitemvalue_id , bi.document_id, bi.Cabinet_ID, bi.Drawer_ID, bi.Binder_ID, c.Cabinet_Name, d.Drawer_Name, b.Binder_Name, bi.bdf1_docname, bi.bdf2_appname, bi.bdf3_wsname, bi.bdf4_userid, bi.bdf5_date, bi.bdf6_pagenum, bi.udf1, bi.udf2, bi.udf3, bi.udf4, bi.udf5, bi.udf6, bi.udf7, bi.udf8, bi.udf9, bi.udf10, bi.access_number, 'B' FROM BinderItemValue bi, Cabinet c, Drawer d, Binder b WHERE bi.Cabinet_ID = c.Cabinet_ID(+) AND bi.Drawer_ID = d.Drawer_ID(+) AND bi.Binder_ID = b.Binder_ID(+) AND bi.BinderItemValue_ID = #{binderitemvalueId});
+
+ 		SELECT TO_CHAR(MAX(Document_ID)), COUNT(Document_ID) INTO vDoc_ID, cntBIV FROM BinderItemValue WHERE Document_ID IN ( SELECT Document_ID FROM BinderItemValue WHERE BinderItemValue_ID = #{binderitemvalueId});
+
+ 		INSERT INTO B_BinderItemValue(AuditTrail_ID, binderitemvalue_id , document_id, cabinet_id, drawer_id, binder_id, Cabinet_Name, Drawer_Name, Binder_Name, bdf1_docname, bdf2_appname, bdf3_wsname, bdf4_userid, bdf5_date, bdf6_pagenum, udf1, udf2, udf3, udf4, udf5, udf6, udf7, udf8, udf9, udf10, access_number, BEFORE_AFTER)
+    	(SELECT AT_ID, bi.binderitemvalue_id , bi.document_id, bi.Cabinet_ID, bi.Drawer_ID, bi.Binder_ID, c.Cabinet_Name, d.Drawer_Name, b.Binder_Name, bi.bdf1_docname, bi.bdf2_appname, bi.bdf3_wsname, bi.bdf4_userid, bi.bdf5_date, bi.bdf6_pagenum, bi.udf1, bi.udf2, bi.udf3, bi.udf4, bi.udf5, bi.udf6, bi.udf7, bi.udf8, bi.udf9, bi.udf10, bi.access_number, 'A' FROM BinderItemValue bi, Cabinet c, Drawer d, Binder b WHERE bi.Cabinet_ID = c.Cabinet_ID(+) AND bi.Drawer_ID = d.Drawer_ID(+) AND bi.Binder_ID = b.Binder_ID(+) AND bi.BinderItemValue_ID = #{binderitemvalueId});
+
+ 		DELETE FROM BinderItemValue_Result WHERE BinderItemValue_ID = #{binderitemvalueId};
+ 		DELETE FROM BinderItemValue WHERE BinderItemValue_ID = #{binderitemvalueId};
+
+		IF cntBIV = 1 THEN 
+     	INSERT INTO B_Document(AuditTrail_ID, document_id, cabinet_id, drawer_id, binder_id, Cabinet_Name, Drawer_Name, Binder_Name, document_name, description, access_number, file_name, file_size, file_createdate, text_info, file_data, BEFORE_AFTER)
+    	(SELECT AT_ID, doc.document_id, doc.cabinet_id, doc.drawer_id, doc.binder_id, c.Cabinet_Name, d.Drawer_Name, b.Binder_Name, doc.document_name, doc.description, doc.access_number, doc.file_name, doc.file_size, doc.file_createdate, Empty_Clob(), doc.file_data, 'A' 
+    	FROM Document doc, Cabinet c, Drawer d, Binder b WHERE doc.Cabinet_ID = c.Cabinet_ID(+) AND doc.Drawer_ID = d.Drawer_ID(+) AND doc.Binder_ID = b.Binder_ID(+) AND doc.Document_ID = vDoc_ID);
+     	copy_text_info(vDoc_ID, AT_ID);
+     	DELETE FROM Document WHERE Document_ID = vDoc_ID;
+ 		END IF; 
+
+End;
+	
+	</update>
+	
+</mapper>

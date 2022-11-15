@@ -1,0 +1,581 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.dly.dao.DlivyBrcdMDao">
+	
+	<!-- 바코드 조회 -->
+	<select id="getBarcodeList" parameterType="lims.dly.vo.DlivyMVo" resultType="lims.dly.vo.DlivyMVo">
+		SELECT DB.DLIVY_BRCD_SEQNO
+		      ,DB.REQEST_SEQNO
+		      ,DB.DEPT_CODE AS REQEST_DEPT_CODE
+		      ,FN_GET_INSPCT_INSTT(DB.DEPT_CODE) AS REQEST_DEPT_NM
+		      ,CASE WHEN DB.REQEST_SEQNO IS NOT NULL THEN REQ.LOT_ID
+		            ELSE DB.MTRIL_CODE || DB.BATCH_NO
+		       END AS LOT_ID
+		      ,DB.DLIVY_DOC_NM
+		      ,DB.DVYFG_ENTRPS_CODE
+		      ,DB.DVYFG_ENTRPS_NM
+		      ,DB.MTRIL_CODE
+		      ,DB.CTMMNY_MTRIL_CODE
+		      ,DB.PO_NO
+		      ,DB.MTRIL_NM
+		      ,DB.BATCH_NO
+		      ,DB.DLIVY_QY
+		      ,DB.UNIT_NM
+		      ,DB.RM
+		      ,DB.UPDT_CN
+		      ,DB.DLIVY_BRCD_STTUS_CODE
+		      ,FN_GET_CDDTLNM(DB.DLIVY_BRCD_STTUS_CODE) AS DLIVY_BRCD_STTUS_NM
+		      ,DB.DELETE_AT
+		      ,DB.LAST_CHANGER_ID
+		      ,FN_GET_USERNM(DB.LAST_CHANGER_ID) AS LAST_CHANGER_NM
+		      ,TO_CHAR(DB.LAST_CHANGE_DT, 'YYYY-MM-DD HH24:MI:SS') AS LAST_CHANGE_DT
+		      ,DB.TOP_REPR
+		      ,DB.DLIVY_DTE
+		      ,DB.VRIFY_AT
+		      ,FN_GET_USERNM (DB.FRST_CRTR_ID) AS FRST_CRTR_ID
+		      ,DB.FRST_CREAT_DT
+		      ,DB.RELCO_DLIVY_DOC_NM
+         	  ,DB.RELCO_DLIVY_QY
+         	  ,DB.UNPROGRS_REQUST_DC
+         	  ,DB.INVOICE_NO AS INVOICE
+         	  ,DB.FULL_INVOICE_NO AS INVOICE_NO
+		      ,CASE WHEN DB.SHIPMNT_LC_CODE ='P1C1' THEN '화성'
+		            WHEN (DB.SHIPMNT_LC_CODE ='P1C3') THEN 'LSI'
+		            WHEN (DB.SHIPMNT_LC_CODE ='P1C4') THEN '평택' 
+		            WHEN (DB.SHIPMNT_LC_CODE ='P1C2') THEN '천안'
+		            ELSE ''
+		       END AS SHIPMNT_LC_CODE
+		  <if test="validateDteBeginDte != null and validateDteBeginDte != '' and validateDteEndDte != null and validateDteEndDte != ''">
+		 	,LISTAGG(C.VRIFY_DT,', ') WITHIN GROUP (ORDER BY DB.DLIVY_BRCD_SEQNO DESC) VRIFY_DT
+		 </if>
+	 	 FROM IM_REQEST REQ
+		 RIGHT JOIN IM_DLIVY_BRCD DB ON REQ.REQEST_SEQNO = DB.REQEST_SEQNO
+		 <if test="validateDteBeginDte != null and validateDteBeginDte != '' and validateDteEndDte != null and validateDteEndDte != ''">
+		 	LEFT JOIN IM_DLIVY_BRCD_DETAIL C ON DB.DLIVY_BRCD_SEQNO = C.DLIVY_BRCD_SEQNO
+		 </if>
+		WHERE 1=1
+		  AND DB.DELETE_AT = 'N'
+		  <if test="authorSeCode == 'SY09000004'">
+		  	AND REQ.CTMMNY_OTHBC_AT = 'Y'
+		  </if>
+		<if test="shrDeptCode != null and shrDeptCode != '' ">
+		   AND  DB.DEPT_CODE = #{shrDeptCode}
+		</if>
+		<if test="shrDlivyBrcdSttusCode != null and shrDlivyBrcdSttusCode != '' ">
+		   AND  DB.DLIVY_BRCD_STTUS_CODE = #{shrDlivyBrcdSttusCode}
+		</if>
+		<if test="shrDlivyDteBeginDte != null and shrDlivyDteBeginDte != '' and shrDlivyDteEndDte != null and shrDlivyDteEndDte != ''">
+	      AND TO_DATE(NVL(DB.FRST_CREAT_DT,DB.LAST_CHANGE_DT)) BETWEEN TO_DATE(#{shrDlivyDteBeginDte}) AND TO_DATE(#{shrDlivyDteEndDte})
+	    </if>
+	    <if test="shrLotId != null and shrLotId != '' ">
+	      AND (CASE WHEN DB.REQEST_SEQNO IS NOT NULL THEN REQ.LOT_ID
+		            ELSE DB.MTRIL_CODE || DB.BATCH_NO
+		       END) LIKE '%'|| UPPER(TRIM(#{shrLotId})) ||'%'		       
+	    </if>
+	    <if test="validateDteBeginDte != null and validateDteBeginDte != '' and validateDteEndDte != null and validateDteEndDte != ''">
+	      AND TO_DATE(C.VRIFY_DT) BETWEEN TO_DATE(#{validateDteBeginDte}) AND TO_DATE(#{validateDteEndDte})
+	    </if>
+	    <if test="authorSeCode == 'SY09000004'">
+	    	AND REQ.CTMMNY_OTHBC_AT = 'Y'
+	    </if>
+	    <if test="validateDteBeginDte != null and validateDteBeginDte != '' and validateDteEndDte != null and validateDteEndDte != ''">
+	    GROUP BY
+		    DB.DLIVY_BRCD_SEQNO,
+	         DB.REQEST_SEQNO,
+	         DB.DEPT_CODE,
+	         CASE
+	            WHEN DB.REQEST_SEQNO IS NOT NULL THEN REQ.LOT_ID
+	            ELSE DB.MTRIL_CODE || DB.BATCH_NO
+	         END,
+	         DB.DLIVY_DOC_NM,
+	         DB.DVYFG_ENTRPS_CODE,
+	         DB.DVYFG_ENTRPS_NM,
+	         DB.MTRIL_CODE,
+	         DB.CTMMNY_MTRIL_CODE,
+	         DB.PO_NO,
+	         DB.MTRIL_NM,
+	         DB.BATCH_NO,
+	         DB.DLIVY_QY,
+	         DB.UNIT_NM,
+	         DB.RM,
+	         DB.UPDT_CN,
+	         DB.DLIVY_BRCD_STTUS_CODE,
+	         DB.DELETE_AT,
+	         DB.LAST_CHANGER_ID,
+	         TO_CHAR (DB.LAST_CHANGE_DT, 'YYYY-MM-DD HH24:MI:SS'),
+	         DB.TOP_REPR,
+	         DB.DLIVY_DTE,
+	         DB.FRST_CREAT_DT,
+	         FN_GET_USERNM (DB.FRST_CRTR_ID),
+	         DB.RELCO_DLIVY_DOC_NM,
+	         DB.RELCO_DLIVY_QY,
+	         DB.UNPROGRS_REQUST_DC,
+	         DB.INVOICE_NO,
+	         DB.FULL_INVOICE_NO,
+	         CASE
+	            WHEN DB.SHIPMNT_LC_CODE = 'P1C1' THEN '화성'
+	            WHEN (DB.SHIPMNT_LC_CODE = 'P1C3') THEN 'LSI'
+	            WHEN (DB.SHIPMNT_LC_CODE = 'P1C4') THEN '평택'
+	            WHEN (DB.SHIPMNT_LC_CODE = 'P1C2') THEN '천안'
+	            ELSE ''
+	         END,
+	         DB.VRIFY_AT
+        </if> 
+		ORDER BY DB.DLIVY_DTE ASC
+	   
+	</select>
+	
+	
+	
+	<!-- 바코드 상세 조회 -->
+	<select id="getBarcodeDetailList" parameterType="lims.dly.vo.DlivyMVo" resultType="lims.dly.vo.DlivyMVo">
+		 SELECT  DLIVY_BRCD_SEQNO
+				,ORDR
+				,REPR
+				,BRCD
+				,DLIVY_BRCD_STTUS_CODE
+				,FN_GET_CDDTLNM(DLIVY_BRCD_STTUS_CODE) AS DLIVY_BRCD_STTUS_NM
+				,VRIFY_QY
+				,VRIFY_CNT
+				,DELETE_AT
+				,LAST_CHANGER_ID
+				,LAST_CHANGE_DT
+				,VRIFY_DT
+		   FROM  IM_DLIVY_BRCD_DETAIL
+		  WHERE  DLIVY_BRCD_SEQNO = #{dlivyBrcdSeqno}
+		    AND  DELETE_AT = 'N'
+	</select>
+	
+	<!-- 출력용 정보 조회 -->
+	<select id="getBarcodePrintList" parameterType="lims.dly.vo.DlivyMVo" resultType="lims.dly.vo.DlivyMVo">
+		SELECT DB.DLIVY_BRCD_SEQNO
+		      ,DB.REQEST_SEQNO
+		      ,DB.DEPT_CODE AS REQEST_DEPT_CODE
+		      ,FN_GET_INSPCT_INSTT(DB.DEPT_CODE) AS REQEST_DEPT_NM
+		      ,CASE WHEN DB.REQEST_SEQNO IS NOT NULL THEN REQ.LOT_ID
+		            ELSE DB.MTRIL_CODE || DB.BATCH_NO
+		       END AS LOT_ID
+		      ,DB.DLIVY_DOC_NM
+		      ,DB.DVYFG_ENTRPS_CODE
+		      ,DB.DVYFG_ENTRPS_NM
+		      ,DB.MTRIL_CODE
+		      ,DB.CTMMNY_MTRIL_CODE
+		      ,DB.PO_NO
+		      ,DB.MTRIL_NM
+		      ,DB.BATCH_NO
+		      ,DB.DLIVY_QY
+		      ,DB.UNIT_NM
+		      ,DB.RM
+		      ,DB.UPDT_CN
+		      ,DB.DLIVY_BRCD_STTUS_CODE
+		      ,'LOT:'||FN_GET_CDDTLNM (DB.DLIVY_BRCD_STTUS_CODE) ||' ,바코드:'||FN_GET_CDDTLNM (DBD.DLIVY_BRCD_STTUS_CODE) AS DLIVY_BRCD_STTUS_NM
+		      ,DB.DELETE_AT
+		      ,DB.LAST_CHANGER_ID
+		      ,FN_GET_USERNM(DB.LAST_CHANGER_ID) AS LAST_CHANGER_NM
+		      ,TO_CHAR(DB.LAST_CHANGE_DT, 'YYYY-MM-DD HH24:MI:SS') AS LAST_CHANGE_DT
+		      ,DB.TOP_REPR
+		      ,DBD.BRCD1
+		      ,DBD.BRCD2
+		      ,DBD.BRCD3
+		      ,DBD.BRCD4
+		      ,DBD.BRCD5
+		      ,DBD.ORDR
+		      ,DBD.VRIFY_DT
+	 	 FROM IM_REQEST REQ
+		     ,IM_DLIVY_BRCD DB
+		     ,(
+				SELECT	A.DLIVY_BRCD_SEQNO
+					  , B.ORDR
+					  , COUNT(*) AS CNT_REPR
+					  , MAX(A.TOP_REPR) AS TOP_REPR
+					  , MAX(B.DLIVY_BRCD_STTUS_CODE) AS DLIVY_BRCD_STTUS_CODE
+					  , MAX(CASE WHEN B.REPR = 1 THEN B.BRCD END) AS BRCD1
+					  , MAX(CASE WHEN B.REPR = 2 THEN B.BRCD END) AS BRCD2
+					  , MAX(CASE WHEN B.REPR = 3 THEN B.BRCD END) AS BRCD3
+					  , MAX(CASE WHEN B.REPR = 4 THEN B.BRCD END) AS BRCD4
+					  , MAX(CASE WHEN B.REPR = 5 THEN B.BRCD END) AS BRCD5
+					  , A.VRIFY_AT
+					  , B.VRIFY_QY
+					  , B.VRIFY_CNT
+					  ,	B.VRIFY_DT				  
+				  FROM IM_DLIVY_BRCD A
+				 INNER JOIN IM_DLIVY_BRCD_DETAIL B ON A.DLIVY_BRCD_SEQNO = B.DLIVY_BRCD_SEQNO
+				 GROUP BY A.DLIVY_BRCD_SEQNO, B.ORDR, A.VRIFY_AT, B.VRIFY_QY, B.VRIFY_CNT,B.VRIFY_DT
+              ) DBD
+		WHERE REQ.REQEST_SEQNO(+) = DB.REQEST_SEQNO
+		  AND DB.DLIVY_BRCD_SEQNO = DBD.DLIVY_BRCD_SEQNO
+		  AND DB.DELETE_AT = 'N'
+		 <if test="authorSeCode == 'SY09000004'">
+		  	REQ.CTMMNY_OTHBC_AT = 'Y'
+		  </if>
+		<if test="shrDeptCode != null and shrDeptCode != '' ">
+		   AND  DB.DEPT_CODE = #{shrDeptCode}
+		</if>
+		<if test="shrDlivyBrcdSttusCode != null and shrDlivyBrcdSttusCode != '' ">
+		   AND  DB.DLIVY_BRCD_STTUS_CODE = #{shrDlivyBrcdSttusCode}
+		</if>
+		<if test="dlivyBrcdSeqno != null and dlivyBrcdSeqno != '' ">
+		   AND DB.DLIVY_BRCD_SEQNO IN (${dlivyBrcdSeqno})
+		</if>
+		<if test="shrDlivyDteBeginDte != null and shrDlivyDteBeginDte != '' and shrDlivyDteEndDte != null and shrDlivyDteEndDte != ''">
+	      AND DB.LAST_CHANGE_DT BETWEEN TO_DATE(#{shrDlivyDteBeginDte}) AND TO_DATE(#{shrDlivyDteEndDte})
+	    </if>
+	    <if test="validateDteBeginDte != null and validateDteBeginDte != '' and validateDteEndDte != null and validateDteEndDte != ''">
+	      AND TO_DATE(DBD.VRIFY_DT) BETWEEN TO_DATE(#{validateDteBeginDte}) AND TO_DATE(#{validateDteEndDte})
+	    </if>
+	    ORDER BY DB.DLIVY_BRCD_SEQNO DESC
+	</select>
+	
+	<!-- 물류양식 출력 정보 조회 -->
+	<select id="getBarcodePrintList3" parameterType="lims.dly.vo.DlivyMVo" resultType="lims.dly.vo.DlivyMVo">
+		 SELECT DB.DLIVY_BRCD_SEQNO,
+		         DB.REQEST_SEQNO,
+		                  CASE
+		            WHEN DB.REQEST_SEQNO IS NOT NULL THEN REQ.LOT_ID
+		            ELSE DB.MTRIL_CODE || DB.BATCH_NO
+		         END
+		            AS LOT_ID,
+		         NVL(DBD.SHIPMNT_LC_CODE,DB.SHIPMNT_LC_CODE) AS SHIPMNT_LC_CODE,
+		         DB.CTMMNY_MTRIL_CODE,
+		         '' AS SUB_MATERIAL_TYPE,
+		         DB.BATCH_NO,
+		         SUBSTR(DBD.BRCD1,13,3) AS BRCD1,
+		         DBD.BRCD2,
+		         DBD.BRCD3,
+		         DBD.BRCD4,
+		         DBD.BRCD5,
+		         'E3' AS VALUATION_TYPE,
+		         'RCT1' AS STORAGE_LOCATION,
+		         '' AS SPECIAL_STOCK_LNDICATOR,
+		         '' AS STOCK_TYPE,
+		         '1' AS LOT_QUANTITY,
+		         '' AS BL_NO,
+		         CASE WHEN DB.FULL_INVOICE_NO IS NULL THEN '' ELSE DB.FULL_INVOICE_NO END INVOICE_NO,
+		         'E1SJ' AS VENDER,
+		         '' AS EXPIRE_DATE,
+		         '' AS CREATE_DATE,
+		         DB.PO_NO,
+		         '' AS PO_ITEMS
+		    FROM IM_REQEST REQ,
+		         IM_DLIVY_BRCD DB,
+		         (  SELECT A.DLIVY_BRCD_SEQNO,
+		                   B.ORDR,
+		                   COUNT (*) AS CNT_REPR,
+		                   MAX (A.TOP_REPR) AS TOP_REPR,
+		                   MAX (B.DLIVY_BRCD_STTUS_CODE) AS DLIVY_BRCD_STTUS_CODE,
+		                   MAX (CASE WHEN B.REPR = 1 THEN B.BRCD END) AS BRCD1,
+		                   MAX (CASE WHEN B.REPR = 2 THEN B.BRCD END) AS BRCD2,
+		                   MAX (CASE WHEN B.REPR = 3 THEN B.BRCD END) AS BRCD3,
+		                   MAX (CASE WHEN B.REPR = 4 THEN B.BRCD END) AS BRCD4,
+		                   MAX (CASE WHEN B.REPR = 5 THEN B.BRCD END) AS BRCD5,
+		                   A.VRIFY_AT,
+		                   B.VRIFY_QY,
+		                   B.VRIFY_CNT,
+		                   B.VRIFY_DT,
+		                   B.SHIPMNT_LC_CODE
+		              FROM    IM_DLIVY_BRCD A
+		                   INNER JOIN
+		                      IM_DLIVY_BRCD_DETAIL B
+		                   ON A.DLIVY_BRCD_SEQNO = B.DLIVY_BRCD_SEQNO
+		          GROUP BY A.DLIVY_BRCD_SEQNO,
+		                   B.ORDR,
+		                   A.VRIFY_AT,
+		                   B.VRIFY_QY,
+		                   B.VRIFY_CNT,
+		                   B.VRIFY_DT,
+		                   B.SHIPMNT_LC_CODE) DBD
+		   WHERE  REQ.REQEST_SEQNO(+) = DB.REQEST_SEQNO
+	         AND DB.DLIVY_BRCD_SEQNO = DBD.DLIVY_BRCD_SEQNO
+	         AND DB.DELETE_AT = 'N'
+	      <if test="authorSeCode == 'SY09000004'">
+		  	REQ.CTMMNY_OTHBC_AT = 'Y'
+		  </if>
+		<if test="shrDeptCode != null and shrDeptCode != '' ">
+		   AND  DB.DEPT_CODE = #{shrDeptCode}
+		</if>
+		<if test="shrDlivyBrcdSttusCode != null and shrDlivyBrcdSttusCode != '' ">
+		   AND  DB.DLIVY_BRCD_STTUS_CODE = #{shrDlivyBrcdSttusCode}
+		</if>
+		<if test="dlivyBrcdSeqno != null and dlivyBrcdSeqno != '' ">
+		   AND DB.DLIVY_BRCD_SEQNO IN (${dlivyBrcdSeqno})
+		</if>
+		<if test="shrDlivyDteBeginDte != null and shrDlivyDteBeginDte != '' and shrDlivyDteEndDte != null and shrDlivyDteEndDte != ''">
+	      AND DB.LAST_CHANGE_DT BETWEEN TO_DATE(#{shrDlivyDteBeginDte}) AND TO_DATE(#{shrDlivyDteEndDte})
+	    </if>
+	    <if test="validateDteBeginDte != null and validateDteBeginDte != '' and validateDteEndDte != null and validateDteEndDte != ''">
+	      AND TO_DATE(DBD.VRIFY_DT) BETWEEN TO_DATE(#{validateDteBeginDte}) AND TO_DATE(#{validateDteEndDte})
+	    </if>
+	    ORDER BY DB.BATCH_NO,BRCD1 ASC
+	</select>
+	
+	<!-- 품질양식 출력 정보 조회 -->
+	<select id="getBarcodePrintList4" parameterType="lims.dly.vo.DlivyMVo" resultType="lims.dly.vo.DlivyMVo">
+		 SELECT DB.DLIVY_BRCD_SEQNO,
+                 DB.REQEST_SEQNO,
+                          CASE
+                    WHEN DB.REQEST_SEQNO IS NOT NULL THEN REQ.LOT_ID
+                    ELSE DB.MTRIL_CODE || DB.BATCH_NO
+                 END
+                    AS LOT_ID,
+                 'SEMIRM' AS GBM,
+                 'C100SEMIRM' AS BUYER,
+                 NVL(DBD.SHIPMNT_LC_CODE,DB.SHIPMNT_LC_CODE) AS SHIPMNT_LC_CODE,
+                CASE WHEN NVL(DBD.SHIPMNT_LC_CODE,DB.SHIPMNT_LC_CODE) = 'P1C3' THEN '[SEC]Foundry'
+	                WHEN (NVL(DBD.SHIPMNT_LC_CODE,DB.SHIPMNT_LC_CODE) = 'P1C1') THEN '[SEC]Giheung MEMORY'
+	                WHEN (NVL(DBD.SHIPMNT_LC_CODE,DB.SHIPMNT_LC_CODE) = 'P1C4') THEN '[SEC]PyeongTaek MEMORY' 
+	                WHEN (NVL(DBD.SHIPMNT_LC_CODE,DB.SHIPMNT_LC_CODE) = 'P1C2') THEN '[SEC]Onyang'
+	                ELSE ''
+        		END AS PLANT_NAME,
+                 'E1SJ' AS VENDER,
+                 '솔브레인 주식회사' AS SELLER_NAME,
+                 CASE WHEN DB.FULL_INVOICE_NO IS NULL THEN '' ELSE DBD.FULL_INVOICE_NO END INVOICE_NO,
+                 NVL2(DBD.DO_NO,DBD.DO_NO,DB.PO_NO)PO_NO,
+                 '000010' AS POSEQ,
+                 DB.BATCH_NO,
+                 DB.CTMMNY_MTRIL_CODE,
+                 DBD.BRCD1||DBD.BRCD2 AS BRCD1,
+                 DBD.BRCD2,
+                 DBD.BRCD3,
+                 DBD.BRCD4,
+                 DBD.BRCD5,
+		         CASE
+		            WHEN DB.REQEST_SEQNO IS NOT NULL THEN  TO_CHAR(PRD.FILLING_MG)
+		            ELSE ''
+		         END AS FILLING_MG,
+		         CASE
+		            WHEN DB.REQEST_SEQNO IS NOT NULL THEN  (SELECT UNIT_NM FROM SY_UNIT WHERE UNIT_SEQNO = PRD.FILLING_MG_UNIT_SEQNO)
+		            ELSE ''
+		         END AS FILLING_MG_UNIT_SEQNO,
+		         CASE
+		            WHEN DB.REQEST_SEQNO IS NOT NULL THEN  TO_CHAR(PRD.BOTTLE_WT)
+		            ELSE ''
+		         END AS BOTTLE_WT,
+		         CASE
+		            WHEN DB.REQEST_SEQNO IS NOT NULL THEN  (SELECT UNIT_NM FROM SY_UNIT WHERE UNIT_SEQNO = PRD.BOTTLE_WT_UNIT_SEQNO)
+		            ELSE ''
+		         END AS BOTTLE_WT_UNIT_SEQNO,
+                 REPLACE(DBD.VRIFY_DT, '-', '') AS VRIFY_DT,
+                 REPLACE (REQ.MNFCTUR_DTE, '-', '') AS CUSTOMS_CLEARANCE
+            FROM IM_REQEST REQ,
+                 IM_DLIVY_BRCD DB,
+				SY_PRDUCT PRD,
+                 (  SELECT A.DLIVY_BRCD_SEQNO,
+                           B.ORDR,
+                           COUNT (*) AS CNT_REPR,
+                           MAX (A.TOP_REPR) AS TOP_REPR,
+                           MAX (B.DLIVY_BRCD_STTUS_CODE) AS DLIVY_BRCD_STTUS_CODE,
+                           MAX (CASE WHEN B.REPR = 1 THEN B.BRCD END) AS BRCD1,
+                           MAX (CASE WHEN B.REPR = 2 THEN B.BRCD END) AS BRCD2,
+                           MAX (CASE WHEN B.REPR = 3 THEN B.BRCD END) AS BRCD3,
+                           MAX (CASE WHEN B.REPR = 4 THEN B.BRCD END) AS BRCD4,
+                           MAX (CASE WHEN B.REPR = 5 THEN B.BRCD END) AS BRCD5,
+                           A.VRIFY_AT,
+                           B.VRIFY_QY,
+                           B.VRIFY_CNT,
+                           B.DLIVY_DTE AS VRIFY_DT,
+                           B.SHIPMNT_LC_CODE,
+                           B.FULL_INVOICE_NO,
+                           B.PO_NO,
+                           B.DO_NO
+                      FROM  IM_DLIVY_BRCD A 
+                      INNER JOIN IM_DLIVY_BRCD_DETAIL B ON A.DLIVY_BRCD_SEQNO = B.DLIVY_BRCD_SEQNO
+                  GROUP BY A.DLIVY_BRCD_SEQNO,
+                           B.ORDR,
+                           A.VRIFY_AT,
+                           B.VRIFY_QY,
+                           B.VRIFY_CNT,
+                           B.DLIVY_DTE,
+                           B.SHIPMNT_LC_CODE,
+                           B.FULL_INVOICE_NO,
+                           B.PO_NO,
+                           B.DO_NO) DBD
+           WHERE  REQ.REQEST_SEQNO(+) = DB.REQEST_SEQNO
+             AND DB.DLIVY_BRCD_SEQNO = DBD.DLIVY_BRCD_SEQNO
+             AND DB.DELETE_AT = 'N'
+		   	AND REQ.PRDUCT_SEQNO = PRD.PRDUCT_SEQNO(+) 
+		   	AND PRD.DELETE_AT(+) = 'N'
+        <if test="authorSeCode == 'SY09000004'">
+		  	REQ.CTMMNY_OTHBC_AT = 'Y'
+		  </if>
+		<if test="shrDeptCode != null and shrDeptCode != '' ">
+		   AND  DB.DEPT_CODE = #{shrDeptCode}
+		</if>
+		<if test="shrDlivyBrcdSttusCode != null and shrDlivyBrcdSttusCode != '' ">
+		   AND  DB.DLIVY_BRCD_STTUS_CODE = #{shrDlivyBrcdSttusCode}
+		</if>
+		<if test="dlivyBrcdSeqno != null and dlivyBrcdSeqno != '' ">
+		   AND DB.DLIVY_BRCD_SEQNO IN (${dlivyBrcdSeqno})
+		</if>
+		<if test="shrDlivyDteBeginDte != null and shrDlivyDteBeginDte != '' and shrDlivyDteEndDte != null and shrDlivyDteEndDte != ''">
+	      AND DB.LAST_CHANGE_DT BETWEEN TO_DATE(#{shrDlivyDteBeginDte}) AND TO_DATE(#{shrDlivyDteEndDte})
+	    </if>
+	    <if test="validateDteBeginDte != null and validateDteBeginDte != '' and validateDteEndDte != null and validateDteEndDte != ''">
+	      AND TO_DATE(DBD.VRIFY_DT) BETWEEN TO_DATE(#{validateDteBeginDte}) AND TO_DATE(#{validateDteEndDte})
+	    </if>
+	    ORDER BY DB.BATCH_NO,BRCD1 ASC
+	</select>
+	
+	<!-- 출고 바코드 테이블 저장 -->
+	<insert id="insBrcdDlivy" parameterType="lims.dly.vo.DlivyMVo">
+		<selectKey keyProperty="dlivyBrcdSeqno" resultType="lims.dly.vo.DlivyMVo" order="BEFORE">
+			SELECT SQ_IM_DLIVY_BRCD.NEXTVAL AS dlivyBrcdSeqno
+			FROM DUAL
+        </selectKey>
+		INSERT INTO IM_DLIVY_BRCD(
+			 DLIVY_BRCD_SEQNO
+			,REQEST_SEQNO
+			,DLIVY_DOC_NM
+			,DVYFG_ENTRPS_CODE
+			,DVYFG_ENTRPS_NM
+			,MTRIL_CODE
+			,CTMMNY_MTRIL_CODE
+			,PO_NO
+			,MTRIL_NM
+			,BATCH_NO
+			,DLIVY_QY
+			,ORGINL_DLIVY_QY
+			,UNIT_NM
+			,RM
+			,UPDT_CN
+			,DLIVY_BRCD_STTUS_CODE
+			,DELETE_AT
+			,BRCD_CREAT_DTE
+			,DLIVY_DTE
+			,DEPT_CODE
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,FRST_CRTR_ID
+			,FRST_CREAT_DT
+			,RELCO_DLIVY_DOC_NM
+         	,RELCO_DLIVY_QY
+         	,UNPROGRS_REQUST_DC
+         	,SHIPMNT_LC_CODE
+		)VALUES(
+			 #{dlivyBrcdSeqno}
+			,#{reqestSeqno}
+			,#{dlivyDocNm}
+			,#{dvyfgEntrpsCode}
+			,#{dvyfgEntrpsNm}
+			,#{mtrilCode}
+			,#{ctmmnyMtrilCode}
+			,#{poNo}
+			,#{mtrilNm}
+			,SUBSTR(#{batchNo}, 1, 11)
+			,#{dlivyQy}
+			,#{orginlDlivyQy}
+			,#{unitNm}
+			,#{rm}
+			,#{updtCn}
+			,'IM16000001'
+			,'N'
+			,TO_CHAR(SYSDATE, 'YYYY-MM-DD')
+			,#{dlivyDte}
+			,#{deptCode}
+			,'${@lims.util.GetUserSession@getUserId()}'
+			,SYSDATE
+			,'${@lims.util.GetUserSession@getUserId()}'
+			,SYSDATE
+			,#{relcoDlivyDocNm}
+			,#{relcoDlivyQy}
+			,#{unprogrsRequstDc}
+			,#{shipmntLcCode}
+		)
+	</insert>
+	
+	<!-- 총개수 수정 -->
+	<update id="updBrcdDlivy" parameterType="lims.dly.vo.DlivyMVo">
+		UPDATE IM_DLIVY_BRCD
+		   SET TOP_REPR	= #{topRepr}
+		      ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			  ,LAST_CHANGE_DT = SYSDATE
+	     WHERE DLIVY_BRCD_SEQNO = #{dlivyBrcdSeqno}
+	</update>
+	
+	<!-- 수량 저장 -->
+	<update id="updBrcdDlivyQy" parameterType="lims.dly.vo.DlivyMVo">
+		UPDATE IM_DLIVY_BRCD
+		   SET DLIVY_QY	= #{dlivyQy}
+		      ,VRIFY_AT = #{vrifyAt}
+		      ,ORGINL_DLIVY_QY = #{orginlDlivyQy}
+		      ,LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}'
+			  ,LAST_CHANGE_DT = SYSDATE
+	     WHERE DLIVY_BRCD_SEQNO = #{dlivyBrcdSeqno}
+	</update>
+	
+	<!-- 바코드 저장 -->
+	<insert id="insDlivyBrcdDetail" parameterType="lims.dly.vo.DlivyMVo">
+		INSERT INTO IM_DLIVY_BRCD_DETAIL(
+			 DLIVY_BRCD_SEQNO
+			,ORDR
+			,REPR
+			,BRCD
+			,DLIVY_BRCD_STTUS_CODE
+			,VRIFY_QY
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) VALUES(
+		     #{dlivyBrcdSeqno}
+			,#{ordr}
+			,#{repr}
+			,#{brcd}
+			,'IM16000001'
+			,#{vrifyQy}
+			,'N'
+			,'${@lims.util.GetUserSession@getUserId()}'
+			,SYSDATE
+		)
+		
+		
+	</insert>
+	
+	<!-- 바코드 정보 삭제 -->
+	<update id="insDeleteBarcodeInfo" parameterType="lims.dly.vo.DlivyMVo">
+		UPDATE IM_DLIVY_BRCD
+		   SET DELETE_AT = 'Y'
+		 WHERE DLIVY_BRCD_SEQNO IN
+		 <foreach collection="barcodeList" item="barcodeList" open="(" close=")" separator=",">
+            #{barcodeList}
+         </foreach>
+	</update>
+	
+	<!-- 바코드 정보 하위 바코드 삭제 -->
+	<update id="insDeleteBarcodeList" parameterType="lims.dly.vo.DlivyMVo">
+		UPDATE IM_DLIVY_BRCD_DETAIL
+		   SET DELETE_AT = 'Y'
+		 WHERE DLIVY_BRCD_SEQNO = #{dlivyBrcdSeqno}
+		   AND ORDR = #{ordr}
+		   AND REPR = #{repr}
+	</update>
+	
+	<select id="getDvyfgEntrpsCode" parameterType="lims.dly.vo.DlivyMVo" resultType="String">
+		SELECT * 
+		  FROM (
+				  SELECT DVYFG_ENTRPS_SE_CODE AS DVYFG_ENTRPS_SE_CODE
+				    FROM IM_DLIVY_DVYFG_ENTRPS
+				   WHERE DVYFG_ENTRPS_CODE = #{mtrilCode}
+				     AND DELETE_AT = 'N'
+				 <if test="skAt != null and skAt != '' ">
+				 	<if test='skAt.equals("Y")'>
+				 		AND DVYFG_ENTRPS_SE_CODE = 'SY17000002'
+				 	</if>
+				 </if>
+				ORDER BY DVYFG_ENTRPS_SE_CODE ASC
+		  )
+		  WHERE ROWNUM = 1
+		
+	</select>
+	
+	<select id="getDlivyQy" parameterType="lims.dly.vo.DlivyMVo" resultType="String">
+		SELECT SUM(DLIVY_QY) AS DLIVY_QY
+		  FROM IM_DLIVY_BRCD
+		 WHERE BATCH_NO = #{batchNo}
+		   AND MTRIL_CODE = #{mtrilCode}
+		   AND DELETE_AT = 'N'
+		   AND VRIFY_AT = 'Y'
+		   <if test='inspctInsttCode.equals("3980") and shrDvyfgEntrpsSeCode.equals("SY17000003")' >
+		   AND PO_NO = #{poNo}
+		   </if>
+	</select>
+	
+</mapper>

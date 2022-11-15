@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.test.dao.ResultInputPfileMDao">
+
+	<!-- 의뢰 진행상황 가져오기 -->
+	<select id="getSittnCode" parameterType="lims.test.vo.ResultInputPfileMVo" resultType="String">
+		SELECT PROGRS_SITTN_CODE
+ 		  FROM IM_REQEST
+ 		 WHERE LOT_ID = #{lotId}
+	</select>
+	<!-- 의뢰 일련번호 가져오기 -->
+	<select id="getReqSeqno" parameterType="lims.test.vo.ResultInputPfileMVo" resultType="String">
+		SELECT REQEST_SEQNO
+ 		  FROM IM_REQEST
+ 		 WHERE LOT_ID = #{lotId}
+	</select>
+	
+	<!-- 시험항목 일련번호 조회 -->
+	<select id="getReqestExpriemSeqno" resultType="String">
+		SELECT REX.REQEST_EXPRIEM_SEQNO
+		  FROM IM_REQEST REQ
+		      ,IM_REQEST_EXPRIEM REX
+		      ,SY_EXPRIEM EXPR
+		 WHERE REQ.REQEST_SEQNO = REX.REQEST_SEQNO
+		   AND REX.EXPRIEM_SEQNO = EXPR.EXPRIEM_SEQNO
+		   AND LOT_ID = #{lotId}
+		   AND TRIM(EXPR.EXPRIEM_NM) = TRIM(#{testNm})
+	</select>
+	       
+ 	<!-- 시험 항목 결과 저장 --> 
+	<update id="saveGo" parameterType="String">
+		UPDATE IM_REQEST_EXPRIEM_RESULT
+		   SET RESULT_VALUE     = #{resultValue}
+		      ,LAST_CHANGER_ID  = '${@lims.util.GetUserSession@getUserId()}'
+			  ,LAST_CHANGE_DT   = SYSDATE
+	     WHERE REQEST_EXPRIEM_SEQNO =  #{reqestExpriemSeqno}
+	     AND EXPR_NUMOT = #{idChk}
+	</update>       
+	
+
+	
+</mapper>

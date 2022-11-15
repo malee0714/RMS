@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.src.dao.QCConditionDetailMDao">
+
+    <select id="getQcconditionDetailData" resultType="lims.src.vo.QCConditionDetailMVo" parameterType="lims.src.vo.QCConditionDetailMVo">
+        SELECT IRE.EXPRIEM_SEQNO ,EXPRIEM_NM,RESULT_VALUE,SPLORE_NM ,TO_CHAR(TO_DATE(MNFCTUR_DTE,'YYYY-MM-DD'),'YYYYMMDD') AS MNFCTUR_DTE FROM IM_REQEST_EXPRIEM IRE
+        JOIN SY_MTRIL_SDSPC SMS ON  IRE.MTRIL_SDSPC_SEQNO = SMS.MTRIL_SDSPC_SEQNO
+        JOIN IM_REQEST IR ON IR.REQEST_SEQNO = IRE.REQEST_SEQNO
+        JOIN SY_EXPRIEM A ON  A.EXPRIEM_SEQNO =IRE.EXPRIEM_SEQNO
+        JOIN SY_MTRIL B ON  B.MTRIL_SEQNO =IR.MTRIL_SEQNO
+        JOIN IM_REQEST_EXPRIEM_RESULT IRER ON IRER.REQEST_EXPRIEM_SEQNO = IRE.REQEST_EXPRIEM_SEQNO
+        WHERE IRE.DELETE_AT='N' AND RESULT_VALUE IS NOT NULL
+        AND EXPR_ODR = (SELECT MAX(EXPR_ODR) FROM IM_REQEST_EXPRIEM_RESULT WHERE REQEST_EXPRIEM_SEQNO = IRE.REQEST_EXPRIEM_SEQNO)
+        <if test="mtrilNmSch != null and mtrilNmSch !=''">
+            AND B.MTRIL_NM LIKE '%' || TRIM(UPPER(#{mtrilNmSch})) || '%'
+        </if>
+        <if test="inspctTyCodeSch != null and inspctTyCodeSch !=''">
+            AND IR.INSPCT_TY_CODE = #{inspctTyCodeSch}
+        </if>
+        <if test="prductSeCodeSch != null and prductSeCodeSch !=''">
+            AND  B.PRDUCT_SE_CODE= #{prductSeCodeSch}
+        </if>
+        <if test="custlabSeqnoSch != null and custlabSeqnoSch !=''">
+            AND IR.CUSTLAB_SEQNO = #{custlabSeqnoSch}
+        </if>
+    <choose>
+        <when test="mnfcturBeginDte != null and mnfcturEndDte != '' and mnfcturBeginDte != null and mnfcturEndDte != ''">
+            AND IR.MNFCTUR_DTE BETWEEN #{mnfcturBeginDte} AND #{mnfcturEndDte}
+        </when>
+        <when test="mnfcturBeginDte != null and mnfcturBeginDte != ''">
+            AND IR.MNFCTUR_DTE <![CDATA[ >= ]]> #{mnfcturBeginDte}
+        </when>
+        <when test="mnfcturEndDte != null and mnfcturEndDte != ''">
+            AND IR.MNFCTUR_DTE <![CDATA[ <= ]]> #{mnfcturEndDte}
+        </when>
+    </choose>
+        GROUP BY IRE.EXPRIEM_SEQNO ,EXPRIEM_NM,RESULT_VALUE,SPLORE_NM ,MNFCTUR_DTE
+    </select>
+    <select id="getQcconditionDetailList" resultType="lims.src.vo.QCConditionDetailMVo" parameterType="lims.src.vo.QCConditionDetailMVo">
+        SELECT D.EXPRIEM_NM ,SMS.LCL_VALUE||'~'||SMS.UCL_VALUE AS spec,SU.UNIT_NM,SMS.UNIT_SEQNO ,ROUND (AVG(IRER.RESULT_VALUE),3) AS avgValue ,TRUNC(STDDEV(IRER.RESULT_VALUE),2)  AS STD_DEV ,COUNT(IRE.REQEST_EXPRIEM_SEQNO)AS ANALYTICAL
+        FROM IM_REQEST_EXPRIEM IRE
+                 JOIN SY_MTRIL_SDSPC SMS ON IRE.MTRIL_SDSPC_SEQNO = SMS.MTRIL_SDSPC_SEQNO
+                 JOIN SY_MTRIL A ON  A.MTRIL_SEQNO =SMS.MTRIL_SEQNO
+                 LEFT JOIN SY_EXPRIEM D ON IRE.EXPRIEM_SEQNO = D.EXPRIEM_SEQNO
+                 JOIN IM_REQEST IR ON IR.REQEST_SEQNO = IRE.REQEST_SEQNO
+                 JOIN IM_REQEST_EXPRIEM_RESULT IRER ON IRER.REQEST_EXPRIEM_SEQNO = IRE.REQEST_EXPRIEM_SEQNO
+                 LEFT JOIN SY_UNIT SU ON SU.UNIT_SEQNO =  SMS.UNIT_SEQNO
+        WHERE IRE.JDGMNT_WORD_CODE IS NOT NULL AND IRE.DELETE_AT = 'N'
+        AND UNIT_NM IS NOT NULL
+        AND EXPR_ODR = (SELECT MAX(EXPR_ODR) FROM IM_REQEST_EXPRIEM_RESULT WHERE REQEST_EXPRIEM_SEQNO = IRE.REQEST_EXPRIEM_SEQNO)
+        <if test="mtrilNmSch != null and mtrilNmSch !=''">
+          AND A.MTRIL_NM LIKE '%' || TRIM(UPPER(#{mtrilNmSch})) || '%'
+        </if>
+        <if test="inspctTyCodeSch != null and inspctTyCodeSch !=''">
+            AND IR.INSPCT_TY_CODE = #{inspctTyCodeSch}
+        </if>
+        <if test="prductSeCodeSch != null and prductSeCodeSch !=''">
+          AND  A.PRDUCT_SE_CODE= #{prductSeCodeSch}
+        </if>
+        <if test="custlabSeqnoSch != null and custlabSeqnoSch !=''">
+          AND IR.CUSTLAB_SEQNO = #{custlabSeqnoSch}
+        </if>
+
+        GROUP BY D.EXPRIEM_NM ,SMS.LCL_VALUE,SMS.UCL_VALUE,SMS.UNIT_SEQNO,SU.UNIT_NM
+        UNION
+        SELECT D.EXPRIEM_NM ,SMS.LCL_VALUE||'~'||SMS.UCL_VALUE AS spec,SU.UNIT_NM,SMS.UNIT_SEQNO ,ROUND (AVG(IRER.RESULT_VALUE),3) AS avgValue ,TRUNC(STDDEV(IRER.RESULT_VALUE),2) AS STD_DEV ,COUNT(IRE.REQEST_EXPRIEM_SEQNO)AS ANALYTICAL
+        FROM IM_REQEST_EXPRIEM IRE
+        JOIN SY_MTRIL_SDSPC SMS ON  IRE.MTRIL_SDSPC_SEQNO = SMS.MTRIL_SDSPC_SEQNO
+        JOIN SY_MTRIL A ON  A.MTRIL_SEQNO =SMS.MTRIL_SEQNO
+        LEFT JOIN SY_EXPRIEM D ON IRE.EXPRIEM_SEQNO = D.EXPRIEM_SEQNO
+        JOIN IM_REQEST IR ON IR.REQEST_SEQNO = IRE.REQEST_SEQNO
+        JOIN IM_REQEST_EXPRIEM_RESULT IRER ON IRER.REQEST_EXPRIEM_SEQNO = IRE.REQEST_EXPRIEM_SEQNO
+        LEFT JOIN SY_UNIT SU ON SU.UNIT_SEQNO =  SMS.UNIT_SEQNO
+        WHERE IRE.JDGMNT_WORD_CODE IS NOT NULL AND IRE.DELETE_AT = 'N'
+        AND SMS.LCL_VALUE IS NOT NULL AND SMS.UCL_VALUE IS NOT NULL
+        AND EXPR_ODR = (SELECT MAX(EXPR_ODR) FROM IM_REQEST_EXPRIEM_RESULT WHERE REQEST_EXPRIEM_SEQNO = IRE.REQEST_EXPRIEM_SEQNO)
+        <if test="mtrilNmSch != null and mtrilNmSch !=''">
+            AND A.MTRIL_NM LIKE '%' || TRIM(UPPER(#{mtrilNmSch})) || '%'
+        </if>
+        <if test="inspctTyCodeSch != null and inspctTyCodeSch !=''">
+            AND IR.INSPCT_TY_CODE = #{inspctTyCodeSch}
+        </if>
+        <if test="prductSeCodeSch != null and prductSeCodeSch !=''">
+            AND  A.PRDUCT_SE_CODE= #{prductSeCodeSch}
+        </if>
+        <if test="custlabSeqnoSch != null and custlabSeqnoSch !=''">
+            AND IR.CUSTLAB_SEQNO = #{custlabSeqnoSch}
+        </if>
+        GROUP BY D.EXPRIEM_NM ,SMS.LCL_VALUE,SMS.UCL_VALUE,SMS.UNIT_SEQNO,SU.UNIT_NM
+        ORDER BY EXPRIEM_NM
+
+    </select>
+
+
+</mapper>

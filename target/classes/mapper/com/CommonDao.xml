@@ -1,0 +1,1353 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.com.dao.CommonDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+	<sql id="nationCode">'${@lims.util.GetUserSession@getNationLangCode()}'</sql>
+
+	<select id="getSystemRule" resultType="lims.sys.vo.SysManageVo">
+		SELECT * FROM SY_SYS_MANAGE
+	</select>
+
+	<select id="getCmTable" resultType="String" parameterType="lims.com.vo.CmCdNmVo">
+		SELECT TABLENAME FROM VW_TABLENAME WHERE ID = ${tableId}
+	</select>
+
+	<select id="getErrorLogIdMax" resultType="String">
+		SELECT
+			NVL(MAX(EXCP_LOG_SEQNO), 0) + 1 FROM SY_EXCP_LOG
+	</select>
+	<insert id="insErrorLog" parameterType="lims.com.vo.ErrorLogVo">
+		<selectKey keyProperty="excpLogSeqno" resultType="java.lang.String"
+				   order="BEFORE">
+			SELECT SQ_SY_EXCP_LOG.NEXTVAL AS excpLogSeqno
+			FROM DUAL
+		</selectKey>
+		INSERT INTO SY_EXCP_LOG (
+		EXCP_LOG_SEQNO
+		, URL
+		, DVLPR_DC
+		, EXCP_NM
+		, EXCP_CN
+		, EXCP_TRACE_CN
+		, VRIABL_CN
+		, LAST_CHANGER_ID
+		, LAST_CHANGE_DT
+		)
+		VALUES (
+		TO_NUMBER(#{excpLogSeqno})
+		, #{url}
+		, #{dvlprDc}
+		, #{excpNm}
+		, #{excpCn}
+		, #{excpTraceCn}
+		, #{vriablCn}
+		, #{lastChangerId}
+		, SYSDATE
+		)
+	</insert>
+
+	<select id="getAuditAt" resultType="string" parameterType="lims.sys.vo.CmmnCodeMVo">
+		SELECT
+			MAX(CTMMNY_CNTRMSR_AT) CTMMNY_USE_AT
+		FROM SY_SYS_MANAGE
+	</select>
+
+	<update id="insAuditAt" parameterType="lims.sys.vo.CmmnCodeMVo">
+		UPDATE SY_SYS_MANAGE SET CTMMNY_CNTRMSR_AT = #{ctmmnyUseAt}
+	</update>
+
+	<!-- SELECT BOX (HTML) -->
+	<!-- 공통 코드 목록 -->
+	<select id="getCmmnCode" parameterType="lims.sys.vo.CmmnCodeMVo"
+			resultType="lims.com.vo.ComboVo">
+		SELECT
+		    A.CMMN_CODE AS VALUE
+		    , NVL(B.LANG_NM, A.CMMN_CODE_NM) AS KEY
+		FROM SY_CMMN_CODE A
+		LEFT JOIN SY_LANG_CMMN_CODE B ON A.CMMN_CODE = B.CMMN_CODE AND B.NATION_LANG_CODE = #{nationLangCode}
+		WHERE UPPER_CMMN_CODE = #{upperCmmnCode}
+		<if test="upperCmmnCode.equals('RS24')">
+			AND A.CMMN_CODE IN ('RS24000001', 'RS24000002')
+		</if>
+		<if test="deptCode == null or deptCode == '' or !deptCode.equals('3993')">
+			AND A.USE_AT = 'Y'
+		</if>
+		<if test="notInCode != null and notInCode != '' ">
+			AND A.CMMN_CODE NOT IN (#{notInCode})
+		</if>
+		<if test="inCode != null and inCode != '' ">
+			AND A.CMMN_CODE IN (${inCode})
+		</if>
+		<if test="tmprField1Nm != null and tmprField1Nm != '' ">
+			AND A.TMPR_FIELD1_NM = #{tmprField1Nm}
+		</if>
+		<if test="tmprField1Value != null and tmprField1Value != '' ">
+			AND A.TMPR_FIELD1_VALUE = #{tmprField1Value}
+		</if>
+		ORDER BY A.SORT_ORDR, A.CMMN_CODE
+	</select>
+
+	<select id="getExprIemListM" resultType="lims.wrk.vo.ExpriemMVo"
+			parameterType="lims.wrk.vo.ExpriemMVo">
+		SELECT A.KOREAN_NM, A.ENG_NM, A.EXPRIEM_SEQNO
+		FROM SY_EXPRIEM A
+		WHERE A.USE_AT = 'Y' AND A.DELETE_AT = 'N'
+		<if test="expriemNmSearch != null and expriemNmSearch != '' ">
+			AND (UPPER(A.KOREAN_NM) LIKE '%'||
+			UPPER(#{expriemNmSearch})||'%' OR UPPER(A.ENG_NM) LIKE '%'||
+			UPPER(#{expriemNmSearch})||'%')
+		</if>
+		<if test="expriemClCodeSch != null and expriemClCodeSch != ''">
+			AND A.EXPRIEM_CL_CODE = #{expriemClCodeSch}
+		</if>
+	</select>
+
+	<select id="getAddExprIemListM" resultType="lims.wrk.vo.ExpriemMVo" parameterType="lims.wrk.vo.ExpriemMVo">
+		SELECT
+		NVL(SE.KOREAN_NM,SE.EXPRIEM_NM) KOREAN_NM
+		, NVL(SE.ENG_NM,SE.EXPRIEM_NM) ENG_NM
+		, SE.EXPRIEM_SEQNO
+		, SE.EXPRIEM_CL_CODE
+		, FN_GET_CDDTLNM(SE.EXPRIEM_CL_CODE) EXPRIEM_CL
+		, SE.EXPRIEM_NM
+		, SE.ABRV
+		, SE.RM
+		FROM
+		SY_EXPRIEM SE
+		WHERE SE.USE_AT = 'Y'
+		AND SE.DELETE_AT = 'N'
+		<if test="inClCode != null and inClCode != ''">
+			AND SE.EXPRIEM_CL_CODE IN (#{inClCode})
+		</if>
+		<if test="notInClCode != null and notInClCode != ''">
+			AND SE.EXPRIEM_CL_CODE NOT IN (#{notInClCode})
+		</if>
+		<if test="expriemNmSearch != null and expriemNmSearch != '' ">
+			AND UPPER(SE.EXPRIEM_NM) LIKE '%'|| UPPER(#{expriemNmSearch})||'%'
+		</if>
+		ORDER BY
+		SE.EXPRIEM_NM
+	</select>
+
+
+	<select id="getprductAddExprIemListM" resultType="lims.rsc.vo.WrhousngMVo" parameterType="lims.rsc.vo.WrhousngMVo">
+		SELECT RPE.EXPRIEM_SEQNO,
+			   (SELECT EXPRIEM_NM FROM SY_EXPRIEM SE WHERE SE.EXPRIEM_SEQNO = RPE.EXPRIEM_SEQNO) AS EXPRIEM_NM
+		FROM RS_PRDUCT_EXPRIEM RPE
+		WHERE 1=1
+		  AND PRDUCT_SEQNO = #{prductSeqno}
+		  AND DELETE_AT = 'N'
+		ORDER BY EXPRIEM_NM
+	</select>
+	<select id="getScpExprList" resultType="lims.wrk.vo.TrendStdrMVO" parameterType="lims.wrk.vo.TrendStdrMVO">
+		SELECT MTRIL_SDSPC_SEQNO,(SELECT EXPRIEM_NM FROM SY_EXPRIEM WHERE EXPRIEM_SEQNO = SMS.EXPRIEM_SEQNO) AS EXPRIEM_NM
+		FROM SY_MTRIL_SDSPC SMS
+		WHERE MTRIL_SEQNO = #{mtrilSeqno} AND SMS.DELETE_AT = 'N'
+	</select>
+
+
+	<insert id="setLoginLog" parameterType="lims.com.vo.LoginMVo">
+		INSERT INTO
+			AT_LOGIN_HIST(
+			HIST_SEQNO,
+			USER_ID,
+			LOGIN_ID,
+			LOGIN_IP,
+			LOGIN_DT,
+			LAST_CHANGER_ID,
+			LAST_CHANGE_DT
+		) VALUES (
+						 (SELECT NVL(MAX(HIST_SEQNO), 0) + 1 FROM AT_LOGIN_HIST),
+						 #{userId},
+						 #{loginId},
+						 #{loginIp},
+						 SYSDATE,
+						 #{userId},
+						 SYSDATE
+				 )
+	</insert>
+
+	<select id="getEmail" parameterType="lims.com.vo.EmailVo"
+			resultType="lims.com.vo.EmailVo">
+		<if test="smpIdx != null and smpIdx != '' ">
+			SELECT USER_MAIL AS "TO" FROM SM_USER
+			WHERE USER_ID = (SELECT MNG_CHR_ID FROM BU_ORG WHERE ORG_CD = (SELECT
+			ORG_CD FROM RC_SMP_ENT WHERE SMP_IDX = #{smpIdx}))
+		</if>
+		<if test="orgCd != null and orgCd != '' ">
+			SELECT USER_MAIL AS "TO" FROM SM_USER
+			WHERE USER_ID = (SELECT MNG_CHR_ID FROM BU_ORG WHERE ORG_CD = #{orgCd})
+		</if>
+	</select>
+
+	<select id="getEmailContents" parameterType="lims.com.vo.EmailVo"
+			resultType="lims.com.vo.EmailVo">
+		SELECT
+			B.ORG_NM,
+			E.SMP_MNG_NO,
+			E.CST_MNG_NO,
+			E.REQ_NM,
+			E.SEX_MFC,
+			(SELECT REQ_DT
+			 FROM RC_SMP_ALS WHERE SMP_IDX = #{smpIdx} AND ENT_SEQ = #{entSeq}) AS
+				REQ_DT
+		FROM
+			BU_ORG B JOIN RC_SMP_ENT E ON B.ORG_CD = E.ORG_CD WHERE E.SMP_IDX =
+																	#{smpIdx}
+	</select>
+
+
+	<!-- 의뢰목록 팝업 -->
+	<select id="getReqestListPop" parameterType="lims.rsc.vo.EqpmnInspcCrrctDto" resultType="lims.rsc.vo.EqpmnInspcCrrctDto">
+		SELECT
+		  	A.REQEST_SEQNO
+		    , E.MTRIL_SEQNO
+			, B.INSPCT_INSTT_NM REQEST_DEPT_NM
+			, A.REQEST_DTE
+			, A.REQEST_NO
+			, FN_GET_CDDTLNM(A.INSPCT_TY_CODE) INSPCT_TY_NM
+			, C.USER_NM CLIENT_NM
+			, D.CUSTLAB_NM
+			, E.MTRIL_NM
+		    , E.PRDUCT_SE_CODE
+			, FN_GET_CDDTLNM(E.PRDUCT_SE_CODE) PRDUCT_TY_NM
+			, A.MNFCTUR_DTE
+			, A.SPLORE_NM
+			, A.RM
+		 	, A.ROA_CREAT_AT
+			, F.LOT_NO
+			, CASE WHEN (SELECT COUNT(*) FROM IM_LOT_NO ILN WHERE ILN.LOT_NO_SEQNO = A.LOT_NO_SEQNO AND ILN.DELETE_AT = 'N') = 0
+			       THEN 'X'
+				   ELSE 'O'
+			  END AS LOT_TRACE_CHK
+			<if test='mainReqestSeqno != null and mainReqestSeqno != ""'>
+				, #{mainReqestSeqno} AS MAIN_REQEST_SEQNO
+			</if>
+		FROM IM_REQEST A
+		INNER JOIN SY_INSPCT_INSTT B ON B.INSPCT_INSTT_CODE = A.REQEST_DEPT_CODE
+		INNER JOIN SY_USER C ON C.USER_ID = A.CLIENT_ID
+		LEFT JOIN RS_CUSTLAB D ON D.CUSTLAB_SEQNO = A.CUSTLAB_SEQNO
+		INNER JOIN SY_MTRIL E ON E.MTRIL_SEQNO = A.MTRIL_SEQNO
+		LEFT JOIN IM_LOT_NO F ON A.LOT_NO_SEQNO = F.LOT_NO_SEQNO
+		WHERE A.BPLC_CODE = <include refid="bplcCode"/>
+		  AND A.DELETE_AT = 'N'
+	  	<if test='pageGbn.equals("Eqpmn")'>
+	  		AND A.EQPMN_SEQNO = #{eqpmnSeqnoPop}
+		</if>
+		<if test='mtrilSeqno != null and mtrilSeqno != ""'>
+			AND A.MTRIL_SEQNO = #{mtrilSeqno}
+		</if>
+		<if test='schReqDeptOnPop != null and schReqDeptOnPop != ""'>
+		  	AND A.REQEST_DEPT_CODE = #{schReqDeptOnPop}
+		</if>
+		<if test='schCustlabOnPop != null and schCustlabOnPop != ""'>
+		  	AND A.CUSTLAB_SEQNO = #{schCustlabOnPop}
+		</if>
+		<if test='schReqBeginDteOnPop != null and schReqBeginDteOnPop != ""'>
+			<if test='schReqEndDteOnPop != null and schReqEndDteOnPop != ""'>
+				AND A.REQEST_DTE BETWEEN #{schReqBeginDteOnPop} AND #{schReqEndDteOnPop}
+			</if>
+
+			<if test='schReqEndDteOnPop == null or schReqEndDteOnPop == ""'>
+				AND A.REQEST_DTE <![CDATA[ >= ]]> #{schReqBeginDteOnPop}
+			</if>
+		</if>
+		<if test='schReqEndDteOnPop != null and schReqEndDteOnPop != ""'>
+			<if test='schReqBeginDteOnPop == null or schReqBeginDteOnPop == ""'>
+				AND A.REQEST_DTE <![CDATA[ <= ]]> #{schReqEndDteOnPop}
+			</if>
+		</if>
+		<if test="traceChk != null and traceChk != ''">
+			AND A.INSPCT_TY_CODE IN ('SY07000001', 'SY07000002')
+		</if>
+		<if test="coaChk == null or coaChk == '' or traceChk == null or traceChk == ''">
+			<if test="schInspctTyCodeOnPop != null and schInspctTyCodeOnPop != ''">
+				AND A.INSPCT_TY_CODE = #{schInspctTyCodeOnPop}
+			</if>
+		</if>
+		<if test='schReqNoOnPop != null and schReqNoOnPop != ""'>
+		  	AND A.REQEST_NO = #{schReqNoOnPop}
+		</if>
+		<if test='schSploreNmOnPop != null and schSploreNmOnPop != ""'>
+		  	AND A.SPLORE_NM = #{schSploreNmOnPop}
+		</if>
+		<if test='schMtrilNmOnPop != null and schMtrilNmOnPop != ""'>
+		  	AND E.MTRIL_NM = #{schMtrilNmOnPop}
+		</if>
+		<if test='schPrductTyCodeOnPop != null and schPrductTyCodeOnPop != ""'>
+			AND E.PRDUCT_SE_CODE = #{schPrductTyCodeOnPop}
+		</if>
+		<if test='ncrChk != null and ncrChk != ""'>
+			AND A.JDGMNT_WORD_CODE = #{ncrChk}
+		</if>
+		ORDER BY REQEST_SEQNO
+	</select>
+
+	<!-- 사용자 목록 팝업 -->
+	<select id="getPopUpRqesterNmList" resultType="lims.sys.vo.UserMVo"
+			parameterType="lims.sys.vo.UserMVo">
+		SELECT SU.USER_ID
+		, SU.LOGIN_ID
+		, (SELECT INSPCT_INSTT_NM FROM SY_INSPCT_INSTT WHERE INSPCT_INSTT_CODE = SU.BPLC_CODE) AS BPLC_CODE_NM
+		, SU.USER_NM
+		, SU.DEPT_CODE
+		, SU.EMAIL
+		, SU.MOBLPHON
+		, SII.INSPCT_INSTT_NM
+		FROM SY_USER SU
+		,SY_INSPCT_INSTT SII
+		WHERE SII.INSPCT_INSTT_CODE = SU.DEPT_CODE
+		<!-- 		AND SII.LIMS_USE_AT = 'Y' -->
+		AND	SU.DELETE_AT = 'N'
+		AND SII.DELETE_AT = 'N'
+		AND SU.USE_AT = 'Y'
+		AND SU.SBSCRB_CONFM_AT = 'Y'
+		<if test="userNmSch != null and userNmSch != '' ">
+			AND SU.USER_NM LIKE '%'||UPPER(#{userNmSch})||'%'
+		</if>
+		<if test="inspctInsttNmSch != null and inspctInsttNmSch != '' ">
+			AND SII.INSPCT_INSTT_NM LIKE
+			'%'||UPPER(#{inspctInsttNmSch})||'%'
+		</if>
+		<choose>
+			<when test='bestInspctInsttCodeSch != null and bestInspctInsttCodeSch != ""'>
+				AND SII.BEST_INSPCT_INSTT_CODE = #{bestInspctInsttCodeSch}
+			</when>
+
+			<otherwise>
+				AND SII.BEST_INSPCT_INSTT_CODE = '${@lims.util.GetUserSession@getBestInspctInsttCode()}'
+			</otherwise>
+		</choose>
+		<if test='bestInspctInsttCodeSch != null and bestInspctInsttCodeSch != ""'>
+			AND SII.BEST_INSPCT_INSTT_CODE = #{bestInspctInsttCodeSch}
+		</if>
+		<if test="userIdList != null and userIdList.length != 0">
+			AND SU.USER_ID NOT IN
+			<foreach collection="userIdList" item="userIdList" open="("
+					 close=")" separator=",">
+				#{userIdList}
+			</foreach>
+		</if>
+		ORDER BY SII.INSPCT_INSTT_NM, SU.USER_NM
+	</select>
+
+
+	<!-- AUDIT TRAIL -->
+	<insert id="insertAudit" parameterType="lims.com.vo.AuditVo">
+		INSERT INTO AT_EXPR_HIST
+		(
+		HIST_SEQNO
+		,HIST_SE_CODE
+		,MENU_URL
+		,CHANGE_AFTER_CN
+		,CHANGER_ID
+		,HIST_PBLICTE_DT
+		,REQEST_SEQNO
+		,EXPRIEM_SEQNO
+		,EXPR_ODR
+		,CONECT_IP
+		,PROCESS_NM
+		,LAST_CHANGER_ID
+		,LAST_CHANGE_DT
+		,BPLC_CODE
+		)
+		VALUES
+		(
+		SQ_AT_EXPR_HIST.NEXTVAL
+		,#{histSeCode}
+		,#{menuUrl}
+		,FN_GET_CHANGE_AFTER_CN(#{histSeCode},#{key1},#{processNm})
+		,<include refid="loginId" />
+		,SYSDATE
+		,#{reqestSeqno}
+		,#{expriemSeqno}
+		,#{exprOdr}
+		,#{conectIp}
+		,#{processNm}
+		,<include refid="loginId" />
+		,SYSDATE
+		,'1000'
+		)
+
+	</insert>
+
+	<insert id="insAudit" parameterType="lims.com.vo.AuditVo">
+		INSERT INTO AT_EXPR_HIST
+		(
+		HIST_SEQNO
+		,HIST_SE_CODE
+		,HIST_SE_DETAIL_CODE
+		,CHANGE_BFE_CN
+		,CHANGE_AFTER_CN
+		,REQEST_SEQNO
+		,EXPRIEM_SEQNO
+		,CONECT_IP
+		,MENU_URL
+		,CHANGER_ID
+		,LAST_CHANGER_ID
+		,HIST_PBLICTE_DT
+		,LAST_CHANGE_DT
+		,EXPR_ODR
+		,EXPR_NUMOT
+		,CAN_NO_ORDR
+		,PROCESS_NM
+		)
+		VALUES
+		(
+		SQ_AT_EXPR_HIST.NEXTVAL
+		,#{histSeCode}
+		,#{histSeDetailCode}
+		,#{changeBfeCn}
+		,#{changeAfterCn}
+		,#{reqestSeqno}
+		,#{expriemSeqno}
+		,#{conectIp}
+		,#{menuUrl}
+		,
+		<include refid="loginId" />
+		,
+		<include refid="loginId" />
+		,SYSDATE
+		,SYSDATE
+		,#{exprOdr}
+		,#{exprNumot}
+		,#{canNoOrdr}
+		,#{processNm}
+		)
+	</insert>
+
+	<select id="getMenuAuth" parameterType="lims.sys.vo.UserMVo" resultType="lims.sys.vo.UserMVo">
+		SELECT
+		    MIN(A.AUTHOR_CODE) AUTHOR_CODE
+			,MAX(A.STRE_AUTHOR_AT) STRE_AUTHOR_AT
+			,MAX(A.INQIRE_AUTHOR_AT) INQIRE_AUTHOR_AT
+			,MAX( A.DELETE_AUTHOR_AT) DELETE_AUTHOR_AT
+			,MAX(OUTPT_AUTHOR_AT) OUTPT_AUTHOR_AT
+		FROM SY_AUTHOR_USER A
+		JOIN SY_USER B ON A.USER_ID = B.USER_ID AND B.USER_ID = #{userId}
+		JOIN (
+			SELECT AUTHOR_CODE
+			FROM SY_AUTHOR_MENU
+			WHERE MENU_SEQNO = #{reqUrlParam}
+		) C ON A.AUTHOR_CODE = C.AUTHOR_CODE
+		WHERE B.DELETE_AT = 'N'
+	</select>
+
+	<!-- 업체명 팝업 리스트 (시약 표준품 관리 페이지) -->
+	<select id="getProductEntrpsFclty" resultType="lims.wrk.vo.EntrpsMVo"
+			parameterType="lims.wrk.vo.EntrpsMVo">
+		SELECT SE.ENTRPS_SEQNO,
+		SE.ENTRPS_NM,
+		SE.TELNO,
+		SE.ENTRPS_ENG_NM,
+		SE.FXNUM,
+		SEC.CHARGER_NM,
+		SEC.CHARGER_DEPT_NM,
+		SEC.CHARGER_TELNO,
+		SEC.CHARGER_FXNUM,
+		SEC.CHARGER_MOBLPHON,
+		SEC.CHARGER_EMAIL
+		FROM SY_ENTRPS SE
+		LEFT JOIN SY_ENTRPS_CHARGER SEC
+		ON SEC.ENTRPS_SEQNO = SE.ENTRPS_SEQNO
+		WHERE SEC.BASS_CHARGER_AT = 'Y' AND SE.DELETE_AT = 'N' AND SEC.DELETE_AT =
+		'N'
+		<if test="entrpsNm != null and entrpsNm != '' ">
+			AND (SELECT ENTRPS_NM FROM SY_ENTRPS
+			WHERE ENTRPS_SEQNO = SES.ENTRPS_SEQNO) LIKE '%'||UPPER(#{entrpsNm})||'%'
+		</if>
+		ORDER BY SE.ENTRPS_SEQNO ASC
+	</select>
+
+	<!-- 업체 조회 -->
+	<select id="getEntrpsFclty" resultType="lims.wrk.vo.EntrpsMVo" parameterType="lims.wrk.vo.EntrpsMVo">
+		SELECT
+			A.ENTRPS_SEQNO
+			, A.ENTRPS_NM
+			, C.CMMN_CODE_NM AS ENTRPS_SE_NM
+		FROM SY_ENTRPS A
+		INNER JOIN SY_ENTRPS_SE B on A.ENTRPS_SEQNO = B.ENTRPS_SEQNO
+		INNER JOIN SY_CMMN_CODE C ON B.ENTRPS_SE_CODE = C.CMMN_CODE
+		WHERE A.DELETE_AT = 'N'
+		  AND A.USE_AT = 'Y'
+		  AND B.USE_AT = 'Y'
+		<if test="entrpsNm != null and entrpsNm != '' ">
+			AND UPPER(A.ENTRPS_NM) LIKE UPPER('%'||#{entrpsNm}||'%')
+		</if>
+		<if test="entrpsSeCode != null and entrpsSeCode != '' ">
+			AND B.ENTRPS_SE_CODE = #{entrpsSeCode}
+		</if>
+	</select>
+
+	<!-- 공통코드 부서기준 사용자 조회 -->
+	<select id="getDeptToUserLsit" parameterType="lims.sys.vo.InsttMVo"
+			resultType="lims.sys.vo.InsttMVo">
+		SELECT USER_ID AS VALUE
+		, USER_NM ||'('||LOGIN_ID||')' AS KEY
+		FROM SY_USER
+		WHERE 1=1 AND DELETE_AT = 'N'
+		AND DEPT_CODE = #{deptCode}
+		AND USE_AT = 'Y'
+		AND SBSCRB_CONFM_AT = 'Y'
+		ORDER BY KEY
+	</select>
+
+	<!-- 공통코드 부서기준 사용자 조회 -->
+	<select id="getUserNmCombo" parameterType="lims.sys.vo.InsttMVo"
+			resultType="lims.sys.vo.InsttMVo">
+		SELECT USER_NM AS VALUE
+		, USER_NM ||'('||LOGIN_ID||')' AS KEY
+		FROM SY_USER
+		WHERE 1=1 AND DELETE_AT = 'N'
+		<if test="deptCode != null and deptCode != '' ">
+			AND DEPT_CODE = #{deptCode}
+		</if>
+		AND USE_AT = 'Y'
+		AND SBSCRB_CONFM_AT = 'Y'
+		ORDER BY KEY
+	</select>
+
+	<!-- 장비 조회 -->
+	<select id="getEqpmnList" parameterType="lims.rsc.vo.EqpmnManageDto" resultType="lims.rsc.vo.EqpmnManageDto">
+		SELECT EQPMN_SEQNO
+		,EQPMN_CL_CODE
+		,FN_GET_CDDTLNM(EQPMN_CL_CODE) AS EQPMN_CL_NM
+		,EQPMN_MANAGE_NO
+		,EQPMN_NM
+		<!-- 		,INSPCT_CRRCT_CYCLE || ' ' ||FN_GET_CDDTLNM(INSPCT_CRRCT_CYCLE_CODE) AS	INSPCT_CRRCT_CYCLE_NM -->
+		<!-- 		,INSPCT_CRRCT_CYCLE -->
+		<!-- 		,INSPCT_CRRCT_CYCLE_CODE -->
+		<!-- 		,INSPCT_CRRCT_PREARNGE_DTE -->
+		<!-- 		,MANAGE_DEPT_CODE -->
+		<!-- 		,A.MHRLS_BRCD -->
+		<!-- 		,A.DETECT_LIMIT_APPLC_AT  AS detectLimitApplcAt -->
+		FROM RS_EQPMN A
+		WHERE A.USE_AT = 'Y'
+		AND A.DELETE_AT = 'N'
+		<if test="shrEqpmnClCode != null and shrEqpmnClCode != '' ">
+			AND EQPMN_CL_CODE = #{shrEqpmnClCode}
+		</if>
+		<if test="shrEqpmnNm != null and shrEqpmnNm != '' ">
+			AND UPPER(EQPMN_NM) LIKE '%'|| UPPER(#{shrEqpmnNm}) || '%'
+		</if>
+		<if test="manageDeptCode != null and manageDeptCode != '' ">
+			AND MANAGE_DEPT_CODE = #{manageDeptCode}
+		</if>
+		<!-- 		<if test="chrgTeamSeCode != null and chrgTeamSeCode != '' "> -->
+		<!-- 			AND A.CHRG_TEAM_SE_CODE = #{chrgTeamSeCode} -->
+		<!-- 		</if> -->
+
+	</select>
+
+	<!-- 장비관리번호 콤보 -->
+	<select id="getEqpManageNoCombo" parameterType="lims.rsc.vo.EqpmnGageDto" resultType="lims.com.vo.ComboVo">
+		SELECT
+			A.EQPMN_MANAGE_NO AS KEY
+			,A.EQPMN_MANAGE_NO AS VALUE
+		FROM RS_EQPMN A
+		WHERE A.DELETE_AT = 'N' AND A.USE_AT = 'Y'
+		  AND A.DSUSE_DTE IS NULL AND A.DSUSE_RESN IS NULL
+		<if test='schEqpmnClCode != null and schEqpmnClCode != ""'>
+		  AND A.EQPMN_CL_CODE = #{schEqpmnClCode}
+		</if>
+	</select>
+
+	<!-- 부서 콤보박스 리스트 -->
+	<select id="getDeptCombo" parameterType="lims.sys.vo.InsttMVo"	resultType="lims.sys.vo.InsttMVo">
+		SELECT 	INSPCT_INSTT_CODE VALUE
+		, INSPCT_INSTT_NM KEY
+		FROM SY_INSPCT_INSTT
+		WHERE 	1=1
+		AND DELETE_AT = 'N'
+		AND USE_AT = 'Y'
+		<if test="bestInspctInsttCode != null and bestInspctInsttCode != ''">
+			AND BEST_INSPCT_INSTT_CODE = #{bestInspctInsttCode}
+		</if>
+		<if test=' "Y".equalsIgnoreCase(bestInspctInsttAt) '>
+			/* Y이면 사업장만 검색 */
+			AND UPPER_INSPCT_INSTT_CODE IS NULL
+		</if>
+		<if test='isRdmsIp == true'>
+			/* rdms ip여부가 true이면 */
+			AND RDMS_SERVER_IP IS NOT NULL
+		</if>
+		ORDER BY INSPCT_INSTT_NM ASC
+	</select>
+
+	<!-- <select id="getEqpmnCombo" parameterType="lims.rsc.vo.EqpmnManageDtoageDto"
+		resultType="lims.rsc.vo.EqpmnManageDtoageDto">
+		SELECT EQPMN_SEQNO AS VALUE
+		,EQPMN_NM AS KEY
+		FROM RS_EQPMN A
+		WHERE 1=1 AND A.DELETE_AT = 'N'
+		<if test="useAt != null and useAt != ''">
+			AND A.USE_AT = #{useAt}
+		</if>
+
+	</select> -->
+
+	<select id="getChrgTeamCombo" parameterType="lims.wrk.vo.ChrgTeamMVo"
+			resultType="lims.wrk.vo.ChrgTeamMVo">
+		<!-- 		SELECT A.CHRG_TEAM_SEQNO AS VALUE -->
+		<!-- 		, A.CHRG_TEAM_NM AS KEY -->
+		<!-- 		FROM SY_CHRG_TEAM A -->
+		<!-- 		,SY_INSPCT_INSTT B -->
+		<!-- 		WHERE A.DEPT_CODE = B.INSPCT_INSTT_CODE -->
+		<!-- 		AND B.USE_AT = 'Y' AND A.DELETE_AT = 'N' AND B.DELETE_AT = 'N' -->
+		<!-- 		AND -->
+		<!-- 		A.DEPT_CODE = #{deptCode} -->
+		<!-- 		ORDER BY A.CHRG_TEAM_SEQNO -->
+		SELECT A.CHRG_TEAM_SE_CODE AS VALUE
+		,A.MHRLS_SEQNO AS KEY
+		FROM RS_MHRLS A
+		LEFT OUTER JOIN SY_CMMN_CODE B ON A.CHRG_TEAM_SE_CODE = B.CMMN_CODE
+		WHERE MHRLS_SEQNO = #{mhrlsSeqno}
+	</select>
+
+	<select id="getCmmnDteFileCombo" resultType="lims.com.vo.ComboVo"
+			parameterType="lims.sys.vo.CmmnCodeMVo">
+		SELECT
+			A.TMPR_FIELD1_VALUE value,
+        NVL(B.LANG_NM, A.CMMN_CODE_NM) AS KEY
+		FROM SY_CMMN_CODE A
+			LEFT JOIN SY_LANG_CMMN_CODE B ON A.CMMN_CODE = B.CMMN_CODE AND B.NATION_LANG_CODE = #{nationLangCode}
+		WHERE A.UPPER_CMMN_CODE =  #{upperCmmnCode}
+		  AND A.USE_AT = 'Y'
+	</select>
+
+	<!-- 담당팀(접수 의뢰 기준) -->
+	<select id="getAnalsTeamCombo" resultType="lims.com.vo.ComboVo"
+			parameterType="lims.sys.vo.CmmnCodeMVo">
+		SELECT CHRG_TEAM_SEQNO AS VALUE
+		,CHRG_TEAM_NM KEY
+		FROM(
+			SELECT DEPT_CODE
+				,CHRG_TEAM_NM
+				,CHRG_TEAM_SEQNO
+				,SORT_ORDR
+			FROM SY_CHRG_TEAM
+			WHERE DEPT_CODE = #{deptCode} AND DELETE_AT = 'N'
+			)
+		ORDER BY SORT_ORDR ASC
+	</select>
+
+	<select id="getExprMthCombo" resultType="lims.wrk.vo.ExprMthMVo"
+			parameterType="lims.wrk.vo.ExprMthMVo">
+		SELECT
+			EXPR_MTH_SEQNO VALUE,
+			EXPR_MTH_NM KEY
+		FROM SY_EXPR_MTH
+		WHERE USE_AT = 'Y' AND DELETE_AT = 'N'
+	</select>
+
+	<select id="getAllCmmnCodeMap" resultType="lims.com.vo.ComboVo">
+		SELECT
+			CMMN_CODE VALUE,
+		CMMN_CODE_NM KEY
+		FROM SY_CMMN_CODE
+		WHERE UPPER_CMMN_CODE IS NOT NULL
+		ORDER BY CMMN_CODE
+	</select>
+
+
+	<select id="getDeProcessExpriem" resultType="lims.test.vo.ResultInputMVo">
+		SELECT
+			SE.EXPRIEM_NM,
+			IR.LOT_ID,
+			SPU.PRDUCT_NM,
+			IRE.REQEST_EXPRIEM_SEQNO ,
+			IR.REQEST_SEQNO,
+			SU.USER_ID,
+			SU.EMAIL,
+			(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE =
+														 'SY16000003')SCHDUL_SE_CODE
+		FROM
+			IM_REQEST_EXPRIEM IRE
+				JOIN IM_REQEST IR ON IRE.REQEST_sEQNO = IR.REQEST_SEQNO
+				LEFT JOIN SY_PRDUCT_SE_EMAIL_USER SPSEU ON IR.PRDUCT_SEQNO =
+														   SPSEU.PRDUCT_SEQNO AND SPSEU.SCHDUL_SE_CODE = 'SY16000003'
+				LEFT JOIN SY_USER SU ON SPSEU.USER_ID = SU.USER_ID
+				LEFT JOIN SY_PRDUCT SP ON IR.PRDUCT_SEQNO = SP.PRDUCT_SEQNO
+				JOIN SY_PRDUCT_UPPER SPU ON SP.PRDUCT_UPPER_SEQNO = SPU.PRDUCT_UPPER_SEQNO
+				JOIN SY_EXPRIEM SE ON IRE.EXPRIEM_SEQNO = SE.EXPRIEM_SEQNO
+		WHERE 1=1 AND IRE.DELETE_AT = 'N' AND IR.DELETE_AT = 'N' AND SU.DELETE_AT =
+																	 'N' AND IRE.PROGRS_SITTN_CODE = 'IM03000003'
+		  AND PROCESS_DT BETWEEN SYSDATE + 230/(24*60) AND SYSDATE + 240/(24*60)
+		ORDER BY USER_ID, REQEST_SEQNO
+	</select>
+
+	<select id="getWarningMailList" resultType="lims.test.vo.IssueMVo"
+			parameterType="lims.test.vo.IssueMVo">
+		SELECT * FROM (SELECT
+						   LISTAGG(A.ISSUE_SEQNO,',') WITHIN GROUP(ORDER BY A.ISSUE_SEQNO) ISSUE_SEQNO,
+            LISTAGG(B.PRDUCT_SEQNO,',') WITHIN GROUP(ORDER BY B.PRDUCT_SEQNO) PRDUCT_SEQNO
+					   FROM IM_ISSUE A
+						   JOIN IM_REQEST B ON A.REQEST_SEQNO = B.REQEST_SEQNO
+					   WHERE A.EMAIL_SNDNG_COMPT_AT = 'N') WHERE ISSUE_SEQNO IS NOT NULL
+
+	</select>
+
+
+	<select id="getDlivyTimeList" resultType="lims.dly.vo.DlivyMVo" parameterType="lims.dly.vo.DlivyMVo">
+		SELECT * FROM (SELECT
+						   ID.DLIVY_ORDE_SEQNO,
+						   TO_DATE(ID.DLIVY_DTE || ID.DLIVY_HM,'YYYY-MM-DD HH24:MI:SS') FOR_DATE,
+						   ID.DVYFG_ENTRPS_NM,
+						   SP.PRDUCT_NM,
+						   IR.LOT_ID,
+						   SU.USER_ID,
+						   SU.EMAIL
+					   FROM IM_DLIVY ID
+								LEFT JOIN IM_REQEST IR ON ID.REQEST_SEQNO = IR.REQEST_SEQNO AND
+														  IR.PROGRS_SITTN_CODE <![CDATA[<]]>
+														  'IM03000006'
+								LEFT JOIN SY_PRDUCT SP ON IR.PRDUCT_SEQNO =
+														  SP.PRDUCT_SEQNO
+								LEFT JOIN IM_DLIVY_EMAIL_USER IDEU ON
+						   ID.DLIVY_ORDE_SEQNO = IDEU.DLIVY_ORDE_SEQNO
+								LEFT JOIN SY_USER SU ON
+						   IDEU.USER_ID = SU.USER_ID
+					   WHERE IR.DELETE_AT = 'N' AND SU.DELETE_AT =
+													'N')
+		WHERE (FOR_DATE <![CDATA[>=]]>
+			   SYSDATE AND FOR_DATE <![CDATA[<]]>
+						   (SYSDATE+ 10/(24*60))) AND EMAIL IS NOT NULL
+		ORDER BY USER_ID
+	</select>
+
+	<update id="updateMsDept" statementType="CALLABLE">
+		{ CALL
+			PRO_MS_DEPT_DATA() }
+	</update>
+
+	<select id="getUserList" resultType="HashMap">
+		SELECT
+			SU.LOGIN_ID,
+			SII.RDMS_GROUP_ID,
+			SU.PASSWORD
+		FROM SY_USER SU
+				 JOIN SY_INSPCT_INSTT SII ON SU.DEPT_CODE = SII.INSPCT_INSTT_CODE
+	</select>
+
+	<select id="getAdminEmail" resultType="String">
+		SELECT EMAIL FROM SY_USER
+		WHERE USER_ID = '1'
+	</select>
+	<select id="getCalcLawInfo" resultType="lims.wrk.vo.CalcLawMVo"
+			parameterType="HashMap">
+		SELECT
+			A.VRIABL_ID, A.VRIABL_NM, A.VRIABL_VALUE, A.NOMFRM_CN, A.MARK_CPHR, B.CALC_LAW_SEQNO
+		<!-- 		(SELECT COUNT(*) FROM SY_CALC_NOMFRM_VRIABL WHERE CALC_LAW_SEQNO = B.CALC_LAW_SEQNO) AS CALC_CNT -->
+		FROM IM_NOMFRM_VRIABL A
+		JOIN IM_REQEST_EXPRIEM_RESULT B ON A.REQEST_EXPRIEM_SEQNO = B.REQEST_EXPRIEM_SEQNO AND A.EXPR_ODR = B.EXPR_ODR
+		WHERE 1=1
+		AND A.REQEST_EXPRIEM_SEQNO = #{REQEST_EXPRIEM_SEQNO} AND A.EXPR_ODR = #{EXPR_ODR}
+
+	</select>
+	<select id="getExpriemNm" resultType="String" parameterType="String">
+		SELECT
+			B.EXPRIEM_NM
+		FROM IM_REQEST_EXPRIEM A
+				 JOIN SY_EXPRIEM B ON A.EXPRIEM_SEQNO =
+									  B.EXPRIEM_SEQNO
+		WHERE A.REQEST_EXPRIEM_SEQNO = #{nm}
+	</select>
+
+	<select id="getEqpmnNmCombo" parameterType="lims.rsc.vo.EqpmnManageDto" resultType="lims.com.vo.ComboVo">
+		SELECT
+		E.EQPMN_SEQNO VALUE,
+		E.EQPMN_NM KEY
+		FROM RS_EQPMN E
+		WHERE E.DELETE_AT = 'N' AND E.USE_AT = 'Y'
+		<if test="eqpmnClCode != null and eqpmnClCode != ''">
+			AND E.EQPMN_CL_CODE = #{eqpmnClCode}
+		</if>
+		<if test="bplcCode != null and bplcCode != ''">
+			AND E.BPLC_CODE = #{bplcCode}
+		</if>
+	</select>
+
+	<!-- 분석실 콤보 -->
+	<select id="getCustLabCombo" resultType="lims.com.vo.ComboVo">
+		SELECT
+			A.CUSTLAB_SEQNO VALUE
+			,A.CUSTLAB_NM KEY
+		FROM RS_CUSTLAB A
+		WHERE A.BPLC_CODE =  '${@lims.util.GetUserSession@getBestInspctInsttCode()}'
+		  AND A.DELETE_AT = 'N'
+		  AND A.USE_AT =  'Y'
+		order by A.CUSTLAB_NM
+	</select>
+
+	<select id="getExpriemClComboList" resultType="lims.com.vo.ComboVo" parameterType="lims.sys.vo.CmmnCodeMVo">
+		SELECT A.CMMN_CODE AS VALUE, NVL(B.LANG_NM, A.CMMN_CODE_NM) AS KEY
+		FROM SY_CMMN_CODE A
+			LEFT JOIN SY_LANG_CMMN_CODE B ON A.CMMN_CODE = B.CMMN_CODE AND B.NATION_LANG_CODE = #{nationLangCode}
+		WHERE UPPER_CMMN_CODE = 'SY05'
+		  AND CMMN_CODE NOT IN ('SY05000018', 'SY05000019')
+	</select>
+
+	<!-- 예방 조치 구분 콤보 -->
+	<select id="getPrevntMsgGbnList" resultType="lims.com.vo.ComboVo" parameterType="lims.sys.vo.CmmnCodeMVo">
+		SELECT DISTINCT
+			TMPR_FIELD1_VALUE AS KEY,
+			TMPR_FIELD1_VALUE AS VALUE
+		FROM SY_CMMN_CODE SCC
+		WHERE SCC.UPPER_CMMN_CODE = 'RS22'
+	</select>
+
+	<!-- 고객사 권한 조회-->
+	<select id="getAuthMember" parameterType="lims.dly.vo.DlivyMVo" resultType="lims.dly.vo.DlivyMVo">
+		SELECT AUTHOR_SE_CODE
+		,DEPT_CODE
+		,(SELECT FN_GET_INSPCT_INSTT(DEPT_CODE) FROM SY_USER X WHERE X.USER_ID = USER_ID ) AS DEPT_NM
+		,USER_ID
+		,FN_GET_USERNM(USER_ID) AS USER_NM
+		,DELETE_AT
+		,LAST_CHANGER_ID
+		,LAST_CHANGE_DT
+		FROM SY_USER
+		WHERE 1=1
+		<if test="deptCode != null and deptCode != ''">
+			AND DEPT_CODE = #{deptCode}
+		</if>
+		<if test="auth != null and auth != ''">
+			AND AUTHOR_SE_CODE = #{auth}
+		</if>
+	</select>
+
+	<!-- 부서별 알림대상자 조회 -->
+	<select id="getSyDeptAcctoNtcnTrgter" parameterType="lims.dly.vo.DlivyMVo" resultType="lims.dly.vo.DlivyMVo">
+		SELECT SCHDUL_SEQNO
+		,NTCN_SE_CODE
+		,DEPT_CODE
+		,(SELECT FN_GET_INSPCT_INSTT(DEPT_CODE) FROM SY_USER X WHERE X.USER_ID = A.USER_ID ) AS DEPT_NM
+		,USER_ID
+		,FN_GET_USERNM(USER_ID) AS USER_NM
+		,EMAIL_RECPTN_AT
+		,CHRCTR_RECPTN_AT
+		,DELETE_AT
+		,LAST_CHANGER_ID
+		,LAST_CHANGE_DT
+		FROM SY_DEPT_ACCTO_NTCN_TRGTER A
+		WHERE 1=1
+		<if test="deptCode != null and deptCode != ''">
+			AND DEPT_CODE = #{deptCode}
+		</if>
+		<if test="ntcnSeCode != null and ntcnSeCode != ''">
+			AND NTCN_SE_CODE = #{ntcnSeCode}
+		</if>
+	</select>
+
+	<select id="userChk" parameterType="lims.dly.vo.DlivyMVo" resultType="int">
+		SELECT
+			COUNT(AUTHOR_SE_CODE)
+		FROM SY_DEPT_ACCTO_AUTHOR_TRGTER
+		WHERE USER_ID = #{userId}
+	</select>
+
+	<!-- 알림대상자 저장 -->
+	<insert id="insSyDeptAcctoNtcnTrgter" parameterType="lims.dly.vo.DlivyMVo" >
+		INSERT INTO SY_DEPT_ACCTO_NTCN_TRGTER(
+											  SCHDUL_SEQNO
+											 ,NTCN_SE_CODE
+											 ,DEPT_CODE
+											 ,USER_ID
+											 ,EMAIL_RECPTN_AT
+											 ,CHRCTR_RECPTN_AT
+											 ,DELETE_AT
+											 ,LAST_CHANGER_ID
+											 ,LAST_CHANGE_DT
+		)VALUES(
+				   SQ_SY_DEPT_ACCTO_NTCN_TRGTER.NEXTVAL
+			   ,#{ntcnSeCode}
+			   ,#{deptCode}
+			   ,#{userId}
+			   ,NVL(#{emailRecptnAt},'N')
+			   ,NVL(#{chrctrRecptnAt},'N')
+			   ,'N'
+			   ,'${@lims.util.GetUserSession@getUserId()}'
+			   ,SYSDATE
+			   )
+	</insert>
+
+	<!-- 알림대상자 삭제 -->
+	<delete id="delSyDeptAcctoNtcnTrgter" parameterType="lims.dly.vo.DlivyMVo" >
+		DELETE
+		FROM SY_DEPT_ACCTO_NTCN_TRGTER
+		WHERE NTCN_SE_CODE = #{ntcnSeCode}
+		  AND DEPT_CODE = #{deptCode}
+	</delete>
+	<select id="getCommonAllInfo" resultType="lims.sys.vo.CmmnCodeMVo" parameterType="lims.sys.vo.CmmnCodeMVo">
+		SELECT
+			A.CMMN_CODE,
+			NVL(B.LANG_NM, A.CMMN_CODE_NM) AS CMMN_CODE_NM,
+			A.TMPR_FIELD1_VALUE,
+			A.TMPR_FIELD2_VALUE
+		FROM
+			SY_CMMN_CODE A
+				LEFT JOIN SY_LANG_CMMN_CODE B ON A.CMMN_CODE = B.CMMN_CODE AND B.NATION_LANG_CODE = #{nationLangCode}
+		WHERE UPPER_CMMN_CODE = #{upperCmmnCode}
+	</select>
+
+	<select id="chkUserInfo" parameterType="hashmap" resultType="hashmap">
+		SELECT USER_ID
+		FROM SY_USER
+		WHERE LOGIN_ID = #{EMPNUM}
+	</select>
+
+	<insert id="insertRoaAudit" parameterType="lims.com.vo.AuditVo">
+		INSERT INTO AT_ROA_DATA_CNVR_HIST(
+										  ROA_DATA_CNVR_HIST_SEQNO
+										 ,REQEST_SEQNO
+										 ,ROA_DATA_CN
+										 ,ERROR_AT
+										 ,LAST_CHANGER_ID
+										 ,LAST_CHANGE_DT
+		) VALUES (
+					 SQ_AT_ROA_DATA_CNVR_HIST.NEXTVAL
+				 ,#{reqestSeqno}
+				 ,#{roaDataCn}
+				 ,#{errorAt}
+				 ,'${@lims.util.GetUserSession@getUserId()}'
+				 ,SYSDATE
+				 )
+	</insert>
+
+	<!-- 단위 콤보박스 리스트 -->
+	<select id="getUnitListCombo" parameterType="lims.wrk.vo.UnitMVo"	resultType="lims.com.vo.ComboVo">
+		SELECT UNIT_NM KEY,
+               UNIT_SEQNO VALUE
+		FROM SY_UNIT
+		WHERE 1=1
+		  AND USE_AT='Y'
+		ORDER BY UNIT_NM
+	</select>
+	<select id="getViewerList" parameterType="lims.com.vo.RdmsMVo" resultType="lims.com.vo.RdmsMVo">
+		SELECT
+		DISTINCT B.REQEST_EXPRIEM_SEQNO
+		<if test="showGbn == 1">
+			,NVL(B.RDMS_DOC_NO,C.RDMS_DOC_NO) BINDERITEMVALUE_ID
+		</if>
+		<if test="showGbn == 2">
+			,NVL(B.UPDT_RDMS_DOC_NO,C.UPDT_RDMS_DOC_NO) BINDERITEMVALUE_ID
+		</if>
+		FROM
+		IM_REQEST_EXPRIEM A
+		JOIN IM_REQEST E ON A.REQEST_SEQNO = E.REQEST_SEQNO
+		JOIN IM_REQEST_EXPRIEM_RESULT B ON A.REQEST_EXPRIEM_SEQNO = B.REQEST_EXPRIEM_SEQNO
+		LEFT JOIN IM_REQEST_EXPRIEM_VRIABL C ON B.REQEST_EXPRIEM_sEQNO = C.REQEST_eXPRIEM_sEQNO AND B.EXPR_ODR = C.EXPR_ODR
+		JOIN SY_EXPRIEM D ON A.EXPRIEM_SEQNO = D.EXPRIEM_SEQNO
+		WHERE 1 = 1 AND C.BASS_VALUE IS NULL
+		<if test="page != 'resultInput'">
+			AND B.QC_RESULT_VALUE IS NOT NULL
+		</if>
+		<if test="rdmsGbn == null or rdmsGbn == ''">
+			AND 1 = 2
+		</if>
+		<if test="rdmsGbn == 1">
+			AND A.REQEST_SEQNO IN(
+			<foreach collection="gridData" item="item" index="index" separator=",">
+				#{item}
+			</foreach>
+			)
+		</if>
+		<if test="rdmsGbn == 2">
+			AND (B.REQEST_eXPRIEM_SEQNO, B.EXPR_ODR) IN(
+			<foreach collection="gridData" item="item" index="index">
+				<if test="(index % 2) == 0">
+					(
+				</if>
+				#{item}
+				<if test="(index % 2) == 0">
+					,
+				</if>
+				<if test="(index % 2) != 0">
+					)
+					<if test="index != (gridData.size-1)">
+						,
+					</if>
+				</if>
+			</foreach>
+			)
+		</if>
+		AND B.DELETE_AT = 'N' AND D.DELETE_AT = 'N'
+	</select>
+	<update id="colSanctnM" parameterType="lims.qa.vo.DocDto">
+		UPDATE CM_SANCTN SET
+			SANCTN_PROGRS_SITTN_CODE = 'CM01000001'
+		WHERE SANCTN_SEQNO = #{sanctnSeqno}
+	</update>
+
+	<select id="getSerialNo" parameterType="String" resultType="String">
+		SELECT
+			COUNT(*) + 1
+		FROM RS_AUDIT
+		WHERE AUDIT_RCEPT_NO LIKE '%' || #{param} || '%'
+		  AND DELETE_AT = 'N'
+	</select>
+
+	<select id="getLgstrSerialNo" parameterType="String" resultType="String">
+		SELECT
+			LPAD(COUNT(*) + 1,2,0)
+		FROM RS_AUDIT_CAR
+		WHERE CAR_NO LIKE '%' || #{auditRceptNo} || '%'
+		  AND DELETE_AT = 'N'
+	</select>
+
+
+
+	<!-- 베포처 저장 -->
+	<insert id="insWdtb" parameterType="hashmap" >
+		<selectKey keyProperty="wdtbSeqno" resultType="java.lang.String" order="BEFORE">
+			SELECT SQ_CM_WDTB.NEXTVAL AS WDTB_SEQNO FROM DUAL
+		</selectKey>
+		INSERT INTO CM_WDTB
+		(
+		WDTB_SEQNO
+		,WDTB_PREARNGE_DT
+		,WDTB_DT
+		,SJ
+		,CN
+		,USE_AT
+		,WDTB_POSBL_AT
+		,LAST_CHANGER_ID
+		,LAST_CHANGE_DT
+		)
+		VALUES
+		(
+		#{wdtbSeqno}
+		<choose>
+			<when test = "wdtbPrearngeDt != null and wdtbPrearngeDt != ''">
+				,#{wdtbPrearngeDt}
+			</when>
+			<otherwise>
+				,SYSDATE
+			</otherwise>
+		</choose>
+		,#{wdtbDt}
+		,#{sj}
+		,#{cn}
+		,'Y'
+		,#{wdtbPosblAt}
+		,#{lastChangerId}
+		,SYSDATE
+		)
+	</insert>
+	<select id="wdtbTrgterLen" parameterType="hashmap" resultType="int">
+		SELECT
+			COUNT(*) + 1
+		FROM CM_WDTB_TRGTER
+		WHERE WDTB_SEQNO = #{wdtbSeqno}
+	</select>
+
+	<!-- 베포처 수정 -->
+	<update id="updWdtb" parameterType="hashmap" >
+		UPDATE CM_WDTB SET
+		WDTB_PREARNGE_DT =
+		<choose>
+			<when test = "wdtbPrearngeDt != null and wdtbPrearngeDt != ''">
+				#{wdtbPrearngeDt}
+			</when>
+			<otherwise>
+				SYSDATE
+			</otherwise>
+		</choose>
+		,WDTB_DT = NULL
+		,CN = #{cn}
+		,SJ = #{sj}
+		,USE_AT = 'Y'
+		,WDTB_POSBL_AT = #{wdtbPosblAt}
+		,LAST_CHANGER_ID = #{lastChangerId}
+		,LAST_CHANGE_DT = SYSDATE
+		WHERE WDTB_SEQNO = #{wdtbSeqno}
+	</update>
+
+	<!-- 베포처 사용자 저장 -->
+	<insert id="insWdtbTrgter" parameterType="hashmap" >
+		MERGE INTO CM_WDTB_TRGTER
+			USING DUAL ON ( WDTB_SEQNO = #{wdtbSeqno} and USER_ID = #{userId})
+			WHEN MATCHED THEN
+				UPDATE
+					SET
+
+						EMAIL_TRNSMIS_AT = #{emailTrnsmisAt}
+						,CHRCTR_TRNSMIS_AT = #{chrctrTrnsmisAt}
+						,EMAIL_TRNSMIS_COMPT_AT = #{emailTrnsmisComptAt}
+						,CHRCTR_TRNSMIS_COMPT_AT = #{chrctrTrnsmisComptAt}
+						,DELETE_AT = 'N'
+						,LAST_CHANGER_ID = #{lastChangerId}
+						,LAST_CHANGE_DT = SYSDATE
+			WHEN NOT MATCHED THEN
+				INSERT(
+
+					   WDTB_SEQNO
+					,ORDR
+					,USER_ID
+					,EMAIL_TRNSMIS_AT
+					,CHRCTR_TRNSMIS_AT
+					,EMAIL_TRNSMIS_COMPT_AT
+					,CHRCTR_TRNSMIS_COMPT_AT
+					,DELETE_AT
+					,LAST_CHANGER_ID
+					,LAST_CHANGE_DT
+					)
+					VALUES
+						(
+							#{wdtbSeqno}
+						,#{ordr}
+						,#{userId}
+						,#{emailTrnsmisAt}
+						,#{chrctrTrnsmisAt}
+						,#{emailTrnsmisComptAt}
+						,#{chrctrTrnsmisComptAt}
+						,'N'
+						,#{lastChangerId}
+						,SYSDATE
+						)
+	</insert>
+
+
+	<select id="getMtrilComboList" parameterType="lims.wrk.vo.PrductMVo" resultType="lims.wrk.vo.PrductMVo">
+		SELECT
+		A.MTRIL_SEQNO AS VALUE,
+		A.MTRIL_NM AS KEY
+		FROM SY_MTRIL A
+		WHERE 1 = 1
+		<if test="bplcCode != null and bplcCode != ''">
+			AND A.BPLC_CODE = #{bplcCode}
+		</if>
+		<if test="processTyCode != null and processTyCode != ''">
+			AND A.MTRIL_TY_CODE = #{processTyCode}
+		</if>
+	</select>
+
+	<select id="getWdtbTrgterList" parameterType="lims.com.vo.WdtbVo" resultType="lims.com.vo.WdtbVo">
+		SELECT
+			A.WDTB_SEQNO
+			 ,A.USER_ID
+			 ,(SELECT SU.USER_NM FROM SY_USER SU WHERE SU.USER_ID = A.USER_ID) AS USER_NM
+			 ,A.CHRCTR_TRNSMIS_AT
+			 ,A.CHRCTR_TRNSMIS_COMPT_AT
+			 ,A.DELETE_AT
+			 ,A.EMAIL_TRNSMIS_AT
+			 ,A.EMAIL_TRNSMIS_COMPT_AT
+			 ,A.ORDR
+		FROM CM_WDTB_TRGTER A
+		WHERE A.WDTB_SEQNO = #{wdtbSeqno}
+		  AND A.DELETE_AT = 'N'
+	</select>
+
+	<update id="delTrgterList" parameterType="lims.com.vo.WdtbVo">
+		UPDATE CM_WDTB_TRGTER SET
+			DELETE_AT = 'Y'
+								,LAST_CHANGER_ID = #{lastChangerId}
+								,LAST_CHANGE_DT = SYSDATE
+		WHERE WDTB_SEQNO = #{wdtbSeqno}
+		  AND ORDR = #{ordr}
+	</update>
+
+	<update id="updAudit" parameterType="hashmap">
+		UPDATE RS_AUDIT SET
+			WDTB_SEQNO = #{wdtbSeqno}
+		WHERE AUDIT_SEQNO = #{auditSeqno}
+	</update>
+
+	<!-- VOC 등록 배포 시퀀스 등록 -->
+	<update id="updVocRegist" parameterType="hashmap">
+		UPDATE RS_VOC_REGIST SET
+			WDTB_SEQNO = #{wdtbSeqno}
+		WHERE VOC_REGIST_SEQNO = #{vocRegistSeqno}
+	</update>
+
+	<!-- VOC 대책수립 배포 시퀀스 등록 -->
+	<update id="updVocCntrplnFoundng" parameterType="hashmap">
+		UPDATE RS_VOC_CNTRPLN_FOUNDNG SET
+			WDTB_SEQNO = #{wdtbSeqno}
+		WHERE VOC_CNTRPLN_FOUNDNG_SEQNO = #{vocCntrplnFoundngSeqno}
+	</update>
+
+	<!-- VOC 유효 검증 시퀀스 등록 -->
+	<update id="updVocValidVrify" parameterType="hashmap">
+		UPDATE RS_VOC_VALID_VRIFY SET
+			WDTB_SEQNO = #{wdtbSeqno}
+		WHERE VOC_VALID_VRIFY_SEQNO = #{vocValidVrifySeqno}
+	</update>
+
+	<!-- PCN 배포 시퀀스 등록 -->
+	<update id="updPcnWdtbSeq" parameterType="hashmap">
+		UPDATE RS_PCN SET
+			WDTB_SEQNO = #{wdtbSeqno}
+		WHERE PCN_SEQNO = #{pcnSeqno}
+	</update>
+
+	<select id="getTrgterCnt" parameterType="lims.com.vo.WdtbVo" resultType="int">
+		SELECT
+			COUNT(*)
+		FROM CM_WDTB_TRGTER
+		WHERE WDTB_SEQNO = #{wdtbSeqno}
+	</select>
+
+	<!-- 품질 문서 이력 조회 -->
+	<select id="getQlityDocHistList" parameterType="lims.qa.vo.QlityDocHistVo" resultType="lims.qa.vo.QlityDocHistVo">
+		SELECT  QH.QLITY_DOC_HIST_SEQNO,
+				QH.TABLE_NM,
+				QH.TABLE_CM_NM,
+				QH.COLUMN_NM,
+				QH.COLUMN_CM_NM,
+				QH.SEQNO,
+				QH.CHANGE_BFE_CN,
+				QH.CHANGE_AFTER_CN,
+				(SELECT SU.USER_NM FROM SY_USER SU WHERE SU.USER_ID = QH.LAST_CHANGER_ID) AS CHANGER_NM,
+				QH.LAST_CHANGE_DT
+		FROM AT_QLITY_DOC_HIST QH
+		WHERE QH.TABLE_NM = #{tableNm}
+		AND QH.SEQNO = #{seqno}
+		ORDER BY QH.LAST_CHANGE_DT DESC
+	</select>
+
+	<select id="getBinderitemvalueIdList" parameterType="lims.test.vo.ResultInputMVo" resultType="lims.test.vo.ResultInputMVo">
+		SELECT
+		DISTINCT B.REQEST_EXPRIEM_SEQNO AS REQEST_EXPRIEM_SEQNO,
+		CASE
+		WHEN #{type} = 'O' THEN NVL(B.RDMS_DOC_NO, C.RDMS_DOC_NO)
+		WHEN #{type} = 'C' THEN NVL(B.UPDT_RDMS_DOC_NO, C.UPDT_RDMS_DOC_NO)
+		END BINDERITEMVALUE_ID,
+		E.BPLC_CODE,
+		#{type} AS TYPE
+		FROM IM_REQEST_EXPRIEM A
+		JOIN IM_REQEST E
+		ON A.REQEST_SEQNO = E.REQEST_SEQNO
+		JOIN IM_REQEST_EXPRIEM_RESULT B
+		ON A.REQEST_EXPRIEM_SEQNO = B.REQEST_EXPRIEM_SEQNO
+		LEFT JOIN IM_REQEST_EXPRIEM_VRIABL C
+		ON B.REQEST_EXPRIEM_sEQNO = C.REQEST_eXPRIEM_sEQNO AND B.EXPR_ODR = C.EXPR_ODR
+		JOIN SY_EXPRIEM D
+		ON A.EXPRIEM_SEQNO = D.EXPRIEM_SEQNO
+		WHERE 1=1
+		AND C.BASS_VALUE IS NULL <!-- 변수 상수값(고정) RDMS에서 들어오는 값이 아님 -->
+		AND B.QC_RESULT_VALUE IS NOT NULL
+		AND B.DELETE_AT = 'N'
+		AND D.DELETE_AT = 'N'
+		AND (B.REQEST_EXPRIEM_SEQNO, B.EXPR_ODR) IN (
+
+		<foreach collection="arrayExpriem" item="item" index="index">
+
+			<if test="(index % 2) == 0">
+				(
+			</if>
+
+			#{item}
+
+			<if test="(index % 2) == 0">
+				,
+			</if>
+
+			<if test="(index % 2) != 0">
+				)
+				<if test="index != (arrayExpriem.length-1)">
+					,
+				</if>
+			</if>
+
+		</foreach>
+
+		)
+	</select>
+
+	<!-- 시스템 설정 정보 조회 -->
+	<select id="getSysManageInfo" resultType="lims.sys.vo.SysEstbsMVo">
+		SELECT
+		LOGIN_FAILR_LOCK_AT				<!-- 로그인 실패 잠금 여부 -->
+		,LOGIN_FAILR_LOCK_NUMOT			<!-- 로그인 실패 잠금 횟수 -->
+		,INITL_PASSWORD                 <!-- 초기화 비밀번호 -->
+		,PASSWORD_POLICY_EXECUT_AT  	<!-- 비밀번호 정책 실행 여부 -->
+		,PASSWORD_MXMM_CPHR 	   		<!-- 비밀번호 최대 자리수 -->
+		,PASSWORD_SPCL_CHRCTR_INCLS_AT  <!-- 비밀번호 특수 문자 포함 여부 -->
+		,PASSWORD_NUMBER_INCLS_AT		<!-- 비밀번호 숫자 포함 여부 -->
+		,PASSWORD_UPPRS_INCLS_AT		<!-- 비밀번호 대문자 포함 여부 -->
+		,CTMMNY_CNTRMSR_AT              <!-- 고객사 대응 여부 -->
+		FROM
+		SY_SYS_MANAGE
+	</select>
+
+	<!-- 출력물 경로, 원본 파일명 가져오기 -->
+	<select id="printCours" resultType="lims.wrk.vo.PrintngMVO">
+		SELECT
+			A.PRINTNG_ORGINL_FILE_NM
+			,A.PRINTNG_COURS
+		FROM SY_PRINTNG A
+		WHERE 1=1
+		<if test ="printngOrginlFileNm != null or printngOrginlFileNm==''">
+		  AND A.PRINTNG_ORGINL_FILE_NM = #{printngOrginlFileNm}
+		</if>
+		<if test='lblDcOutptAtVal == "Y"'>
+		  AND A.PRINTNG_ORGINL_FILE_NM LIKE '%RequestLabel%'
+		</if>
+		  AND A.PRINTNG_SE_CODE = #{printngSeCode}
+		  AND A.DELETE_AT = 'N'
+		  AND A.USE_AT = 'Y'
+		ORDER BY A.PRINTNG_SEQNO DESC
+	</select>
+
+
+	<select id = "getCustlabCombo" resultType = "lims.req.vo.ReceiptManageDto">
+		SELECT 
+			CUSTLAB_SEQNO AS VALUE
+			,CUSTLAB_NM AS KEY
+		FROM RS_CUSTLAB
+		WHERE USE_AT = 'Y'
+			AND DELETE_AT = 'N'
+		<if test ="bplcCode != null and bplcCode ==''">
+			AND BPLC_CODE = #{bplcCode}
+		</if>
+		
+		ORDER BY CUSTLAB_SEQNO
+
+	</select>
+	
+	<select id="getSanctnCount" resultType="lims.com.vo.SanctnCountDto">
+		SELECT *
+		FROM (
+			SELECT  NVL(D.LANG_NM,C.CMMN_CODE_NM) AS SANCTN_KND_CODE_NM,
+			        C.CMMN_CODE AS SANCTN_KND_CODE,
+			        COUNT(S.SANCTN_SEQNO) AS SANCTN_COUNT,
+			        C.SORT_ORDR,
+					C.TMPR_FIELD1_VALUE AS MENU_URL
+			FROM SY_CMMN_CODE C
+			LEFT JOIN (
+			    SELECT  IA.SANCTN_KND_CODE,
+			            IA.SANCTN_SEQNO
+			    FROM CM_SANCTN IA 
+			    INNER JOIN CM_SANCTN_INFO IB ON IA.SANCTN_SEQNO = IB.SANCTN_SEQNO
+			    WHERE IA.SANCTN_PROGRS_SITTN_CODE = 'CM01000002'
+			      AND IB.SANCTN_PROGRS_SITTN_CODE = 'CM01000002'
+			      AND IA.USE_AT = 'Y'
+			      AND IB.USE_AT = 'Y'
+			      AND IB.SANCTNER_ID = <include refid="loginId"/>
+			) S ON C.CMMN_CODE = S.SANCTN_KND_CODE
+			LEFT JOIN SY_LANG_CMMN_CODE D ON (C.CMMN_CODE = D.CMMN_CODE AND D.NATION_LANG_CODE = <include refid="nationCode"/> AND D.USE_AT = 'Y' AND D.DELETE_AT = 'N')
+			WHERE C.USE_AT = 'Y'
+			  AND C.UPPER_CMMN_CODE = 'CM05'
+			GROUP BY C.CMMN_CODE, C.CMMN_CODE_NM, D.LANG_NM, C.SORT_ORDR, C.TMPR_FIELD1_VALUE
+			
+			UNION ALL 
+			
+			SELECT  'TOTAL',
+			        'TOTAL',
+			        COUNT(A.SANCTN_SEQNO) AS SANCTN_COUNT,
+					0 AS SORT_ORDR,
+			        NULL AS MENU_URL
+			FROM CM_SANCTN A
+			INNER JOIN CM_SANCTN_INFO B ON A.SANCTN_SEQNO = B.SANCTN_SEQNO
+			WHERE A.USE_AT = 'Y'
+			  AND B.USE_AT = 'Y'
+			  AND A.SANCTN_PROGRS_SITTN_CODE = 'CM01000002'
+			  AND B.SANCTN_PROGRS_SITTN_CODE = 'CM01000002'
+			  AND B.SANCTNER_ID = <include refid="loginId"/>
+		) T
+		ORDER BY T.SORT_ORDR
+	</select>
+</mapper>

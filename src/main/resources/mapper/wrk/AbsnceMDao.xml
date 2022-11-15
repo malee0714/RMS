@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.AbsnceMDao">
+
+<select id="confirmAbsnceM" parameterType="lims.wrk.vo.AbsnceMVo" resultType="int">
+	SELECT COUNT(*)
+	FROM SY_ABSNCE
+	WHERE TO_CHAR(ABSNCE_BEGIN_DT,'YYYY-MM-DD') = #{absnceBeginDt}
+	AND TO_CHAR(ABSNCE_END_DT,'YYYY-MM-DD') =  #{absnceEndDt}
+	AND ABSNT_ID = #{absntId}
+	AND DELETE_AT = 'N'
+</select>
+<select id="getAbsnceList" parameterType="lims.wrk.vo.AbsnceMVo" resultType="lims.wrk.vo.AbsnceMVo">
+	SELECT
+		d.INSPCT_INSTT_NM AS ABSNT_DEPT_NM
+		,b.USER_NM AS ABSNT_NM
+		,e.INSPCT_INSTT_NM AS AGNCYMAN_DEPT_NM
+		,c.USER_NM AS AGNCYMAN_NM
+		,a.ABSNCE_STTUS_CODE
+		,(SELECT XA.CMMN_CODE_NM FROM SY_CMMN_CODE XA WHERE XA.CMMN_CODE = a.ABSNCE_STTUS_CODE) AS ABSNCE_STTUS_NM  
+		,TO_CHAR(a.ABSNCE_BEGIN_DT,'YYYY-MM-DD') AS ABSNCE_BEGIN_DT
+		,TO_CHAR(a.ABSNCE_END_DT,'YYYY-MM-DD') AS ABSNCE_END_DT
+		,a.ABSNCE_RESN
+		,a.ABSNT_ID
+		,a.AGNCYMAN_ID
+		,a.ABSNCE_SEQNO 
+		,a.DELETE_AT 
+	FROM
+		SY_ABSNCE a
+		INNER JOIN SY_USER b ON a.ABSNT_ID = b.USER_ID
+		INNER JOIN SY_USER c ON a.AGNCYMAN_ID = c.USER_ID
+		INNER JOIN SY_INSPCT_INSTT d ON b.DEPT_CODE = d.INSPCT_INSTT_CODE
+		INNER JOIN SY_INSPCT_INSTT e ON c.DEPT_CODE = e.INSPCT_INSTT_CODE
+	WHERE 1=1
+	<if test="txtabsntNm != null and txtabsntNm != '' ">
+		AND UPPER(b.USER_NM) LIKE '%'||UPPER(#{txtabsntNm})||'%'
+	</if>
+	<if test="absnceSttusCodee != null and absnceSttusCodee != '' ">
+		AND a.ABSNCE_STTUS_CODE LIKE '%'||#{absnceSttusCodee}||'%'
+	</if>
+<choose>
+<when test="absnceSttus != null and absnceSttus != '' " >
+	<if test= 'absnceSttus == "A"'>
+		AND a.ABSNCE_BEGIN_DT  <![CDATA[<=]]>  TO_CHAR(SYSDATE, 'YYYY-MM-DD') 
+      	AND a.ABSNCE_END_DT  <![CDATA[>=]]>  TO_CHAR(SYSDATE, 'YYYY-MM-DD')
+    </if>
+	<if test= 'absnceSttus == "C"'>
+		AND a.ABSNCE_BEGIN_DT  <![CDATA[<]]>  TO_CHAR(SYSDATE, 'YYYY-MM-DD') 
+      	AND a.ABSNCE_END_DT  <![CDATA[<]]>  TO_CHAR(SYSDATE, 'YYYY-MM-DD')	
+    </if>
+</when>
+</choose>
+		AND	a.DELETE_AT = 'N'
+</select>
+
+<insert id="insAbsnceM" parameterType="lims.wrk.vo.AbsnceMVo">
+	INSERT INTO SY_ABSNCE
+	(
+	ABSNCE_SEQNO
+	,ABSNT_ID
+	,AGNCYMAN_ID
+	,ABSNCE_STTUS_CODE
+	,ABSNCE_BEGIN_DT
+	,ABSNCE_END_DT
+	,ABSNCE_RESN
+	,LAST_CHANGER_ID
+	,LAST_CHANGE_DT
+
+	) VALUES (
+	SQ_SY_ABSNCE.NEXTVAL
+	,#{absntId}
+	,#{agncymanId}
+	,#{absnceSttusCode}
+	,#{absnceBeginDt}
+	,#{absnceEndDt}
+	,#{absnceResn}
+	,#{lastChangerId}
+	,SYSDATE
+	)
+</insert>
+<update id="updAbsnceM" parameterType="lims.wrk.vo.AbsnceMVo">
+	UPDATE SY_ABSNCE SET 
+		ABSNT_ID = #{absntId}
+		, AGNCYMAN_ID = #{agncymanId}
+		, ABSNCE_STTUS_CODE = #{absnceSttusCode}
+		, ABSNCE_BEGIN_DT = #{absnceBeginDt}
+		, ABSNCE_END_DT = #{absnceEndDt}
+		, ABSNCE_RESN = #{absnceResn}
+		, LAST_CHANGER_ID = #{lastChangerId}
+		, LAST_CHANGE_DT = SYSDATE			
+	WHERE ABSNCE_SEQNO = #{absnceSeqno} 
+</update>
+<update id="deleteAbsnM" parameterType="lims.wrk.vo.AbsnceMVo">
+	UPDATE SY_ABSNCE SET
+		LAST_CHANGER_ID = #{lastChangerId}
+		, LAST_CHANGE_DT = SYSDATE
+		, DELETE_AT = 'Y'			
+	WHERE ABSNCE_SEQNO = #{absnceSeqno} 
+</update>
+</mapper>

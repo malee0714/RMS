@@ -1,0 +1,636 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.wrk.dao.PrductMDao">
+	
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+	<!-- 제품 목록 -->
+	<select id="getMtrilList" parameterType="lims.wrk.vo.PrductMVo" resultType="lims.wrk.vo.PrductMVo">
+        SELECT
+            SM.PRDUCT_SE_CODE,
+			FN_GET_CDDTLNM (SM.PRDUCT_SE_CODE) prductSeCodeNm,
+            SM.MTRIL_SEQNO,
+            SM.BPLC_CODE,
+            SM.DEPT_CODE,
+            (SELECT SII.INSPCT_INSTT_NM FROM SY_INSPCT_INSTT SII WHERE SII.INSPCT_INSTT_CODE = SM.DEPT_CODE) AS DEPT_NM,
+            DEPT.INSPCT_INSTT_NM,
+            SM.RM,
+            SM.MTRIL_NM,
+            SM.USE_AT,
+            SM.MTRIL_CODE,
+            SM.MTRIL_TY_CODE,
+            FN_GET_CDDTLNM (SM.MTRIL_TY_CODE) mtrilTyCodeNm,
+            SM.METAL_MARK_VALUE, 
+            SM.DETECT_LIMIT_APPLC_AT,
+            SM.ANALS_REQRE_TIME, 
+            FN_GET_CDDTLNM(SM.MMNY_SE_CODE) MMNY_SE_CODE_NM,
+            DEPT.INSPCT_INSTT_NM,
+            SM.MMNY_SE_CODE,
+	    	SM.LBL_DC_OUTPT_AT,
+			SM.EQPMN_CL_CODE,
+			FN_GET_CDDTLNM(SM.EQPMN_CL_CODE) EQPMN_CL_CODE_NM,
+	    	NVL(CASE WHEN SQ.CNT > 0 THEN 'O' ELSE 'X' END, 'X') AS SD_REGIST_AT,
+			TO_CHAR(V.LAST_CHANGE_DT, 'YYYY-MM-DD') AS LAST_EXECUT_DTE
+          FROM SY_MTRIL SM
+          LEFT JOIN SY_INSPCT_INSTT DEPT ON SM.BPLC_CODE = DEPT.INSPCT_INSTT_CODE
+		  LEFT JOIN SY_MTRIL_CL_VER V ON V.MTRIL_SEQNO = SM.MTRIL_SEQNO AND V.LAST_VER_AT = 'Y'
+          LEFT JOIN (
+          				SELECT
+						  SMS.MTRIL_SEQNO,
+						  COUNT(*) AS CNT
+						FROM SY_MTRIL_SDSPC SMS
+						JOIN SY_EXPRIEM SE ON SE.EXPRIEM_SEQNO = SMS.EXPRIEM_SEQNO
+						JOIN SY_MTRIL SM ON SM.MTRIL_SEQNO = SMS.MTRIL_SEQNO
+						WHERE SE.DELETE_AT = 'N' AND SE.USE_AT = 'Y' AND SE.EXPRIEM_CL_CODE = 'SY05000001'
+						AND SMS.DELETE_AT = 'N'
+						GROUP BY SMS.MTRIL_SEQNO
+						ORDER BY SMS.MTRIL_SEQNO
+          			) SQ ON SQ.MTRIL_SEQNO = SM.MTRIL_SEQNO
+          WHERE 1=1
+          AND SM.DELETE_AT = 'N' 
+	        <if test="mmnySeCode != null and mmnySeCode != ''">
+				AND SM.MMNY_SE_CODE = UPPER(#{mmnySeCode})
+			</if>
+			<if test="deptCodeSch != null and deptCodeSch !=''">
+				AND SM.DEPT_CODE = #{deptCodeSch}
+			</if>
+			<if test="mtrilCodeSch != null and mtrilCodeSch != ''">
+				AND UPPER(SM.MTRIL_CODE) LIKE '%' || UPPER(#{mtrilCodeSch}) || '%'
+			</if>			
+			<if test="mtrilTyCodeSch != null and mtrilTyCodeSch !=''">
+				AND SM.MTRIL_TY_CODE = #{mtrilTyCodeSch} 
+			</if> 
+			<if test="mtrilNmSch != null and mtrilNmSch != ''">
+				AND UPPER(SM.MTRIL_NM) LIKE '%' || UPPER(#{mtrilNmSch}) || '%'
+			</if>
+			<if test="useAt != null and useAt !=''">
+				AND SM.USE_AT = #{useAt}
+			</if>
+        	<if test="prductSeCodeSch != null and prductSeCodeSch !=''">
+				AND PRDUCT_SE_CODE =  #{prductSeCodeSch}
+			</if>
+
+          ORDER BY SM.MTRIL_CODE, SM.MTRIL_NM
+	</select>
+
+	<!-- 자재 새로 저장 -->
+	<insert id="insMtrilNewSave" parameterType="lims.wrk.vo.PrductMVo">
+		<selectKey keyProperty="mtrilSeqno" order="BEFORE" resultType="String">
+			SELECT SQ_SY_MTRIL.NEXTVAL AS mtrilSeqno FROM DUAL
+		</selectKey>
+		INSERT INTO SY_MTRIL(
+		     PRDUCT_SE_CODE
+			,MTRIL_SEQNO
+			,BPLC_CODE
+			,DEPT_CODE
+			,MTRIL_CODE
+			,MTRIL_NM
+			,MTRIL_TY_CODE
+			,METAL_MARK_VALUE
+			,DETECT_LIMIT_APPLC_AT
+			,RM
+			,USE_AT
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,ANALS_REQRE_TIME
+			,MMNY_SE_CODE
+			,LBL_DC_OUTPT_AT
+			,EQPMN_CL_CODE
+		) VALUES(
+			#{prductSeCode}
+			,#{mtrilSeqno}
+			, <include refid="bplcCode"/>
+			, #{deptCode}
+			, #{mtrilCode}
+			, #{mtrilNm}
+			, #{mtrilTyCode}
+			, #{metalMarkValue}
+			, NVL(#{detectLimitApplcAt},'N')
+			, #{rm}
+			, #{useAt}
+			,'N'
+			,
+			<include refid="loginId" />
+			,SYSDATE
+			, #{analsReqreTime}
+			, #{mmnySeCode}
+			, NVL(#{lblDcOutptAt},'N')
+			, #{eqpmnClCode}
+		)
+	</insert>
+
+	<!-- 부서 목록 -->
+	<select id="getDeptList" resultType="lims.wrk.vo.PrductMVo">
+		SELECT INSPCT_INSTT_CODE VALUE
+			 , INSPCT_INSTT_NM KEY
+		FROM SY_INSPCT_INSTT
+		WHERE 1=1
+		AND USE_AT = 'Y'
+		AND DELETE_AT = 'N' 
+<!-- 		<if test="analsAt != null and analsAt != ''"> -->
+<!-- 			AND ANALS_AT = #{analsAt} -->
+<!-- 		</if> -->
+<!-- 		<if test="mmnySeCode != null and mmnySeCode != ''"> -->
+<!-- 			AND MMNY_SE_CODE = #{mmnySeCode} -->
+<!-- 		</if> -->
+<!-- 		<if test="limsUseAt != null and limsUseAt != ''"> -->
+<!-- 			AND LIMS_USE_AT = #{limsUseAt} -->
+<!-- 		</if>  -->
+		ORDER BY INSPCT_INSTT_NM
+	</select>
+
+	<!-- 자재 수정 -->
+	<update id="updPrductSave" parameterType="lims.wrk.vo.PrductMVo">
+		UPDATE SY_MTRIL SET
+		PRDUCT_SE_CODE=#{prductSeCode}
+	        ,BPLC_CODE = <include refid="bplcCode"/>
+	        , DEPT_CODE = #{deptCode}
+			, MTRIL_CODE = #{mtrilCode}
+			, MTRIL_NM = #{mtrilNm}
+			, MTRIL_TY_CODE = #{mtrilTyCode}
+			, METAL_MARK_VALUE = #{metalMarkValue}
+			, DETECT_LIMIT_APPLC_AT = NVL(#{detectLimitApplcAt},'N')
+			, RM = #{rm}
+			, USE_AT = NVL(#{useAt},'N')
+			, LAST_CHANGER_ID = <include refid="loginId" />
+			, LAST_CHANGE_DT = SYSDATE
+			, ANALS_REQRE_TIME = #{analsReqreTime}
+			, MMNY_SE_CODE = #{mmnySeCode}
+			, LBL_DC_OUTPT_AT = NVL(#{lblDcOutptAt},'N')
+			, EQPMN_CL_CODE = #{eqpmnClCode}
+        WHERE MTRIL_SEQNO = #{mtrilSeqno}
+	</update>
+	
+	<!-- 자재 SAP 관련 데이터 존재여부 체크 -->
+	<select id="getMtrilSapData" parameterType="lims.wrk.vo.PrductMVo" resultType="java.lang.String">
+		SELECT
+			SAP_MATNR
+		FROM SY_MTRIL
+		WHERE MTRIL_SEQNO = #{mtrilSeqno}
+	</select>
+	
+	<!-- 자재 삭제 -->
+	<update id="delMtril" parameterType="lims.wrk.vo.PrductMVo">
+		UPDATE SY_MTRIL SET
+		LAST_CHANGER_ID =
+		<include refid="loginId" />
+		,LAST_CHANGE_DT = SYSDATE
+		,DELETE_AT = 'Y'
+		WHERE MTRIL_SEQNO = #{mtrilSeqno}
+	</update>
+
+
+	<select id="getMasterUnitList" parameterType="lims.wrk.vo.PrductMVo" resultType="lims.wrk.vo.PrductMVo">
+		SELECT
+			A.UNIT_SEQNO AS VALUE
+			,A.UNIT_NM AS KEY
+		FROM SY_UNIT A
+		WHERE A.USE_AT = 'Y'
+		  AND A.DELETE_AT = 'N'
+		<if test='unitSeCode != null and unitSeCode != ""'>
+		  AND A.UNIT_SE_CODE = #{unitSeCode}
+		</if>
+		ORDER BY A.UNIT_NM
+	</select>
+
+	<insert id="insExpriem" parameterType="lims.wrk.vo.PrductMVo">
+		<selectKey keyProperty="mtrilSdspcSeqno" order="BEFORE" resultType="String">
+			SELECT SQ_SY_MTRIL_SDSPC.NEXTVAL AS mtrilSdspcSeqno FROM DUAL
+		</selectKey>
+		INSERT INTO SY_MTRIL_SDSPC(
+		MTRIL_SDSPC_SEQNO
+		,BPLC_CODE
+		,SDSPC_NM
+		,MTRIL_SEQNO
+		,EXPRIEM_SEQNO
+		,JDGMNT_FOM_CODE
+		,LCL_VALUE
+		,LCL_VALUE_SE_CODE
+		,UCL_VALUE
+		,UCL_VALUE_SE_CODE
+		,LSL_VALUE
+		,LSL_VALUE_SE_CODE
+		,USL_VALUE
+		,USL_VALUE_SE_CODE
+		,MARK_CPHR
+		,TEXT_STDR
+		,UNIT_SEQNO
+		,EQPMN_CL_CODE
+		,SORT_ORDR
+		,UPDT_RESN
+		,COA_UPDT_POSBL_AT
+		,COA_USE_AT
+		,USE_AT
+		,DELETE_AT
+		,FRST_ANALS_AT
+		,MIDDLE_ANALS_AT
+		,LAST_ANALS_AT
+		,LAST_CHANGER_ID
+		,LAST_CHANGE_DT
+		) VALUES(
+		#{mtrilSdspcSeqno}
+		, <include refid="bplcCode"/>
+		, #{sdspcNm}
+		, #{mtrilSeqno}
+		, #{expriemSeqno}
+		, #{jdgmntFomCode}
+		, #{lclValue}
+		, #{lclValueSeCode}
+		, #{uclValue}
+		, #{uclValueSeCode}
+		, #{lslValue}
+		, #{lslValueSeCode}
+		, #{uslValue}
+		, #{uslValueSeCode}
+		, #{markCphr}
+		, #{textStdr}
+		, #{unitSeqno}
+		, #{eqpmnClCode}
+		,NVL(#{sortOrdr}, (SELECT NVL(MAX(SORT_ORDR),0) + 1 FROM SY_MTRIL_SDSPC WHERE MTRIL_SDSPC_SEQNO = #{mtrilSdspcSeqno}))
+		,NVL(#{updtResn},'최초삽입')
+		,NVL(#{coaUpdtPosblAt},'N') 
+		,NVL(#{coaUseAt},'N')
+		,NVL(#{useAt},'N') 
+		,'N'
+		,NVL(#{frstAnalsAt},'N')
+		,NVL(#{middleAnalsAt},'N')
+		,NVL(#{lastAnalsAt},'N')
+		,<include refid="loginId" />
+		,SYSDATE
+		) 
+	</insert>
+
+	<update id="updExpriem" parameterType="lims.wrk.vo.PrductMVo">
+		UPDATE SY_MTRIL_SDSPC SET
+			BPLC_CODE = <include refid="bplcCode"/>
+			, SDSPC_NM = #{sdspcNm}
+			, MTRIL_SEQNO = #{mtrilSeqno}
+			, EXPRIEM_SEQNO = #{expriemSeqno}
+			, JDGMNT_FOM_CODE = #{jdgmntFomCode}
+			, LCL_VALUE = #{lclValue}
+			, LCL_VALUE_SE_CODE = #{lclValueSeCode}
+			, UCL_VALUE = #{uclValue}
+			, UCL_VALUE_SE_CODE = #{uclValueSeCode}
+			, LSL_VALUE = #{lslValue}
+			, LSL_VALUE_SE_CODE = #{lslValueSeCode}
+			, USL_VALUE = #{uslValue}
+			, USL_VALUE_SE_CODE = #{uslValueSeCode}
+			, MARK_CPHR = #{markCphr}
+			, TEXT_STDR = #{textStdr}
+			, UNIT_SEQNO = #{unitSeqno}
+			, EQPMN_CL_CODE = #{eqpmnClCode}
+			, SORT_ORDR = #{sortOrdr}
+			, UPDT_RESN = #{updtResn}
+			, COA_UPDT_POSBL_AT = NVL(#{coaUpdtPosblAt},'N')
+			, COA_USE_AT = NVL(#{coaUseAt},'N')
+			, USE_AT = NVL(#{useAt},'N')
+			, FRST_ANALS_AT = NVL(#{frstAnalsAt},'N')
+			, MIDDLE_ANALS_AT = NVL(#{middleAnalsAt},'N')
+			, LAST_ANALS_AT = NVL(#{lastAnalsAt},'N')
+			, LAST_CHANGER_ID = <include refid="loginId" />
+			, LAST_CHANGE_DT = SYSDATE
+		WHERE MTRIL_SDSPC_SEQNO = #{mtrilSdspcSeqno}
+	</update>
+
+	<update id="delExpriem" parameterType="lims.wrk.vo.PrductMVo">
+        UPDATE SY_MTRIL_SDSPC SET
+	        DELETE_AT = 'Y'
+	        ,LAST_CHANGER_ID = <include refid="loginId" />
+	        ,LAST_CHANGE_DT = SYSDATE
+        WHERE MTRIL_SDSPC_SEQNO =  #{mtrilSdspcSeqno}
+	</update>
+
+	
+	<insert id="insEmailUser" parameterType="lims.wrk.vo.PrductMVo">
+		INSERT INTO SY_MTRIL_NTCN_USER(
+			MTRIL_NTCN_USER_SEQNO
+			,MTRIL_SEQNO
+			,USER_ID
+			,EMAIL_RECPTN_AT
+			,CHRCTR_RECPTN_AT
+			,PSEXAM_RECPTN_AT
+			,DSQLFC_RECPTN_AT
+			,ALL_RECPTN_AT
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+		) VALUES(
+			SQ_SY_MTRIL_NTCN_USER.NEXTVAL,
+			#{mtrilSeqno},
+			#{userId},
+			NVL(#{emailRecptnAt},'N'),
+			NVL(#{chrctrRecptnAt},'N'),
+			NVL(#{psexamRecptnAt},'N'),
+			NVL(#{dsqlfcRecptnAt},'N'),
+			NVL(#{allRecptnAt},'N'),
+			'N',
+			<include refid="loginId" />,
+			SYSDATE
+		)
+	</insert>
+	
+	<update id="editedEmailUser" parameterType="lims.wrk.vo.PrductMVo">
+        UPDATE SY_MTRIL_NTCN_USER SET
+            EMAIL_RECPTN_AT = #{emailRecptnAt},
+            CHRCTR_RECPTN_AT = #{chrctrRecptnAt},
+            PSEXAM_RECPTN_AT = #{psexamRecptnAt},
+            DSQLFC_RECPTN_AT = #{dsqlfcRecptnAt},
+            ALL_RECPTN_AT = #{allRecptnAt},
+            LAST_CHANGER_ID = <include refid="loginId" />,
+            LAST_CHANGE_DT = SYSDATE
+        WHERE MTRIL_SEQNO = #{mtrilSeqno}
+        AND MTRIL_NTCN_USER_SEQNO = #{mtrilNtcnUserSeqno}
+<!--         AND SCHDUL_SE_CODE = 'SY16000001' -->
+        AND USER_ID = #{userId}
+	</update>
+	
+	<delete id="delEmailUser" parameterType="lims.wrk.vo.PrductMVo">
+		UPDATE SY_MTRIL_NTCN_USER SET
+			DELETE_AT = 'Y'
+		WHERE MTRIL_SEQNO = #{mtrilSeqno}
+		AND MTRIL_NTCN_USER_SEQNO = #{mtrilNtcnUserSeqno}
+	</delete>
+	
+	<select id="getWarningList" parameterType="lims.wrk.vo.PrductMVo" resultType="lims.wrk.vo.PrductMVo">
+        SELECT
+            SY.MTRIL_NTCN_USER_SEQNO,
+            SY.MTRIL_SEQNO, 
+            SY.USER_ID,
+            SU.USER_NM, 
+            SY.EMAIL_RECPTN_AT, 
+            SY.CHRCTR_RECPTN_AT,
+            SY.PSEXAM_RECPTN_AT,
+            SY.DSQLFC_RECPTN_AT, 
+            SY.ALL_RECPTN_AT
+        FROM SY_MTRIL_NTCN_USER SY
+        LEFT JOIN SY_USER SU ON SY.USER_ID = SU.USER_ID
+        WHERE SY.DELETE_AT = 'N'
+<!--         AND SY.SCHDUL_SE_CODE = 'SY16000001' -->
+        AND SY.MTRIL_SEQNO = #{mtrilSeqno}
+	</select>
+	
+	<insert id="insExpriemAll" parameterType="lims.wrk.vo.PrductMVo">
+		<selectKey keyProperty="mtrilSdspcSeqno" order="BEFORE" resultType="String">
+			SELECT SQ_SY_MTRIL_SDSPC.NEXTVAL AS mtrilSdspcSeqno FROM DUAL
+		</selectKey>
+		INSERT INTO SY_MTRIL_SDSPC(
+		MTRIL_SDSPC_SEQNO
+		,BPLC_CODE 
+		,SDSPC_NM
+		,MTRIL_SEQNO  
+		,EXPRIEM_SEQNO
+		,JDGMNT_FOM_CODE
+		,LCL_VALUE
+		,LCL_VALUE_SE_CODE
+		,UCL_VALUE
+		,UCL_VALUE_SE_CODE
+		,LSL_VALUE
+		,LSL_VALUE_SE_CODE
+		,USL_VALUE
+		,USL_VALUE_SE_CODE
+		,MARK_CPHR
+		,TEXT_STDR
+		,UNIT_SEQNO
+		,EQPMN_CL_CODE
+		,SORT_ORDR
+		,UPDT_RESN
+		,COA_UPDT_POSBL_AT
+		,COA_USE_AT
+		,USE_AT
+		,DELETE_AT
+		,FRST_ANALS_AT
+		,MIDDLE_ANALS_AT
+		,LAST_ANALS_AT
+		,LAST_CHANGER_ID
+		,LAST_CHANGE_DT
+		) VALUES(
+		#{mtrilSdspcSeqno}
+		, <include refid="bplcCode"/>
+		, #{sdspcNm}
+		, #{mtrilSeqno}
+		, #{expriemSeqno}
+		, #{jdgmntFomCode}
+		, #{lclValue}
+		, #{lclValueSeCode}
+		, #{uclValue}
+		, #{uclValueSeCode}
+		, #{lslValue}
+		, #{lslValueSeCode}
+		, #{uslValue}
+		, #{uslValueSeCode}
+		, #{markCphr}
+		, #{textStdr}
+		, #{unitSeqno}
+		, #{eqpmnClCode}
+		,NVL(#{sortOrdr}, (SELECT NVL(MAX(SORT_ORDR),0) + 1 FROM SY_MTRIL_SDSPC WHERE MTRIL_SDSPC_SEQNO = #{mtrilSdspcSeqno}))
+		,NVL(#{updtResn},'최초삽입')
+		,NVL(#{coaOutptAt},'N')
+		,NVL(#{coaUseAt},'N')
+		,NVL(#{useAt},'N') 
+		,'N'
+		,NVL(#{frstAnalsAt},'N')
+		,NVL(#{middleAnalsAt},'N')
+		,NVL(#{lastAnalsAt},'N')
+		,<include refid="loginId" />
+		,SYSDATE
+		)
+	</insert>
+	
+	<select id="getMtrilExpriemList" parameterType="lims.wrk.vo.PrductMVo"	resultType="lims.wrk.vo.PrductMVo">
+		 SELECT
+            A.MTRIL_SEQNO,
+            E.MTRIL_SDSPC_SEQNO,
+            E.EXPRIEM_SEQNO,
+            D.EXPRIEM_NM,
+            E.JDGMNT_FOM_CODE,
+            FN_GET_CDDTLNM(E.JDGMNT_FOM_CODE) JDGMNT_FOM_NM,
+            E.LCL_VALUE_SE_CODE,
+            FN_GET_CDDTLNM(E.LCL_VALUE_SE_CODE) FIRST_MUMM_VALUE_SE,
+            E.LCL_VALUE,
+            E.UCL_VALUE_SE_CODE,
+            FN_GET_CDDTLNM(E.UCL_VALUE_SE_CODE) FIRST_MXMM_VALUE_SE,
+            E.UCL_VALUE,
+            E.LSL_VALUE_SE_CODE,
+            FN_GET_CDDTLNM(E.LSL_VALUE_SE_CODE) SCD_MUMM_VALUE_SE,
+            E.LSL_VALUE,
+            E.USL_VALUE_SE_CODE,
+            FN_GET_CDDTLNM(E.USL_VALUE_SE_CODE) SCD_MXMM_VALUE_SE,
+            E.USL_VALUE,
+            E.MARK_CPHR,
+            E.TEXT_STDR,
+            E.UNIT_SEQNO,
+            F.UNIT_NM,
+            E.EQPMN_CL_CODE,
+            FN_GET_CDDTLNM(E.EQPMN_CL_CODE) REAL_MHRLS_NM,
+            FN_GET_CDDTLNM(E.EQPMN_CL_CODE) REAL_MESURE_MHRLS_CL,
+            E.UPDT_RESN,
+            E.USE_AT,
+            E.LAST_CHANGER_ID,
+            E.LAST_CHANGE_DT,
+            FN_GET_CDDTLNM(D.EXPRIEM_CL_CODE) EXPRIEM_CL,
+            E.SORT_ORDR,
+            A.MTRIL_CODE,
+            E.FRST_ANALS_AT,
+            E.MIDDLE_ANALS_AT,
+            E.LAST_ANALS_AT,
+            E.COA_UPDT_POSBL_AT,
+            E.COA_USE_AT,
+            E.SDSPC_NM,
+            E.FRST_ANALS_AT,
+            E.MIDDLE_ANALS_AT,
+            E.LAST_ANALS_AT
+            
+        FROM SY_MTRIL A
+        INNER JOIN SY_MTRIL_SDSPC E ON A.MTRIL_SEQNO = E.MTRIL_SEQNO
+        LEFT JOIN SY_EXPRIEM D ON E.EXPRIEM_SEQNO = D.EXPRIEM_SEQNO
+        LEFT JOIN SY_UNIT F ON E.UNIT_SEQNO = F.UNIT_SEQNO
+        LEFT JOIN SY_CMMN_CODE G ON D.EXPRIEM_CL_CODE = G.CMMN_CODE
+		WHERE A.MTRIL_SEQNO = #{mtrilSeqno}
+		<if test="expriemNm != null and expriemNm != ''">
+			AND D.EXPRIEM_NM = #{expriemNm}
+		</if>  
+		AND E.DELETE_AT = 'N'
+		AND D.DELETE_AT = 'N' AND D.USE_AT = 'Y' AND D.EXPRIEM_CL_CODE = 'SY05000001'
+		ORDER BY E.SORT_ORDR
+	</select>
+	
+	<!-- 사업장별 자재코드 중복체크(insert) -->
+	<select id="chkMtrilCodeByPlantIns" parameterType="lims.wrk.vo.PrductMVo" resultType="int">
+		SELECT
+			COUNT(*)
+		FROM SY_MTRIL
+		WHERE BPLC_CODE = <include refid="bplcCode"/>
+		AND DEPT_CODE = #{deptCode}
+		AND MTRIL_CODE = #{mtrilCode}
+		AND DELETE_AT = 'N'
+	</select>
+	
+	<!-- 사업장별 자재코드 중복체크(update) -->
+	<select id="chkMtrilCodeByPlantUpd" parameterType="lims.wrk.vo.PrductMVo" resultType="int">
+		SELECT
+			COUNT(*)
+		FROM SY_MTRIL
+		WHERE BPLC_CODE = <include refid="bplcCode"/>
+		AND DEPT_CODE = #{deptCode}
+		AND MTRIL_CODE = #{mtrilCode}
+		AND DELETE_AT = 'N'
+		AND MTRIL_SEQNO != #{mtrilSeqno}
+	</select>
+	
+	<!-- LotNo 조합 규칙에 따른 총 자릿수 가져오기 -->
+	<select id="getLotNoDigits" parameterType="lims.wrk.vo.PrductMVo" resultType="int">
+		SELECT
+			SCC.TMPR_FIELD1_VALUE
+		FROM SY_CMMN_CODE SCC
+		WHERE SCC.CMMN_CODE = #{cmmnCode}
+	</select>
+
+	<update id="deletCylinder" parameterType="lims.wrk.vo.PrductMVo">
+update SY_MTRIL_CYLNDR set
+	DELETE_AT= 'Y'
+	,LAST_CHANGER_ID=<include refid="loginId" />
+	,LAST_CHANGE_DT	= SYSDATE
+	where MTRIL_CYLNDR_SEQNO = #{mtrilCylndrSeqno}
+	</update>
+
+	<update id="deletItemNo" parameterType="lims.wrk.vo.PrductMVo">
+		update SY_MTRIL_ITM set
+		DELETE_AT= 'Y'
+		,LAST_CHANGER_ID=<include refid="loginId" />
+		,LAST_CHANGE_DT	= SYSDATE
+		where MTRIL_ITM_SEQNO = #{mtrilItmSeqno}
+	</update>
+
+	<insert id="addCylinder"  parameterType="lims.wrk.vo.PrductMVo">
+
+		MERGE INTO SY_MTRIL_CYLNDR
+			USING DUAL ON (MTRIL_CYLNDR_SEQNO =  #{mtrilCylndrSeqno})
+			WHEN MATCHED THEN
+				UPDATE SET
+					BPLC_CODE=<include refid="bplcCode"/>,
+					MTRIL_SEQNO=#{mtrilSeqno},
+					SANCTN_SEQNO=#{sanctnSeqno},
+				    CYLNDR_NM=(SELECT MTRQLT_VALUE FROM SY_CYLNDR WHERE SANCTN_SEQNO = #{sanctnSeqno}),
+					LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}',
+					LAST_CHANGE_DT = SYSDATE,
+					DELETE_AT = 'N'
+			WHEN NOT MATCHED THEN
+				INSERT (
+						MTRIL_CYLNDR_SEQNO,
+						BPLC_CODE,
+						MTRIL_SEQNO,
+						SANCTN_SEQNO,
+				        CYLNDR_NM,
+				        DELETE_AT,
+				        LAST_CHANGER_ID,
+				        LAST_CHANGE_DT
+					)
+					VALUES
+						(
+							SQ_SY_MTRIL_CYLNDR.NEXTVAL,
+							<include refid="bplcCode"/>,
+							#{mtrilSeqno},
+                            #{sanctnSeqno},
+							(SELECT MTRQLT_VALUE FROM SY_CYLNDR WHERE SANCTN_SEQNO = #{sanctnSeqno}),
+							'N',
+							'${@lims.util.GetUserSession@getUserId()}',
+							SYSDATE
+						)
+	</insert>
+	<insert id="addItemNo"  parameterType="lims.wrk.vo.PrductMVo">
+		MERGE INTO SY_MTRIL_ITM
+			USING DUAL ON (MTRIL_ITM_SEQNO = #{mtrilItmSeqno})
+			WHEN MATCHED THEN
+				UPDATE SET
+					MTRIL_SEQNO=#{mtrilSeqno},
+					ITM_NO=#{itmNo},
+					LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}',
+					LAST_CHANGE_DT = SYSDATE,
+					DELETE_AT = 'N'
+			WHEN NOT MATCHED THEN
+				INSERT (
+						MTRIL_ITM_SEQNO,
+						MTRIL_SEQNO,
+						ITM_NO,
+				        BPLC_CODE,
+						DELETE_AT,
+						LAST_CHANGER_ID,
+						LAST_CHANGE_DT
+					)
+					VALUES
+						(
+							SQ_SY_MTRIL_ITM.NEXTVAL,
+							#{mtrilSeqno},
+							#{itmNo},
+						 	<include refid="bplcCode"/>,
+							'N',
+							'${@lims.util.GetUserSession@getUserId()}',
+							SYSDATE
+						)
+
+	</insert>
+
+	<select id="getcylndrList" parameterType="lims.wrk.vo.PrductMVo" resultType="lims.wrk.vo.PrductMVo" >
+		SELECT MTRIL_CYLNDR_SEQNO,
+			   BPLC_CODE,
+			   MTRIL_SEQNO,
+			   SANCTN_SEQNO,
+			   CYLNDR_NM,
+			   (select CYLNDR_NO from SY_CYLNDR WHERE SANCTN_SEQNO = SMC.SANCTN_SEQNO) as CYLNDR_NO
+		FROM SY_MTRIL_CYLNDR SMC
+		WHERE DELETE_AT ='N' AND MTRIL_SEQNO= #{mtrilSeqno}
+
+	</select>
+
+	<select id="getitemNoList" parameterType="lims.wrk.vo.PrductMVo" resultType="lims.wrk.vo.PrductMVo" >
+		SELECT MTRIL_ITM_SEQNO,
+		       BPLC_CODE,
+		       MTRIL_SEQNO,
+		       ITM_NO
+		FROM SY_MTRIL_ITM SMI
+		WHERE DELETE_AT ='N' AND MTRIL_SEQNO= #{mtrilSeqno}
+	</select>
+
+
+</mapper>

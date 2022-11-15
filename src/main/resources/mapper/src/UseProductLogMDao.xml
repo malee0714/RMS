@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.src.dao.UseProductLogMDao">
+
+	<select id="getUseBacode" parameterType="lims.rsc.vo.RgntHistMVo" resultType="lims.rsc.vo.RgntHistMVo" >
+		SELECT RPB.BRCD
+                ,RPB.BRCD_SEQNO
+                ,RPB.PRDUCT_SEQNO
+                ,RPB.CNTNR_QY
+                ,NVL(RPB.TOT_USE_TIME,0) TOT_USE_TIME
+                ,NVL(RPB.TOT_USE_QY,0) TOT_USE_QY
+                ,RPD.PRDUCT_NM
+                ,RPD.PRPOS_CODE 
+                ,SCC.CMMN_CODE_NM AS PRPOSNM
+                ,RPD.CSTDY_STTUS_CODE
+                ,SCC2.CMMN_CODE_NM AS CSTDYSTTUSNM
+                ,SCC3.CMMN_CODE_NM AS PRDUCTSENM
+                ,RPD.PRDUCT_UNIT_CODE
+                ,RPC.PRDUCT_CL_NM
+                ,SU.UNIT_NM
+                ,SCC4.CMMN_CODE_NM USE_QY_SE_NM
+                ,RPD.USE_QY_SE_CODE
+                ,SCC5.CMMN_CODE_NM WRHSDLVR_NM
+                ,RPD.PC                   
+        FROM RS_PRDUCT_BRCD RPB
+        LEFT OUTER JOIN RS_PRDUCT RPD ON RPD.PRDUCT_SEQNO = RPB.PRDUCT_SEQNO
+        LEFT OUTER JOIN RS_PRDUCT_CL RPC ON RPC.PRDUCT_CL_SEQNO = RPD.PRDUCT_CL_SEQNO
+        LEFT OUTER JOIN RS_WRHSDLVR RW ON RPB.WRHSDLVR_SEQNO = RW.WRHSDLVR_SEQNO
+        LEFT OUTER JOIN SY_CMMN_CODE SCC ON RPD.PRPOS_CODE = SCC.CMMN_CODE
+        LEFT OUTER JOIN SY_CMMN_CODE SCC2 ON RPD.CSTDY_STTUS_CODE = SCC2.CMMN_CODE
+        LEFT OUTER JOIN SY_CMMN_CODE SCC3 ON RPC.PRDUCT_SE_CODE = SCC3.CMMN_CODE
+        LEFT OUTER JOIN SY_CMMN_CODE SCC4 ON RPD.USE_QY_SE_CODE = SCC4.CMMN_CODE
+        LEFT OUTER JOIN SY_CMMN_CODE SCC5 ON RW.WRHSDLVR_SE_CODE = SCC5.CMMN_CODE
+        LEFT OUTER JOIN SY_UNIT SU ON SU.UNIT_SEQNO = RPD.PRDUCT_UNIT_CODE
+        WHERE 1=1
+        <if test="brcd != null and brcd != ''">
+        	AND RPB.BRCD = #{brcd}
+        </if>
+        <if test="prductNm != null and prductNm != ''">
+        	AND RPD.PRDUCT_NM = #{prductNm}
+        </if>
+        <if test="wrhsdlvrSeCode != null and wrhsdlvrSeCode != ''">
+        	AND RW.WRHSDLVR_SE_CODE = #{wrhsdlvrSeCode}
+        </if>
+        ORDER BY BRCD_SEQNO DESC 
+	</select>
+</mapper>

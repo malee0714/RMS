@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.qa.dao.DocMDao">
+	
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+
+	<!-- 문서 목록 조회 -->
+	<select id="getDocList" parameterType="lims.qa.vo.DocDto" resultType="lims.qa.vo.DocDto">
+		SELECT A.DOC_SEQNO
+		     ,A.SJ
+		     ,A.DOC_NO
+		     ,A.WRITNG_DTE
+		     ,A.REFORM_NO
+		     ,NVL(A.REFORM_DTE,A.ESTBSH_DTE) AS REFORM_DTE
+		     ,A.REVN_RESN
+		     ,A.DSUSE_DTE
+		     ,A.DSUSE_RESN
+		     ,A.DUSPSN_ID
+		     ,A.DOC_SE_CODE
+		     ,A.CHARGER_ID
+		     ,U.USER_NM AS CHARGER_NM
+		     ,A.CHRG_DEPT_CODE
+			 ,DEPT.INSPCT_INSTT_NM AS CHRG_DEPT_CODE_NM
+			 ,(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE = A.DOC_SE_CODE) AS DOC_SE_CODE_NM
+		     ,(SELECT USER_NM FROM SY_USER  WHERE USER_ID = A.DUSPSN_ID) AS DUSPSN_NM
+		     ,A.SANCTN_SEQNO
+		     ,A.WDTB_SEQNO
+		     ,A.ATCHMNFL_SEQNO
+		     ,A.RM
+		     ,A.USE_AT
+		     ,A.DELETE_AT
+		     ,A.LAST_CHANGER_ID
+		     ,A.LAST_CHANGE_DT
+		     ,A.EXMNT_SEQNO
+		     ,B.SANCTN_PROGRS_SITTN_CODE
+		     ,C.SANCTNER_NM
+         	 ,(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE = B.SANCTN_PROGRS_SITTN_CODE) AS SANCTN_PROGRS_SITTN_CODE_NM
+	    FROM RS_DOC A
+		LEFT JOIN CM_SANCTN B ON A.SANCTN_SEQNO = B.SANCTN_SEQNO
+	    LEFT JOIN SY_INSPCT_INSTT DEPT ON A.CHRG_DEPT_CODE = DEPT.INSPCT_INSTT_CODE
+	    LEFT JOIN SY_USER U ON A.CHARGER_ID = U.USER_ID
+		LEFT JOIN (
+		    SELECT  IA.SANCTN_SEQNO
+		            , LISTAGG(IB.USER_NM, ' > ') WITHIN GROUP(ORDER BY IA.SANCTN_ORDR) AS SANCTNER_NM 
+		    FROM CM_SANCTN_INFO IA 
+		    INNER JOIN SY_USER IB ON IA.SANCTNER_ID = IB.USER_ID
+		    WHERE IA.USE_AT = 'Y'
+		    GROUP BY IA.SANCTN_SEQNO
+		) C ON B.SANCTN_SEQNO = C.SANCTN_SEQNO
+		WHERE A.DELETE_AT = 'N'
+		  AND A.USE_AT = 'Y'
+		AND A.LAST_VER_AT = 'Y'
+		<if test="docSeCodeSch != null and docSeCodeSch != '' ">
+		  AND A.DOC_SE_CODE = #{docSeCodeSch}
+		</if>
+		<if test="sjSch != null and sjSch != '' ">
+		  AND UPPER(A.SJ) LIKE '%'||UPPER(TRIM(#{sjSch}))||'%'
+		</if>
+		<if test="docNoSch != null and docNoSch != '' ">
+		  AND UPPER(A.DOC_NO) LIKE '%'||UPPER(TRIM(#{docNoSch}))||'%'
+		</if>
+		<if test="sanctnProgrsSittnCodeSch != null and sanctnProgrsSittnCodeSch != '' ">
+		  AND B.SANCTN_PROGRS_SITTN_CODE = #{sanctnProgrsSittnCodeSch}
+		</if>
+		ORDER BY A.WRITNG_DTE DESC, A.DOC_SEQNO DESC
+	</select>
+
+	<!-- 문서이력조회 -->
+	<select id="getDocHistList" parameterType="lims.qa.vo.DocDto" resultType="lims.qa.vo.DocDto">
+	SELECT 
+			A.DOC_SEQNO
+		     ,A.SJ
+		     ,A.DOC_NO
+		     ,A.WRITNG_DTE
+		     ,(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE = A.DOC_SE_CODE) AS DOC_SE_CODE_NM
+		     ,A.REFORM_NO
+		     ,A.ESTBSH_DTE
+		     ,NVL(A.REFORM_DTE,A.ESTBSH_DTE) AS REFORM_DTE
+		     ,A.REVN_RESN
+		     ,A.DSUSE_DTE
+		     ,A.DSUSE_RESN
+		     ,A.DUSPSN_ID
+		     ,A.SANCTN_SEQNO
+		     ,A.ATCHMNFL_SEQNO
+		     ,A.RM
+		     ,A.USE_AT
+		     ,A.DELETE_AT
+		     ,A.LAST_CHANGER_ID
+		     ,A.LAST_CHANGE_DT
+	     FROM RS_DOC A
+	     WHERE DOC_NO = #{docNo}
+	     AND A.USE_AT ='Y'
+	     AND A.DELETE_AT = 'N'
+	     AND A.LAST_VER_AT ='N'
+	     ORDER BY A.REFORM_NO DESC
+	</select>
+	
+	<select id="getSanctnInfo" parameterType="lims.qa.vo.DocDto" resultType="lims.qa.vo.DocDto">
+		SELECT A.ORDR
+	     FROM RS_DOC_INFO A
+	     WHERE DOC_SEQNO = #{docSeqno}
+	     ORDER BY A.REFORM_DTE DESC
+	</select>
+
+	<!-- 문서 정보 신규, 수정 저장 -->
+	<insert id="insDocM" parameterType="lims.qa.vo.DocDto">
+		<selectKey keyProperty="docSeqno" resultType="lims.qa.vo.DocDto"	order="BEFORE">
+			SELECT SQ_RS_DOC.NEXTVAL AS DOC_SEQNO FROM DUAL
+		</selectKey>
+        INSERT INTO RS_DOC(
+			 DOC_SEQNO
+			,DOC_SE_CODE
+			,BPLC_CODE
+			,SJ
+			,DOC_NO
+			,WRITNG_DTE
+			,REFORM_NO
+			,ESTBSH_DTE
+			,REFORM_DTE
+			<if test = 'crud =="N"'>
+			,DUSPSN_ID
+      		,DSUSE_DTE
+      		,DSUSE_RESN
+      		</if>
+			,REVN_RESN
+			,ATCHMNFL_SEQNO
+			,RM
+			,CHRG_DEPT_CODE
+			,CHARGER_ID
+			,USE_AT
+			,DELETE_AT
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,LAST_VER_AT 
+			
+		) VALUES(
+			#{docSeqno}
+		    ,#{docSeCode}
+		    ,<include refid="bplcCode"/>
+			,#{sj}
+			,#{docNo}
+			,#{writngDte}
+			,#{reformNo}
+			,#{estbshDte}
+			,#{reformDte}
+			<if test = 'crud == "N"'>
+      		,#{duspsnId}
+      		,#{dsuseDte}
+		    ,#{dsuseResn}
+		    </if>
+		    ,#{revnResn}
+			,#{atchmnflSeqno}
+			,#{rm}
+			,#{chrgDeptCode}
+			,#{chargerId}
+			,'Y'
+			,'N'
+			,<include refid="loginId"/>
+			,SYSDATE
+			,'Y'
+			
+		)
+	</insert>
+	
+	<update  id = "updDocM"  parameterType="lims.qa.vo.DocDto">
+        UPDATE RS_DOC SET
+			SJ				 		= #{sj}
+			,DOC_NO					= #{docNo}
+			,DOC_SE_CODE			= #{docSeCode}
+			,WRITNG_DTE		 		= #{writngDte}
+			,REFORM_NO		 		= #{reformNo}
+			,ESTBSH_DTE		 		= #{estbshDte}
+			,REFORM_DTE		 		= #{reformDte}
+			,DSUSE_DTE				= #{dsuseDte}
+      		,DSUSE_RESN				= #{dsuseResn}
+      		,DUSPSN_ID				= #{duspsnId}
+			,REVN_RESN		 		= #{revnResn}
+			,ATCHMNFL_SEQNO	 		= #{atchmnflSeqno}
+			,RM				 		= #{rm}
+			,CHRG_DEPT_CODE         = #{chrgDeptCode}
+			,CHARGER_ID             = #{chargerId}
+			,USE_AT			 		= #{useAt}
+			,LAST_CHANGER_ID 		= <include refid="loginId"/>
+			,LAST_CHANGE_DT	 		= SYSDATE
+			,LAST_VER_AT 			= 'Y'
+        where DOC_SEQNO = #{docSeqno}
+	</update>
+	
+<!-- 	결재라인콤보박스  결재종류 문서 // 부서별 -->
+	<select id="getDocSanctnLineCombo" parameterType="lims.qa.vo.DocDto" resultType="lims.qa.vo.DocDto">
+		SELECT  SANCTN_LINE_SEQNO VALUE, 
+				SANCTN_LINE_NM KEY
+		FROM SY_SANCTN_LINE
+		WHERE SANCTN_KND_CODE = #{sanctnKndCode}
+		AND DEPT_CODE = #{deptCode}
+		AND USE_AT = 'Y'
+		AND DELETE_AT = 'N'
+	</select>
+	
+	<select id="getMtrilNmCombo" parameterType="lims.qa.vo.DocDto" resultType="lims.qa.vo.DocDto">
+			SELECT MTRIL_SEQNO VALUE,
+				   MTRIL_NM KEY 
+			FROM SY_MTRIL
+			WHERE BPLC_CODE = <include refid="bplcCode"/> 
+			AND USE_AT = 'Y'
+			AND DELETE_AT = 'N'
+			ORDER BY mtril_nm
+	</select>
+	<select id="getEntrpsNmCombo" parameterType="lims.qa.vo.DocDto" resultType="lims.qa.vo.DocDto">
+			SELECT ENTRPS_NM KEY,
+		    ENTRPS_SEQNO VALUE 
+		    FROM SY_ENTRPS
+		    ORDER BY ENTRPS_NM 
+	</select>
+	
+	<update id="updDeleteAt" parameterType="lims.qa.vo.DocDto">
+		<selectKey keyProperty="docSeqno" resultType="lims.qa.vo.DocDto" order="AFTER">
+			SELECT MAX(DOC_SEQNO) AS DOC_SEQNO  FROM RS_DOC 
+			WHERE DOC_NO = #{docNo}
+			AND DELETE_AT = 'N'
+			AND LAST_VER_AT = 'N'
+			AND USE_AT = 'Y'
+		</selectKey>
+
+		UPDATE RS_DOC SET DELETE_AT = 'Y' WHERE DOC_SEQNO = #{docSeqno}
+	</update>
+	<update id="updLastAt" parameterType="lims.qa.vo.DocDto">
+		UPDATE RS_DOC SET
+			Last_VER_AT = #{lastVerAt}
+		WHERE DOC_SEQNO = #{docSeqno}
+	</update>
+	<update id = "updSanctnSeqno" parameterType="lims.qa.vo.DocDto">
+		UPDATE RS_DOC SET
+			SANCTN_SEQNO = #{sanctnSeqno}
+		WHERE DOC_SEQNO = #{docSeqno}
+	</update>
+
+	<update id = "updWdtbSeqno" parameterType="lims.qa.vo.DocDto">
+		UPDATE RS_DOC SET
+			WDTB_SEQNO = #{wdtbSeqno}
+		WHERE DOC_SEQNO = #{docSeqno}
+	</update>
+	
+	<update id="updateDocExmnt" parameterType="lims.com.vo.CmExmntDto">
+		/* 검토 seqno update */
+		UPDATE RS_DOC SET
+			EXMNT_SEQNO = #{exmntSeqno},
+			LAST_CHANGER_ID = <include refid="loginId"/>,
+			LAST_CHANGE_DT = SYSDATE
+		WHERE DOC_SEQNO = #{otherKey}
+	</update>
+
+
+	<select id="docNoChk" resultType="int" parameterType="lims.qa.vo.DocDto">
+
+		SELECT
+			COUNT(*) CNT
+		FROM RS_DOC
+		WHERE
+		DOC_NO = #{docNo}
+		<if test='crud == "U" '>
+			AND DOC_SEQNO NOT IN(#{docSeqno})
+		</if>
+		AND LAST_VER_AT = 'Y'
+		AND DELETE_AT = 'N'
+	</select>
+</mapper>

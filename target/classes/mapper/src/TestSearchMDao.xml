@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.src.dao.TestSearchMDao">
+
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+
+	<select id="getReqestListSch" parameterType="lims.test.vo.ResultInputMVo" resultType="lims.test.vo.ResultInputMVo">
+		SELECT
+		IR.REQEST_SEQNO
+		, IR.REQEST_DEPT_CODE
+		, SII.INSPCT_INSTT_NM AS REQEST_DEPT_CODE_NM
+		, IR.CLIENT_ID
+		, SU.USER_NM AS CLIENT_NM
+		, IR.REQEST_DTE
+		, IR.REQEST_NO
+		, IR.INSPCT_TY_CODE
+		, SCC1.CMMN_CODE_NM AS INSPCT_TY_CODE_NM
+		, IR.CUSTLAB_SEQNO
+		, RC.CUSTLAB_NM
+		, SCC2.CMMN_CODE_NM AS PRDUCT_SE_CODE_NM
+		, IR.MTRIL_SEQNO
+		, SM.MTRIL_NM
+		, IR.MNFCTUR_DTE
+		, IR.SPLORE_NM
+		, IR.ELCTC_QY
+		, IR.ELCTC_CN
+		, SE.ENTRPS_NM
+		, IR.PRDUCT_DC
+		, IR.RM
+		, IR.PROGRS_SITTN_CODE
+		, SCC3.CMMN_CODE_NM AS PROGRS_SITTN_CODE_NM
+		, IR.VENDOR_LOT_NO
+		, IR.JDGMNT_WORD_CODE
+		FROM IM_REQEST IR
+		JOIN SY_INSPCT_INSTT SII on IR.REQEST_DEPT_CODE = SII.INSPCT_INSTT_CODE
+		JOIN SY_USER SU ON SU.USER_ID = IR.CLIENT_ID AND SU.USE_AT = 'Y' AND SU.DELETE_AT = 'N'
+		LEFT JOIN SY_CMMN_CODE SCC1 ON SCC1.CMMN_CODE = IR.INSPCT_TY_CODE AND SCC1.USE_AT = 'Y'
+		LEFT JOIN RS_CUSTLAB RC ON IR.CUSTLAB_SEQNO = RC.CUSTLAB_SEQNO AND RC.USE_AT = 'Y' AND RC.DELETE_AT = 'N'
+		JOIN SY_MTRIL SM ON IR.MTRIL_SEQNO = SM.MTRIL_SEQNO
+		LEFT JOIN SY_CMMN_CODE SCC2 ON SCC2.CMMN_CODE = SM.PRDUCT_SE_CODE
+		LEFT JOIN SY_ENTRPS SE ON SE.ENTRPS_SEQNO = IR.ENTRPS_SEQNO
+		LEFT JOIN SY_CMMN_CODE SCC3 ON SCC3.CMMN_CODE = IR.PROGRS_SITTN_CODE AND SCC3.USE_AT = 'Y'
+		WHERE SII.DELETE_AT = 'N' AND SII.USE_AT = 'Y'
+		AND IR.BPLC_CODE = <include refid="bplcCode"/>
+		<if test="progrsSittnCode != null and progrsSittnCode != ''">
+			AND IR.PROGRS_SITTN_CODE = #{progrsSittnCode}
+		</if>
+		<if test="custlabSeqno != null and custlabSeqno != ''">
+			AND IR.CUSTLAB_SEQNO = #{custlabSeqno}
+		</if>
+
+		<if test="mtrilNm != null and mtrilNm != ''">
+			AND SM.MTRIL_NM LIKE '%' || TRIM(#{mtrilNm}) || '%'
+		</if>
+
+		<if test="reqestNo != null and reqestNo != ''">
+			AND IR.REQEST_NO LIKE '%' || TRIM(#{reqestNo}) || '%'
+		</if>
+
+		<if test="inspctTyCode != null and inspctTyCode != ''">
+			AND IR.INSPCT_TY_CODE = #{inspctTyCode}
+		</if>
+
+		<if test="reqestBeginDte != null and reqestBeginDte != '' and reqestEndDte != null and reqestEndDte != ''">
+			AND IR.REQEST_DTE BETWEEN #{reqestBeginDte} AND #{reqestEndDte}
+		</if>
+
+		<if test="mnfcturBeginDte != null and mnfcturBeginDte != '' and mnfcturEndDte != null and mnfcturEndDte != ''">
+			AND IR.MNFCTUR_DTE BETWEEN #{mnfcturBeginDte} AND #{mnfcturEndDte}
+		</if>
+		ORDER BY IR.MNFCTUR_DTE
+	</select>
+
+	<select id="getExpriemListSch" parameterType="lims.test.vo.ResultInputMVo" resultType="lims.test.vo.ResultInputMVo">
+		WITH T AS (SELECT
+			IRE.*,
+			IR.MTRIL_SEQNO,
+			SM.MTRIL_NM,
+			SU.UNIT_NM,
+			SE.EXPRIEM_NM,
+			RE.EQPMN_NM,
+			IR.ENTRPS_SEQNO,
+			IR.INSPCT_TY_CODE,
+			IR.REQEST_NO,
+			IR.REQEST_DTE,
+			IR.MNFCTUR_DTE,
+			IR.SPLORE_NM,
+			SCC1.CMMN_CODE_NM AS PROGRS_SITTN_CODE_NM
+		FROM IM_REQEST IR
+		LEFT JOIN IM_REQEST_EXPRIEM IRE
+		ON IRE.REQEST_SEQNO = IR.REQEST_SEQNO
+		JOIN SY_EXPRIEM SE
+		ON IRE.EXPRIEM_SEQNO = SE.EXPRIEM_SEQNO
+		LEFT JOIN SY_UNIT SU
+		ON IRE.UNIT_SEQNO = SU.UNIT_SEQNO
+		LEFT JOIN RS_EQPMN RE
+		ON IRE.EQPMN_SEQNO = RE.EQPMN_SEQNO
+		LEFT JOIN SY_MTRIL SM ON SM.MTRIL_SEQNO = IR.MTRIL_SEQNO
+		LEFT JOIN SY_CMMN_CODE SCC1 ON SCC1.CMMN_CODE = IR.IRE.PROGRS_SITTN_CODE
+		WHERE 1=1 AND IRE.DELETE_AT = 'N' AND SE.EXPRIEM_CL_CODE = 'SY05000001' AND IR.VENDOR_REQEST_AT = 'N'
+		AND IR.REQEST_SEQNO = #{reqestSeqno}
+		<if test="progrsSittnCode != null and progrsSittnCode != ''">
+			AND IRE.PROGRS_SITTN_CODE = #{progrsSittnCode}
+		</if>
+		)
+		SELECT
+			T.BPLC_CODE
+			, T.MNFCTUR_DTE
+			, T.SPLORE_NM
+			, T.INSPCT_TY_CODE
+			, T.REQEST_SEQNO
+			, T.ENTRPS_SEQNO
+			, T.MTRIL_SEQNO
+			, T.MTRIL_NM
+			, T.REQEST_NO
+			, T.REQEST_EXPRIEM_SEQNO
+			, T.PROGRS_SITTN_CODE
+		    , T.PROGRS_SITTN_CODE_NM
+			, IRER.EXPR_ODR
+			, CASE WHEN T.LAST_EXPR_ODR = IRER.EXPR_ODR THEN 'Y' ELSE 'N' END LAST_EXPR_ODR_AT
+			, T.MTRIL_SDSPC_SEQNO
+			, T.EXPRIEM_NM
+			, T.EXPRIEM_SEQNO
+			, T.SDSPC_NM
+			, T.LCL_VALUE || ' ~ ' || T.UCL_VALUE AS LCL_UCL
+			, T.LSL_VALUE || ' ~ ' || T.USL_VALUE AS LSL_USL
+			<if test="entrpsSeqno != null and entrpsSeqno != ''">
+				,CTMMNY.LSL_VALUE || ' ~ ' ||  CTMMNY.USL_VALUE CTMMNY_LSL_USL
+				,CTMMNY.LSL_VALUE CTMMNY_LSL_VALUE
+				,CTMMNY.USL_VALUE CTMMNY_USL_VALUE
+				,CTMMNY.LSL_VALUE_SE_CODE CTMMNY_LSL_VALUE_SE_CODE
+				,CTMMNY.USL_VALUE_SE_CODE CTMMNY_USL_VALUE_SE_CODE
+				,CTMMNY.TEXT_STDR CTMMNY_TEXT_STDR
+				,CTMMNY.ENTRPS_SEQNO CTMMNY_ENTRPS_SEQNO
+			</if>
+			, IRER.RESULT_VALUE
+			, IRER.CALC_LAW_SEQNO
+			, IRER.NOMFRM_CN
+			, IRER.VRIABL_ID
+			, IRER.NOMFRM_NM
+			, IRER.RVSOP_CN
+			, IRER.MARK_CPHR
+			, IRER.RVSOP_CPHR_RANDOM_CREAT_AT
+			, IRER.RDMS_DOC_NO
+			, IRER.RDMS_REGIST_AT
+		    , IRER.LAST_CHANGER_NM
+			, TO_CHAR(TO_DATE(T.LAST_RESULT_REGIST_DTE), 'YYYY-MM-DD') AS RESULT_REGIST_DTE
+			, T.UNIT_NM
+			, T.UNIT_SEQNO
+			, T.EQPMN_NM
+			, T.EQPMN_SEQNO
+			, T.JDGMNT_FOM_CODE
+			, T.LCL_VALUE
+			, T.LCL_VALUE_SE_CODE
+			, T.UCL_VALUE
+			, T.UCL_VALUE_SE_CODE
+			, T.LSL_VALUE
+			, T.LSL_VALUE_SE_CODE
+			, T.USL_VALUE
+			, T.USL_VALUE_SE_CODE
+			, T.TEXT_STDR
+			, IRER.DELETE_AT
+			, IRER.LAS_REGIST_AT
+			, IRER.JDGMNT_WORD_CODE
+		FROM T
+		<if test="entrpsSeqno != null and entrpsSeqno != ''">
+		LEFT JOIN (
+			SELECT DISTINCT SPS.MTRIL_SDSPC_SEQNO
+			,SE.EXPRIEM_SEQNO
+			,SPS.MTRIL_SEQNO
+			,PRD.ENTRPS_SEQNO
+			,PRD.VER
+			,SPC.LSL_VALUE
+			,SPC.LSL_VALUE_SE_CODE
+			,SPC.USL_VALUE
+			,SPC.USL_VALUE_SE_CODE
+			,SPS.TEXT_STDR
+			,BEGIN_DTE
+			,END_DTE
+			FROM SY_PRDUCT_CTMMNY PRD
+			JOIN SY_PRDUCT_CTMMNY_SDSPC SPC ON PRD.PRDUCT_CTMMNY_SEQNO = SPC.PRDUCT_CTMMNY_SEQNO AND PRD.VER = SPC.VER
+			JOIN SY_MTRIL_SDSPC SPS ON SPC.MTRIL_SDSPC_SEQNO = SPS.MTRIL_SDSPC_SEQNO
+			JOIN SY_EXPRIEM SE ON SPS.EXPRIEM_SEQNO = SE.EXPRIEM_SEQNO
+			WHERE SPC.PRDUCT_CTMMNY_SEQNO =  #{entrpsSeqno}
+			AND SE.DELETE_AT = 'N' AND SE.USE_AT = 'Y'
+			AND SPS.DELETE_AT = 'N' AND SPS.USE_AT = 'Y'
+			) CTMMNY ON T.EXPRIEM_SEQNO = CTMMNY.EXPRIEM_SEQNO AND T.MTRIL_SDSPC_SEQNO = CTMMNY.MTRIL_SDSPC_SEQNO AND T.REQEST_DTE BETWEEN CTMMNY.BEGIN_DTE AND CTMMNY.END_DTE
+		</if>
+		JOIN (
+			SELECT
+				IIRER.*,
+			    ISU.USER_NM AS LAST_CHANGER_NM
+			FROM IM_REQEST_EXPRIEM_RESULT IIRER
+			JOIN IM_REQEST_EXPRIEM IIRE ON IIRE.REQEST_EXPRIEM_SEQNO = IIRER.REQEST_EXPRIEM_sEQNO
+			LEFT JOIN SY_USER ISU ON ISU.USER_ID = IIRER.LAST_CHANGER_ID
+			WHERE IIRER.DELETE_AT = 'N' AND IIRE.REQEST_SEQNO = #{reqestSeqno}
+		) IRER
+		ON T.REQEST_EXPRIEM_SEQNO = IRER.REQEST_EXPRIEM_SEQNO
+		<if test='showExpriemSch == "N"'>
+			AND T.LAST_EXPR_ODR = IRER.EXPR_ODR
+		</if>
+		WHERE 1 = 1
+		ORDER BY IRER.EXPR_ODR DESC, T.SORT_ORDR
+	</select>
+
+	<select id="getReqestUpperLotList" parameterType="lims.req.vo.RequestMVo" resultType="lims.req.vo.RequestMVo">
+		SELECT
+			REQEST_SEQNO,
+			ORDR,
+			LOT_DC,
+			LOT_ID
+		FROM IM_REQEST_UPPER_LOT_ID
+		WHERE REQEST_SEQNO = #{reqestSeqno}
+	</select>
+
+	<select id="getReqestChrgTeamList" parameterType="lims.req.vo.RequestMVo" resultType="lims.req.vo.RequestMVo">
+		SELECT
+			REQEST_SEQNO,
+			ANALS_TEAM_SEQNO,
+			BRCD,
+			NVL(FRST_ANALS_AT,'N') FRST_ANALS_AT,
+			NVL(MIDDLE_ANALS_AT,'N') MIDDLE_ANALS_AT,
+			NVL(LAST_ANALS_AT,'N') LAST_ANALS_AT,
+			SCT.CHRG_TEAM_NM INSPCT_INSTT_NM,
+			SCT.ABRV
+		FROM IM_REQEST_RCEPT IRR
+				 LEFT JOIN SY_CHRG_TEAM SCT ON IRR.ANALS_TEAM_SEQNO = SCT.CHRG_TEAM_SEQNO
+		WHERE REQEST_SEQNO = #{reqestSeqno}
+	</select>
+
+	<select id="getReqestCanNoList" parameterType="lims.req.vo.RequestMVo" resultType="lims.req.vo.RequestMVo">
+		SELECT
+			REQEST_SEQNO,
+			ORDR,
+			CAN_NO
+		FROM IM_REQEST_CAN_NO
+		WHERE REQEST_SEQNO = #{reqestSeqno}
+	</select>
+
+	<select id="getUpperLotId" parameterType="lims.req.vo.RequestMVo" resultType="lims.req.vo.RequestMVo">
+		SELECT
+			A.LWPRT_REQEST_SEQNO AS VALUE, B.REQEST_NO AS KEY
+		FROM IM_LOT_NO_REQEST A
+	  	JOIN IM_REQEST B ON A.LWPRT_REQEST_SEQNO = B.REQEST_SEQNO
+		WHERE A.DELETE_AT = 'N'
+		START WITH A.REQEST_SEQNO = #{reqestSeqno}
+		CONNECT BY A.REQEST_SEQNO = PRIOR A.LWPRT_REQEST_SEQNO
+	</select>
+</mapper>

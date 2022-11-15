@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.rsc.dao.WrhousngMDao">
+	<!-- 입고목록 그리드 조회 -->
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+
+	<select id="getWrhousngList" parameterType="lims.rsc.vo.WrhousngMVo" resultType="lims.rsc.vo.WrhousngMVo" >	
+	SELECT 
+		RPW.PRDUCT_WRHSDLVR_SEQNO,
+		RPW.BPLC_CODE,
+		RPW.PRDUCT_SEQNO,
+    	RP.PRDUCT_NM,
+    	NVL(RP.PROPRT_INVNTRY_QY,0) as PROPRT_INVNTRY_QY,
+   		NVL(RP.NOW_INVNTRY_QY,0) as NOW_INVNTRY_QY,
+		RPW.WRHSDLVR_QY,
+		RPW.WRHSDLVR_DTE,
+		RPW.CSTDY_PLACE,
+		RPW.PACKNG_STTUS,
+    	SU.USER_NM AS WRHSDLVRMAN_NM,
+    	SU.USER_ID AS WRHSDLVRMAN_ID,
+    	RPW.PURCHS_DTE,
+    	RPW.MNFCTUR_RGNT_JDGMNT_VALUE,
+		RPW.ATCHMNFL_SEQNO,
+		RPW.RM,
+		RP.PRDUCT_CL_CODE,
+    	RP.VALID_TMLMT_MTHD_CODE,
+		RP.UNSEAL_AFTER_TMLMT,
+		RP.CYCLE_CODE,
+		RP.CUSTLAB_SEQNO
+		FROM RS_PRDUCT_WRHSDLVR RPW
+		JOIN RS_PRDUCT RP on RPW.PRDUCT_SEQNO = RP.PRDUCT_SEQNO 
+    	JOIN SY_USER SU ON  RPW.WRHSDLVRMAN_ID = SU.USER_ID
+		WHERE 1=1 AND RPW.DELETE_AT ='N'AND RP.DELETE_AT ='N'
+		AND RPW.BPLC_CODE = <include refid="bplcCode"/>
+		<if test="custlabSeqno != null and custlabSeqno != '' ">
+			AND CUSTLAB_SEQNO = #{custlabSeqno}
+		</if>
+		<if test="prductClCodeSch != null and prductClCodeSch != '' ">
+		AND RP.PRDUCT_CL_CODE = #{prductClCodeSch} 
+		</if>
+		<if test="prductNmSch != null and prductNmSch != '' ">
+			AND UPPER(RP.PRDUCT_NM)LIKE '%'||UPPER(TRIM(#{prductNmSch}))||'%'
+		</if>
+		<if test="useAtSch != null and useAtSch != '' ">
+			AND RP.USE_AT = #{useAtSch}
+		</if>
+		<if test="wrhsdlvrBeginDte !=null and wrhsdlvrBeginDte !=''  and wrhsdlvrEndDte !=null and wrhsdlvrEndDte !=''">
+	 	AND RPW.WRHSDLVR_DTE BETWEEN #{wrhsdlvrBeginDte} AND #{wrhsdlvrEndDte}
+		</if>
+		ORDER BY  RPW.WRHSDLVR_DTE DESC,PRDUCT_WRHSDLVR_SEQNO DESC
+	</select>
+
+<!-- 입출고 -->
+	<insert id="insWrhousng" parameterType="lims.rsc.vo.WrhousngMVo">
+		<selectKey keyProperty="prductWrhsdlvrSeqno" resultType="java.lang.Integer" order="BEFORE">
+			SELECT SQ_RS_PRDUCT_WRHSDLVR.NEXTVAL AS PRDUCTWRHSDLVRSEQNO FROM DUAL
+		</selectKey>
+		INSERT INTO RS_PRDUCT_WRHSDLVR (
+ 		PRDUCT_WRHSDLVR_SEQNO,
+ 		BPLC_CODE,
+		PRDUCT_SEQNO,
+		WRHSDLVR_QY,
+		WRHSDLVR_DTE,
+		WRHSDLVRMAN_ID,
+ 		CSTDY_PLACE,
+ 		PACKNG_STTUS,
+ 		PURCHS_DTE,
+ 		MNFCTUR_RGNT_JDGMNT_VALUE,
+ 		ATCHMNFL_SEQNO,
+ 		RM,
+ 		LAST_CHANGER_ID,
+ 		LAST_CHANGE_DT )
+		VALUES (
+		#{prductWrhsdlvrSeqno},
+		<include refid="bplcCode"/>,
+		#{prductSeqno},
+		#{wrhsdlvrQy},
+		#{wrhsdlvrDte},
+		#{wrhsdlvrmanId},
+		#{cstdyPlace},
+		#{packngSttus},
+		#{purchsDte},
+		#{mnfcturRgntJdgmntValue},
+		#{atchmnflSeqno},
+		#{rm},
+		'${@lims.util.GetUserSession@getUserId()}',
+		SYSDATE)
+
+	</insert>
+	<insert id="insDnsty" parameterType="lims.rsc.vo.WrhousngMVo">
+		MERGE INTO RS_PRDUCT_WRHSDLVR_DNSTY
+		USING DUAL ON (PRDUCT_WRHSDLVR_SEQNO = #{prductWrhsdlvrSeqno} AND PRDUCT_SEQNO =#{prductSeqno} AND EXPRIEM_SEQNO =#{expriemSeqno})
+		WHEN MATCHED THEN
+	UPDATE SET
+		BPLC_CODE = '${@lims.util.GetUserSession@getBestInspctInsttCode()}',
+		SORT_ORDR=#{sortOrdr},
+		LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}',
+		LAST_CHANGE_DT = SYSDATE,
+		DNSTY_VALUE =#{dnstyValue},
+		DELETE_AT = 'N'
+		WHEN NOT MATCHED THEN
+	INSERT (
+	PRDUCT_WRHSDLVR_SEQNO,
+	PRDUCT_SEQNO,
+	EXPRIEM_SEQNO,
+	BPLC_CODE,
+	DNSTY_VALUE,
+	SORT_ORDR,
+	LAST_CHANGER_ID,
+	LAST_CHANGE_DT,
+	DELETE_AT
+	)
+	VALUES
+		(
+		#{prductWrhsdlvrSeqno},
+		#{prductSeqno},
+		#{expriemSeqno},
+		<include refid="bplcCode"/>,
+		#{dnstyValue},
+		#{sortOrdr},
+		'${@lims.util.GetUserSession@getUserId()}',
+		SYSDATE,
+		'N'
+		)
+	</insert>
+	<update id="delDnsty" parameterType="lims.rsc.vo.WrhousngMVo">
+		UPDATE RS_PRDUCT_WRHSDLVR_DNSTY SET
+		LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}',
+		LAST_CHANGE_DT = SYSDATE,
+		DELETE_AT = 'Y'
+		WHERE
+		PRDUCT_WRHSDLVR_SEQNO =#{prductWrhsdlvrSeqno}
+		AND PRDUCT_SEQNO =#{prductSeqno}
+		AND EXPRIEM_SEQNO=#{expriemSeqno}
+	</update>
+
+	<update id="updWrhousng" parameterType="lims.rsc.vo.WrhousngMVo">
+		UPDATE RS_PRDUCT_WRHSDLVR SET
+		PRDUCT_SEQNO = #{prductSeqno},
+		WRHSDLVR_QY = #{wrhsdlvrQy},
+		WRHSDLVR_DTE = #{wrhsdlvrDte},
+		WRHSDLVRMAN_ID =#{wrhsdlvrmanId},
+		CSTDY_PLACE =#{cstdyPlace},
+		PACKNG_STTUS = #{packngSttus},
+		PURCHS_DTE = #{purchsDte},
+		MNFCTUR_RGNT_JDGMNT_VALUE = #{mnfcturRgntJdgmntValue},
+		ATCHMNFL_SEQNO = #{atchmnflSeqno},
+		RM = #{rm},
+		LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}',
+		LAST_CHANGE_DT = SYSDATE
+		WHERE PRDUCT_WRHSDLVR_SEQNO = #{prductWrhsdlvrSeqno}
+	</update>
+		<update id="deletBrcd" parameterType="lims.rsc.vo.WrhousngMVo">
+		UPDATE RS_PRDUCT_WRHSDLVR SET
+		DELETE_AT ='Y',
+		LAST_CHANGER_ID = '${@lims.util.GetUserSession@getUserId()}',
+		LAST_CHANGE_DT = SYSDATE
+		WHERE PRDUCT_WRHSDLVR_SEQNO = #{prductWrhsdlvrSeqno}
+	</update>
+	<update id="updbrcdlist" parameterType="lims.rsc.vo.WrhousngMVo">
+	UPDATE RS_PRDUCT_WRHSDLVR_BRCD SET 
+	VALID_DTE =#{validDte}, 
+	LAST_CHANGER_ID ='${@lims.util.GetUserSession@getUserId()}', 
+	LAST_CHANGE_DT = SYSDATE
+	WHERE PRDUCT_WRHSDLVR_SEQNO = #{prductWrhsdlvrSeqno} AND PRDUCT_WRHSDLVR_BRCD_SEQNO =#{prductWrhsdlvrBrcdSeqno}
+	</update>	
+	<update id="deletbrcdlist" parameterType="lims.rsc.vo.WrhousngMVo">
+	UPDATE RS_PRDUCT_WRHSDLVR_BRCD SET 
+	DELETE_AT ='Y', 
+	LAST_CHANGER_ID ='${@lims.util.GetUserSession@getUserId()}', 
+	LAST_CHANGE_DT = SYSDATE
+	WHERE PRDUCT_WRHSDLVR_SEQNO = #{prductWrhsdlvrSeqno} AND PRDUCT_WRHSDLVR_BRCD_SEQNO =#{prductWrhsdlvrBrcdSeqno}
+	</update>	
+	<update id="deletbrcdhist" parameterType="lims.rsc.vo.WrhousngMVo">
+	UPDATE RS_PRDUCT_WRHSDLVR_BRCD_HIST SET 
+	DELETE_AT ='Y', 
+	LAST_CHANGER_ID ='${@lims.util.GetUserSession@getUserId()}', 
+	LAST_CHANGE_DT = SYSDATE
+	WHERE PRDUCT_WRHSDLVR_BRCD_SEQNO =#{prductWrhsdlvrBrcdSeqno}
+	</update>		
+
+	
+	
+	<select id="selectBrcd" parameterType="lims.rsc.vo.WrhousngMVo" resultType="lims.rsc.vo.WrhousngMVo">
+<!-- 	SELECT -->
+<!-- 	SQ_RS_PRDUCT_WRHSDLVR_BRCD.NEXTVAL AS PRDUCT_WRHSDLVR_BRCD_SEQNO -->
+<!-- 	,PRDUCT_SEQNO -->
+<!-- 	,NULL AS WRHSDLVR_SE_CODE -->
+<!-- 	,SQ_RS_PRDUCT_WRHSDLVR_BRCD.CURRVAL AS BRCD -->
+<!-- 	,null AS VALID_DTE -->
+<!-- 	FROM RS_PRDUCT_WRHSDLVR -->
+<!-- 	WHERE ROWNUM = 1 -->
+	SELECT
+	SQ_RS_PRDUCT_WRHSDLVR_BRCD.NEXTVAL AS PRDUCT_WRHSDLVR_BRCD_SEQNO
+	, #{prductSeqno} AS PRDUCT_SEQNO
+	,NULL AS WRHSDLVR_SE_CODE
+<!-- 	,((SELECT TMPR_FIELD1_VALUE FROM SY_CMMN_Code WHERE CMMN_CODE = #{prductClCode})||to_char(sysdate, 'YYMMDD')||SQ_RS_PRDUCT_WRHSDLVR_BRCD.CURRVAL)AS BRCD -->
+			,(SELECT
+			(SELECT TMPR_FIELD1_VALUE FROM SY_CMMN_Code WHERE CMMN_CODE = #{prductClCode})||
+			(SELECT to_char(sysdate, 'YYMMDD') FROM dual)
+			FROM dual
+			) as BRCD
+			,(SELECT LPAD(NVL(MAX(SUBSTR(BRCD,8,3)),0)+1,3,0) AS brcd
+			FROM RS_PRDUCT_WRHSDLVR_BRCD A,
+			SY_CMMN_Code B
+			WHERE SUBSTR(BRCD,1,1) = (SELECT TMPR_FIELD1_VALUE FROM SY_CMMN_Code WHERE
+			CMMN_CODE = #{prductClCode})
+			AND SUBSTR(BRCD,2,6) = to_char(SYSDATE, 'YYMMDD'))+LEVEL-1 as BRCD_NO
+	,null AS VALID_DTE
+	FROM DUAL
+	CONNECT BY LEVEL <![CDATA[<=]]> #{wrhsdlvrQy}
+
+	
+	</select>
+	<!-- 제품바코드 -->
+	<insert id="insWareBrcd" parameterType="lims.rsc.vo.WrhousngMVo">
+		<!-- 인서트 후 제품 바코드 받아오기 -->
+<!-- 		<selectKey keyProperty="brcd" resultType="lims.rsc.vo.WrhousngMVo" order="AFTER"> -->
+<!-- 			SELECT MAX(BRCD) AS BRCD -->
+<!--         	FROM RS_PRDUCT_WRHSDLVR_BRCD -->
+<!--         	WHERE PRDUCT_WRHSDLVR_SEQNO = 'SQ_RS_PRDUCT_WRHSDLVR' -->
+<!-- 		</selectKey> -->
+		INSERT INTO RS_PRDUCT_WRHSDLVR_BRCD(
+			PRDUCT_WRHSDLVR_BRCD_SEQNO
+			,PRDUCT_WRHSDLVR_SEQNO
+			,PRDUCT_SEQNO
+			,WRHSDLVR_SE_CODE
+			,WRHSDLVR_DT
+			,BRCD
+			,VALID_DTE
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,BPLC_CODE
+		) VALUES (
+			#{prductWrhsdlvrBrcdSeqno}
+			, #{prductWrhsdlvrSeqno}
+			, #{prductSeqno}
+			, #{wrhsdlvrSeCode}
+			, SYSDATE
+			,#{brcd}
+			, #{validDte}
+			, '${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+			,<include refid="bplcCode"/>
+		)
+	</insert>
+	
+	<insert id="insWareBrcdHist" parameterType="lims.rsc.vo.WrhousngMVo">
+	<selectKey keyProperty="ordr" resultType="lims.rsc.vo.WrhousngMVo" order="BEFORE">
+	SELECT NVL(MAX(B.ORDR),0) AS ORDR FROM  (select #{prductWrhsdlvrBrcdSeqno} as PRDUCT_WRHSDLVR_BRCD_SEQNO from dual ) A LEFT OUTER JOIN
+	(SELECT PRDUCT_WRHSDLVR_BRCD_SEQNO , ORDR FROM  RS_PRDUCT_WRHSDLVR_BRCD_HIST WHERE PRDUCT_WRHSDLVR_BRCD_SEQNO=#{prductWrhsdlvrBrcdSeqno})B
+ 	ON A.PRDUCT_WRHSDLVR_BRCD_SEQNO = B.PRDUCT_WRHSDLVR_BRCD_SEQNO
+	</selectKey>
+	INSERT INTO RS_PRDUCT_WRHSDLVR_BRCD_HIST(
+			PRDUCT_WRHSDLVR_BRCD_SEQNO
+			,ORDR
+			,WRHSDLVR_SE_CODE
+			,WRHSDLVR_DT
+			,WRHSDLVRMAN_ID
+			,LAST_CHANGER_ID
+			,LAST_CHANGE_DT
+			,BPLC_CODE
+		) VALUES (
+			#{prductWrhsdlvrBrcdSeqno}
+			,#{ordr}+1
+			, #{wrhsdlvrSeCode}
+			, SYSDATE
+			, #{wrhsdlvrmanId}
+			,'${@lims.util.GetUserSession@getUserId()}'
+			, SYSDATE
+			,<include refid="bplcCode"/>
+		)
+	</insert>
+	
+	<select id="getbrcdList" parameterType="lims.rsc.vo.WrhousngMVo" resultType="lims.rsc.vo.WrhousngMVo" >	
+	SELECT PRDUCT_WRHSDLVR_BRCD_SEQNO,
+	PRDUCT_WRHSDLVR_SEQNO,
+	PRDUCT_SEQNO,
+	WRHSDLVR_SE_CODE,
+	WRHSDLVR_SE_CODE AS WRHSDLVR_SE_BEFORE_CODE,
+	(SELECT CMMN_CODE_NM FROM SY_CMMN_CODE WHERE CMMN_CODE =WRHSDLVR_SE_CODE) as WRHSDLVR_SE_NM,
+	WRHSDLVR_DT,
+	BRCD,VALID_DTE,
+	BPLC_CODE
+	FROM RS_PRDUCT_WRHSDLVR_BRCD 
+    WHERE 1=1 
+    AND DELETE_AT = 'N'
+    AND PRDUCT_SEQNO = #{prductSeqno}
+    AND PRDUCT_WRHSDLVR_SEQNO = #{prductWrhsdlvrSeqno}
+      ORDER BY PRDUCT_WRHSDLVR_BRCD_SEQNO
+	</select>
+	<select id="getexpriemList" parameterType="lims.rsc.vo.WrhousngMVo" resultType="lims.rsc.vo.WrhousngMVo" >
+	SELECT RPE.PRDUCT_SEQNO ,RPE.BPLC_CODE, RPE.EXPRIEM_SEQNO,RPE.SORT_ORDR,
+		(SELECT EXPRIEM_NM FROM SY_EXPRIEM WHERE EXPRIEM_SEQNO = RPE.EXPRIEM_SEQNO) AS EXPRIEM_NM
+		<if test="prductWrhsdlvrSeqno !=null and prductWrhsdlvrSeqno !=''">
+			,RPWD.DNSTY_VALUE
+		</if>
+	FROM RS_PRDUCT_EXPRIEM RPE
+		<if test="prductWrhsdlvrSeqno !=null and prductWrhsdlvrSeqno !=''">
+   	LEFT JOIN RS_PRDUCT_WRHSDLVR_DNSTY RPWD ON  RPWD.EXPRIEM_SEQNO = RPE.EXPRIEM_SEQNO
+		</if>
+	WHERE RPE.PRDUCT_SEQNO = #{prductSeqno}
+	<if test="prductWrhsdlvrSeqno !=null and prductWrhsdlvrSeqno !=''">
+		AND PRDUCT_WRHSDLVR_SEQNO = #{prductWrhsdlvrSeqno}
+		AND RPWD.DELETE_AT = 'N'
+	</if>
+		AND RPE.DELETE_AT = 'N'
+	</select>
+
+	<select id="getbrcdSeqno" parameterType="lims.rsc.vo.WrhousngMVo" resultType="lims.rsc.vo.WrhousngMVo" >
+	SELECT RPWB.PRDUCT_WRHSDLVR_BRCD_SEQNO,RP.PRDUCT_CL_CODE
+	FROM RS_PRDUCT_WRHSDLVR_BRCD RPWB
+	JOIN RS_PRDUCT RP ON RP.PRDUCT_SEQNO = RPWB.PRDUCT_SEQNO
+    WHERE 1=1 AND RPWB.PRDUCT_SEQNO = #{prductSeqno}
+    AND RPWB.PRDUCT_WRHSDLVR_SEQNO = #{prductWrhsdlvrSeqno}
+    AND RPWB.DELETE_AT ='N'
+	</select>
+	
+	<update id="wrhsdlvrQydelet" parameterType="lims.rsc.vo.WrhousngMVo">
+	UPDATE RS_PRDUCT_WRHSDLVR  SET 
+		WRHSDLVR_QY = WRHSDLVR_QY -1
+	WHERE PRDUCT_WRHSDLVR_SEQNO = #{prductWrhsdlvrSeqno}
+	</update>
+		<update id="wrhsdlvrQyadd" parameterType="lims.rsc.vo.WrhousngMVo">
+	UPDATE RS_PRDUCT_WRHSDLVR  SET 
+		WRHSDLVR_QY = (SELECT COUNT(*) FROM RS_PRDUCT_WRHSDLVR_BRCD WHERE PRDUCT_WRHSDLVR_SEQNO = #{prductWrhsdlvrSeqno} AND DELETE_AT = 'N' )
+	WHERE PRDUCT_WRHSDLVR_SEQNO = #{prductWrhsdlvrSeqno}
+	</update>
+		<update id="nowInvntryupdate" parameterType="lims.rsc.vo.WrhousngMVo">
+		UPDATE RS_PRDUCT SET
+				NOW_INVNTRY_QY = NVL(NOW_INVNTRY_QY,0)+1
+		WHERE PRDUCT_SEQNO = #{prductSeqno}
+	</update>
+	<update id="delnowInvntryupdate" parameterType="lims.rsc.vo.WrhousngMVo">
+		UPDATE RS_PRDUCT SET
+		<choose>
+			<when test="wrhsdlvrSeCode == 'RS08000001'">
+				NOW_INVNTRY_QY = NVL(NOW_INVNTRY_QY,0)-1
+			</when>
+		</choose>
+		WHERE PRDUCT_SEQNO = #{prductSeqno}
+	</update>
+</mapper>

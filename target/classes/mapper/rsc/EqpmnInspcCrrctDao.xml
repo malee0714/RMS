@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.rsc.dao.EqpmnInspcCrrctDao">
+
+	<sql id="loginId">'${@lims.util.GetUserSession@getUserId()}'</sql>
+	<sql id="bplcCode">'${@lims.util.GetUserSession@getBestInspctInsttCode()}'</sql>
+
+	<!-- 검교정 목록 조회 -->
+	<select id="getEqpmnInspctList" parameterType="lims.rsc.vo.EqpmnInspcCrrctDto" resultType="lims.rsc.vo.EqpmnInspcCrrctDto">
+		SELECT
+			A.EQPMN_INSPCT_CRRCT_SEQNO
+			, A.EQPMN_SEQNO
+		    , FN_GET_CDDTLNM(B.EQPMN_CL_CODE) EQPMN_CL_NM
+			, B.EQPMN_MANAGE_NO
+			, B.EQPMN_NM
+		    , B.SERIAL_NO
+		    , B.MODL_NM
+			, A.INSPCT_CRRCT_CHARGER_ID
+			, A.INSPCT_CRRCT_CHARGER_NM
+		    , A.INSPCT_CRRCT_RESULT_CODE
+		 	, FN_GET_CDDTLNM(A.INSPCT_CRRCT_RESULT_CODE) INSPCT_CRRCT_RESULT_NM
+			, A.INSPCT_CRRCT_DTE
+		 	, A.INSPCT_CRRCT_CYCLE
+			, A.CYCLE_CODE
+			, A.NEXT_INSPCT_CRRCT_DTE
+			, A.INSPCT_CRRCT_PLAN_DTE
+			, A.SANCTN_DRFT_DTE
+		 	, A.RM
+			, A.ATCHMNFL_SEQNO
+			, A.DELETE_AT
+		FROM RS_EQPMN_INSPCT_CRRCT A
+		LEFT JOIN RS_EQPMN B ON B.EQPMN_SEQNO = A.EQPMN_SEQNO
+		LEFT JOIN RS_EQPMN_INSPCT_CRRCT_CYCLE C ON C.EQPMN_SEQNO = B.EQPMN_SEQNO AND C.INSPCT_CRRCT_SE_CODE = 'RS24000001'
+		WHERE A.BPLC_CODE = <include refid="bplcCode"/>
+		  AND A.DELETE_AT = 'N'
+		<if test='schEqpmnClCode != null and schEqpmnClCode != ""'>
+	  		AND B.EQPMN_CL_CODE = #{schEqpmnClCode}
+		</if>
+		<if test='schCustlabSeqno != null and schCustlabSeqno != ""'>
+	  		AND B.CUSTLAB_SEQNO = #{schCustlabSeqno}
+		</if>
+		<if test='schEqpmnNm!= null and schEqpmnNm != ""'>
+	  		AND UPPER(B.EQPMN_NM) LIKE '%'|| UPPER(TRIM(#{schEqpmnNm})) ||'%'
+		</if>
+		<if test='schInspctCrrctBeginDte != null and schInspctCrrctBeginDte != ""'>
+			<if test='schInspctCrrctEndDte != null and schInspctCrrctEndDte != ""'>
+				AND A.INSPCT_CRRCT_DTE BETWEEN #{schInspctCrrctBeginDte} AND #{schInspctCrrctEndDte}
+			</if>
+			<if test='schInspctCrrctEndDte == null or schInspctCrrctEndDte == ""'>
+				AND A.INSPCT_CRRCT_DTE <![CDATA[>=]]> #{schInspctCrrctBeginDte}
+			</if>
+		</if>
+		<if test='schInspctCrrctEndDte != null and schInspctCrrctEndDte != ""'>
+			<if test='schInspctCrrctBeginDte == null or schInspctCrrctBeginDte == ""'>
+				AND A.INSPCT_CRRCT_DTE <![CDATA[<=]]> #{schInspctCrrctEndDte}
+			</if>
+		</if>
+	    <if test='eqpmnSeqno != null and eqpmnSeqno != ""'>
+			AND A.EQPMN_SEQNO = #{eqpmnSeqno}
+	    </if>
+	    ORDER BY A.INSPCT_CRRCT_DTE DESC
+	</select>
+	
+	<!-- 검교정정보 등록 -->
+	<insert id="insEqpmnInspctCrrct" parameterType="lims.rsc.vo.EqpmnInspcCrrctDto">
+		<selectKey keyProperty="eqpmnInspctCrrctSeqno" resultType="lims.rsc.vo.EqpmnInspcCrrctDto" order="BEFORE">
+			SELECT SQ_RS_EQPMN_INSPCT_CRRCT.NEXTVAL AS eqpmnInspctCrrctSeqno FROM DUAL
+		</selectKey>
+
+		INSERT INTO RS_EQPMN_INSPCT_CRRCT (
+			EQPMN_INSPCT_CRRCT_SEQNO
+			, BPLC_CODE
+			, EQPMN_SEQNO
+			, INSPCT_CRRCT_CHARGER_ID
+			, INSPCT_CRRCT_CHARGER_NM
+			, INSPCT_CRRCT_CYCLE
+			, CYCLE_CODE
+			, INSPCT_CRRCT_DTE
+			, INSPCT_CRRCT_PLAN_DTE
+			, NEXT_INSPCT_CRRCT_DTE
+			, INSPCT_CRRCT_RESULT_CODE
+			, SANCTN_DRFT_DTE
+			, ATCHMNFL_SEQNO
+			, RM
+			, DELETE_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{eqpmnInspctCrrctSeqno}
+			, <include refid="bplcCode"/>
+			, #{eqpmnSeqno}
+			, #{inspctCrrctChargerId}
+			, #{inspctCrrctChargerNm}
+			, #{inspctCrrctCycle}
+			, #{cycleCode}
+			, #{inspctCrrctDte}
+			, #{inspctCrrctPlanDte}
+			, #{nextInspctCrrctDte}
+			, #{inspctCrrctResultCode}
+			, #{sanctnDrftDte}
+			, #{atchmnflSeqno}
+			, #{rm}
+			, 'N'
+			, <include refid="loginId"/>
+			, SYSDATE
+		)
+	</insert>
+
+	<!-- 검교정정보 수정 -->
+	<update id="updEqpmnInspctCrrct" parameterType="lims.rsc.vo.EqpmnInspcCrrctDto">
+		UPDATE RS_EQPMN_INSPCT_CRRCT
+		   SET INSPCT_CRRCT_CHARGER_ID  = #{inspctCrrctChargerId}
+			 , INSPCT_CRRCT_CHARGER_NM  = #{inspctCrrctChargerNm}
+			 , INSPCT_CRRCT_CYCLE       = #{inspctCrrctCycle}
+			 , CYCLE_CODE               = #{cycleCode}
+			 , INSPCT_CRRCT_DTE         = #{inspctCrrctDte}
+			 , INSPCT_CRRCT_PLAN_DTE    = #{inspctCrrctPlanDte}
+			 , NEXT_INSPCT_CRRCT_DTE    = #{nextInspctCrrctDte}
+			 , INSPCT_CRRCT_RESULT_CODE = #{inspctCrrctResultCode}
+			 , SANCTN_DRFT_DTE          = #{sanctnDrftDte}
+			 , ATCHMNFL_SEQNO           = #{atchmnflSeqno}
+			 , RM                       = #{rm}
+			 , DELETE_AT                = #{deleteAt}
+			 , LAST_CHANGER_ID          = <include refid="loginId"/>
+			 , LAST_CHANGE_DT           = SYSDATE
+		 WHERE EQPMN_INSPCT_CRRCT_SEQNO = #{eqpmnInspctCrrctSeqno}
+	</update>
+	
+	<!-- 최근검교정일자, 검교정예정일자 수정 -->
+	<update id="updInspctCrrctDte" parameterType="lims.rsc.vo.EqpmnInspcCrrctDto">
+        UPDATE RS_EQPMN_INSPCT_CRRCT_CYCLE
+           SET INSPCT_CRRCT_PREARNGE_DTE = #{nextInspctCrrctDte}
+			 , RECENT_INSPCT_CRRCT_DTE   = #{inspctCrrctDte}
+			 , LAST_CHANGER_ID           = <include refid="loginId"/>
+			 , LAST_CHANGE_DT            = SYSDATE
+		 WHERE EQPMN_SEQNO = #{eqpmnSeqno}
+		   AND INSPCT_CRRCT_SE_CODE = #{inspctCrrctSeCode}
+	</update>
+
+	<!-- 검교정주기정보 유무 검증 -->
+	<select id="chkExistAtInspctCycle" parameterType="lims.rsc.vo.EqpmnInspcCrrctDto" resultType="lims.rsc.vo.EqpmnInspcCrrctDto">
+		SELECT
+			A.INSPCT_CRRCT_CYCLE
+		 	, A.CYCLE_CODE
+		FROM RS_EQPMN_INSPCT_CRRCT_CYCLE A
+		WHERE A.DELETE_AT = 'N'
+		  AND A.INSPCT_CRRCT_SE_CODE = #{inspctCrrctSeCode}
+		  AND A.EQPMN_SEQNO = #{eqpmnSeqno}
+	</select>
+	
+   	<!-- 검교정일자 중복 검증-->
+	<select id="chkDuplicateInspctDte" parameterType="lims.rsc.vo.EqpmnInspcCrrctDto" resultType="int">
+		SELECT COUNT(*) FROM RS_EQPMN_INSPCT_CRRCT A
+		 WHERE A.DELETE_AT = 'N'
+	 	   AND A.EQPMN_SEQNO = #{eqpmnSeqno}
+		   AND A.INSPCT_CRRCT_DTE = #{inspctCrrctDte}
+		<if test='eqpmnInspctCrrctSeqno != null and eqpmnInspctCrrctSeqno != ""'>
+	  		AND A.EQPMN_INSPCT_CRRCT_SEQNO != #{eqpmnInspctCrrctSeqno}
+		</if>
+	</select>
+
+	<!-- 검교정 의뢰 조회 -->
+	<select id="getEqpInspctCrrctReq" parameterType="lims.rsc.vo.EqpmnInspcCrrctDto" resultType="lims.rsc.vo.EqpmnInspcCrrctDto">
+		SELECT
+			A.EQPMN_INSPCT_CRRCT_REQEST_SEQN
+			, A.EQPMN_INSPCT_CRRCT_SEQNO
+			, A.REQEST_SEQNO
+			, B.REQEST_NO
+			, B.REQEST_DTE
+		FROM RS_EQPMN_INSPCT_CRRCT_REQEST A
+	 	JOIN IM_REQEST B ON B.REQEST_SEQNO = A.REQEST_SEQNO AND B.DELETE_AT = 'N'
+		WHERE A.DELETE_AT = 'N'
+		  AND A.EQPMN_INSPCT_CRRCT_SEQNO = #{eqpmnInspctCrrctSeqno}
+	</select>
+
+	<!-- 검교정 의뢰 등록 -->
+	<insert id="insEqpInspctCrrctReq" parameterType="lims.rsc.vo.EqpmnInspcCrrctDto">
+		<selectKey keyProperty="eqpmnInspctCrrctReqestSeqn" resultType="lims.rsc.vo.EqpmnInspcCrrctDto" order="BEFORE">
+			SELECT SQ_RS_EQPMN_INSPCT_CRRCT_REQ.NEXTVAL AS eqpmnInspctCrrctReqestSeqn FROM DUAL
+		</selectKey>
+
+		INSERT INTO RS_EQPMN_INSPCT_CRRCT_REQEST (
+			EQPMN_INSPCT_CRRCT_REQEST_SEQN
+			, BPLC_CODE
+			, EQPMN_INSPCT_CRRCT_SEQNO
+			, REQEST_SEQNO
+			, DELETE_AT
+			, LAST_CHANGER_ID
+			, LAST_CHANGE_DT
+		) VALUES (
+			#{eqpmnInspctCrrctReqestSeqn}
+			, <include refid="bplcCode"/>
+			, #{eqpmnInspctCrrctSeqno}
+			, #{reqestSeqno}
+			, 'N'
+			, <include refid="loginId"/>
+		 	, SYSDATE
+		)
+	</insert>
+
+	<!-- 검교정 의뢰 삭제 -->
+	<update id="delEqpInspctCrrctReq" parameterType="lims.rsc.vo.EqpmnInspcCrrctDto">
+		UPDATE RS_EQPMN_INSPCT_CRRCT_REQEST
+		   SET DELETE_AT       = 'Y'
+			 , LAST_CHANGER_ID = <include refid="loginId"/>
+			 , LAST_CHANGE_DT  = SYSDATE
+		 WHERE EQPMN_INSPCT_CRRCT_REQEST_SEQN = #{eqpmnInspctCrrctReqestSeqn}
+	</update>
+
+	<!-- 의뢰시험항목 조회 -->
+	<select id="getEqpInspctCrrctReqExpr" parameterType="java.util.List" resultType="lims.rsc.vo.EqpmnInspcCrrctDto">
+		SELECT
+			C.REQEST_NO
+		 	, A.REQEST_SEQNO
+			, A.EXPRIEM_SEQNO
+			, D.EXPRIEM_NM
+			, E.USER_NM RESULT_REGISTER
+			, B.RESULT_VALUE
+			, FN_GET_CDDTLNM(B.JDGMNT_WORD_CODE) JDGMNT_WORD_NM
+		FROM IM_REQEST_EXPRIEM A
+		LEFT JOIN IM_REQEST_EXPRIEM_RESULT B ON B.REQEST_EXPRIEM_SEQNO = A.REQEST_EXPRIEM_SEQNO AND B.DELETE_AT = 'N'
+		INNER JOIN IM_REQEST C ON C.REQEST_SEQNO = A.REQEST_SEQNO AND C.DELETE_AT = 'N'
+		INNER JOIN SY_EXPRIEM D ON D.EXPRIEM_SEQNO = A.EXPRIEM_SEQNO AND D.DELETE_AT = 'N' AND D.USE_AT = 'Y'
+		LEFT JOIN SY_USER E ON E.USER_ID = B.RESULT_REGISTER_ID
+		WHERE A.DELETE_AT = 'N'
+		  AND A.REQEST_SEQNO IN (
+			  <foreach collection="list" item="reqestSeqno" separator=", ">#{reqestSeqno}</foreach>
+		  )
+	</select>
+
+</mapper>

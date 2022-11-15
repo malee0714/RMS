@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="lims.com.dao.QuartzRmtrDao">
+<!-- 	<select id="getLastDate" resultType="String">
+		SELECT LASTDATE FROM TEMP_RMTR
+	</select>
+	
+	<update id="updLastDate" parameterType="String" >
+		UPDATE TEMP_RMTR SET LASTDATE = #{lastdate} 
+	</update>
+	
+	원재료 출고 등록
+	<insert id="insRelAiRmtrRcspM" parameterType="com.medizencare.mat.vo.AiRmtrVO">
+		INSERT INTO AI_RMTR_RCSP (RMTR_CD, RCSP_KND_IO,	RCSP_ORD, RCSP_QTY,	RCSP_TIT, RCSP_DATE, RCSP_ID )
+		VALUES (#{rmtrCd}, 'O',	(SELECT NVL(MAX(RCSP_ORD),0)+1 FROM AI_RMTR_RCSP WHERE RMTR_CD = #{rmtrCd} AND RCSP_KND_IO = 'O')
+			, #{rcspQty}, #{rcspTit}, TO_DATE(#{rcspDate}, 'YYYY-MM-DD'), #{rcspId}) 
+	</insert>	
+	
+	프로브 출고 등록
+	<insert id="insRelAiPrbRcspM" parameterType="com.medizencare.mat.vo.AiPrbRcspVO">
+		INSERT INTO AI_PRB_RCSP (PRB_CD, RCSP_KND_IO, RCSP_ORD, RCSP_QTY, IN_UNIT, PCSP_TIT, RCSP_DATE,	RCSP_ID )
+		VALUES (#{prbCd}, 'O', (SELECT NVL(MAX(RCSP_ORD),0)+1 FROM AI_PRB_RCSP WHERE PRB_CD = #{prbCd} AND RCSP_KND_IO = 'O')
+			, #{rcspQty}, #{inUnit}, #{pcspTit}, TO_DATE(#{rcspDate}, 'YYYY-MM-DD'), #{rcspId} )
+	</insert>	
+	
+	<select id="getOA" parameterType="String" resultType="HashMap">
+		SELECT NVL(SUM(WellPlate384), 0) AS WELLPLATE384, NVL(SUM(MM), 0) AS MM, NVL(SUM(FOIL_COVER), 0) AS FOIL_COVER, NVL(SUM(TIP), 0) AS TIP, NVL(SUM(OA_PLATE), 0) AS OA_PLATE
+		FROM (
+			SELECT 
+				1 AS WellPlate384
+				, (SELECT COUNT(1) + 1 FROM RP_PLT_DTL WHERE PLT_IDX = P.PLT_IDX) AS MM
+				, 1 AS FOIL_COVER
+				, (SELECT COUNT(1) + 1 FROM RP_PLT_DTL WHERE PLT_IDX = P.PLT_IDX) AS Tip
+				, 1 AS OA_PLATE
+			FROM RP_PLT P 
+			WHERE PLT_DIV = 'S17005' AND TO_CHAR(ASI_DATE, 'YYYY-MM-DD') = #{date}
+		) A	
+	</select>
+
+	<select id="get96Well" parameterType="String" resultType="HashMap">
+		SELECT NVL(SUM(WELL_PLATE_96), 0) AS WELL_PLATE_96, NVL(SUM(FILM_COVER), 0) AS FILM_COVER
+		FROM (
+			SELECT 
+				1 AS WELL_PLATE_96
+				, 1 AS FILM_COVER
+			FROM RP_PLT P 
+			WHERE PLT_DIV IN ( 'S17001', 'S17002', 'S17003') AND TO_CHAR(ASI_DATE, 'YYYY-MM-DD') = #{date}
+		) A
+	</select>	
+	
+	<select id="getDNA" parameterType="String" resultType="HashMap">
+		SELECT NVL(SUM(WHOLE_BLOOD_KIT), 0) AS WHOLE_BLOOD_KIT, NVL(SUM(TISSUE_KIT), 0) AS TISSUE_KIT
+			, NVL(SUM(HT_PLASTICWARE_KIT), 0) AS HT_PLASTICWARE_KIT, NVL(SUM(HT_KIT), 0) AS HT_KIT
+		FROM (
+			SELECT 
+				CASE WHEN INST_CTG = 'S33005' AND SMP_DIV_COM = 'S13001' THEN CNT ELSE NULL END AS WHOLE_BLOOD_KIT
+				, CASE WHEN INST_CTG = 'S33005' AND SMP_DIV_COM IN ( 'S13002', 'S13003') THEN CNT ELSE NULL END AS TISSUE_KIT
+				, CASE WHEN INST_CTG = 'S33004' AND SMP_DIV_COM = 'S13001' THEN CNT ELSE NULL END AS HT_PLASTICWARE_KIT
+				, CASE WHEN INST_CTG = 'S33004' AND SMP_DIV_COM = 'S13001' THEN CNT ELSE NULL END AS HT_KIT	
+			FROM (
+				SELECT I.INST_CTG, E.SMP_DIV_COM, COUNT(1) AS CNT
+				FROM RD_PREP PREP
+					INNER JOIN RC_SMP_ENT E ON PREP.SMP_IDX = E.SMP_IDX
+					INNER JOIN RC_SMP_ALS SA ON PREP.SMP_IDX = SA.SMP_IDX AND PREP.ENT_SEQ = SA.ENT_SEQ
+					INNER JOIN AI_INST I ON PREP.INST_CD = I.INST_CD
+				WHERE TO_CHAR(RST_DATE, 'YYYY-MM-DD') = #{date}
+				GROUP BY I.INST_CTG, E.SMP_DIV_COM
+			)
+			WHERE INST_CTG IN ('S33004', 'S33005')
+		) A	
+	</select>
+	
+	<select id="getProbeMsmt" parameterType="String" resultType="HashMap">
+		SELECT PRB_CD, FN_TO_NUMBER(NVL(SUM(PROBE), 0)) AS PROBE, FN_TO_NUMBER(NVL(SUM(MM), 0)) AS MM		
+		FROM (
+			SELECT P.PLT_NM, A.PRB_CD, CNT, FN_TO_NUMBER(Assay) AS Probe, FN_TO_NUMBER(MM) AS MM
+			FROM (
+				SELECT D.PLT_IDX, D.PRB_CD, COUNT(1) AS CNT, FN_GET_MSMT(MAX(D.DTL_NM), COUNT(1) , 'A') AS Assay, FN_GET_MSMT(MAX(D.DTL_NM), COUNT(1) , 'M') AS MM
+				FROM RP_PLT_DTL D 
+					INNER JOIN AI_PRB P ON D.PRB_CD = P.PRB_CD
+					INNER JOIN CM_CD_DTL D ON P.PRB_CNS = D.DTL_CD AND D.HIR_CD = 'S18'
+					INNER JOIN RP_PLT PLT ON D.PLT_IDX = PLT.PLT_IDX
+				WHERE TO_CHAR(PLT.ASI_DATE, 'YYYY-MM-DD') = #{date}
+				GROUP BY D.PLT_IDX, D.PRB_CD
+			) A
+			INNER JOIN RP_PLT P ON A.PLT_IDX = P.PLT_IDX
+		) B
+		GROUP BY B.PRB_CD
+		ORDER BY B.PRB_CD
+	</select>		 -->
+	
+</mapper>
