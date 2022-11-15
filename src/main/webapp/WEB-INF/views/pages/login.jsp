@@ -21,6 +21,7 @@
             </select>
             <div class="login_inner">
                 <div class="login_txt">
+                	RMS
                     <c:if test="${empty securityexceptionmsg}">
                         <input class="iLoginUser" type="text" placeholder="User Id" id="userId" name="userId" value="" autocomplete="off">
                     </c:if>
